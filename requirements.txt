@@ -1,0 +1,2 @@
+numpy @ file:///home/conda/feedstock_root/build_artifacts/numpy_1749430486160/work/dist/numpy-2.3.0-cp313-cp313-linux_x86_64.whl#sha256=868691b763cdf7b8ff4f474954f0bc201d8b4fc270b67b825eb1b2f86ea37105
+scipy @ file:///home/conda/feedstock_root/build_artifacts/scipy-split_1739790645292/work/dist/scipy-1.15.2-cp313-cp313-linux_x86_64.whl#sha256=9233a1b3513262c15ef8696233b9abd49f691223e9dcc32da39377a3a0d4e7fe
