@@ -7,9 +7,9 @@ freeze:
 	mamba env export > env.yml
 
 update:
-	mamba env update --name bp_env --file env.yml
+	mamba env update --name $(ENV_NAME) --file env.yml
 
 setup:
 	mamba env create --file env.yml
 
-.PHONY: freeze update setup
+.PHONY: freeze update setup activate
