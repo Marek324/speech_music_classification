@@ -70,7 +70,7 @@ def band_energy_ratio(frame: np.ndarray, fl_1: float, fh_1: float, fl_2: float, 
     return 10 * np.log10(E1 / E2) if E2 > 0 else np.inf
 
 
-def autocorrelation_coef(frame: np.ndarray)-> float:
+def autocorrelation_coeff(frame: np.ndarray)-> float:
     R = np.correlate(frame, frame, mode='full')
     R = R[R.shape[0] // 2:] 
     m1 = np.floor(3 * SAMPLE_RATE / 1000).astype(int)  # 3ms
@@ -79,7 +79,27 @@ def autocorrelation_coef(frame: np.ndarray)-> float:
 
 
 def mfcc(frame: np.ndarray)-> np.ndarray:
-    coeffs = lb.feature.mfcc(y=frame, sr=SAMPLE_RATE, n_mfcc=10)
+    return lb.feature.mfcc(y=frame, sr=SAMPLE_RATE, n_mfcc=10)
+
+
+def mfcc_diff_norm(mfccs: np.ndarray, mfccs_prev: np.ndarray) -> float:
+    return np.sqrt(np.sum(np.abs(mfccs - mfccs_prev)**2))
+
+
+def spectrum_rolloff_point(frame: np.ndarray, thr: float = 0.85) -> float:
+    return lb.feature.spectral_rolloff(y=frame, sr=SAMPLE_RATE, roll_percent=thr)[0, 0]
+
+
+def spectrum_centroid(frame: np.ndarray) -> float:
+    return lb.feature.spectral_centroid(y=frame, sr=SAMPLE_RATE)[0, 0]
+
+
+def spectral_flux(frame: np.ndarray, frame_prev: np.ndarray) -> float:
+    return np.sum(np.abs(np.fft.fft(frame) - np.fft.fft(frame_prev))**2)
+
+
+def spectrum_spread(frame: np.ndarray) -> float:
+    return lb.feature.spectral_bandwidth(y=frame, sr=SAMPLE_RATE)[0, 0]
 
 
 def create_features(s: np.ndarray) -> np.ndarray:
