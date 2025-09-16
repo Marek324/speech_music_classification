@@ -26,7 +26,7 @@ except ImportError as e:
 
 SAMPLE_RATE = 44100  # Default sample rate
 SPEECH_DIRS = ['test/speech', 'train/speech'] # m+s and other left out for now
-MUSIC_DIRS = ['test/music/novocals', 'train/music/vocals', 'train/music']
+MUSIC_DIRS = ['test/music/novocals', 'test/music/vocals', 'train/music']
 
 dir = sys.argv[1]
 
@@ -80,25 +80,22 @@ def thr_test(sig:np.ndarray, ref:list[int], fl:int, fh:int):
     sf.write("test.wav", out, SAMPLE_RATE)
 
 data = []
-skip = 24
 for d in os.walk(dir):
     # leaf dir
     if len(d[1]) == 0:
         path = f"{d[0]}"
         rel_path = os.path.relpath(path, dir)
         if rel_path not in SPEECH_DIRS and rel_path not in MUSIC_DIRS:
+            print(f"Skipping {rel_path}...")
             continue
         ref_val = 1 if rel_path in SPEECH_DIRS else 2
         for wav in sorted(d[2], key=sort_key):
-            skip -= 1
-            if skip > 0:
-                continue
             wav_path = os.path.join(path, wav)  
             print(wav_path)
             sig, _ = librosa.load(wav_path, sr=SAMPLE_RATE)
             ref = create_reference(sig, fl, fh, thr, ref_val)
             # thr_test(sig, ref, fl, fh)
-            data.append({"file": d[0], "reference": ref})
+            data.append({"file": f"{rel_path}/{wav}", "reference": ref})
 
 out_dir = os.path.dirname(dir.rstrip(os.sep))
 
