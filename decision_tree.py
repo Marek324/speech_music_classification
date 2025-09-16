@@ -11,31 +11,42 @@ if "-h" in sys.argv or "--help" in sys.argv:
 
 try:
     import numpy as np
-    import scipy.signal as sg
-    import librosa as lb
+    from sklearn import tree
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
     sys.exit(1)
 
-from defaults import *
+from defaults import (
+    DATASET_PATH,
+    SAMPLE_RATE
+)
+
+from utils import (
+    load_and_resample,
+    framing,
+    load_reference
+)
+
 import features as ft
-from utils import *
 
 def main():
-    train("speech")
+    classifier = tree.DecisionTreeClassifier()
+    train(classifier)
     evaluate()
+ 
 
-
-# dir = {speech, music}
-def train(dir:str):
+def train(clf: tree.DecisionTreeClassifier):
     prefix = DATASET_PATH + f"/train/{dir}"
+    features = np.array([])
     for file in os.listdir(prefix):
-        print(f"Processing {file}...")
         file_path = f"{prefix}/{file}"
         s = load_and_resample(file_path, SAMPLE_RATE)
-        features = create_features(s)
+        features = np.vstack((features, create_features(s))) if features.size else create_features(s)
         break
+
+    print(f"features shape: {features.shape}")
+    ref = load_reference()
 
 
 def create_features(s: np.ndarray) -> np.ndarray:
@@ -58,10 +69,8 @@ def create_features(s: np.ndarray) -> np.ndarray:
 
     
         if f_prev is not None:
-            frame_feat = np.append(
-                frame_feat,
-                ft.mfcc_diff_norm(ft.mfcc(f).flatten(), ft.mfcc(f_prev).flatten())
-            )
+            frame_feat = np.append(frame_feat,
+                ft.mfcc_diff_norm(ft.mfcc(f).flatten(), ft.mfcc(f_prev).flatten()))
             frame_feat = np.append(frame_feat, ft.spectral_flux(f, f_prev))
         else:
             frame_feat = np.append(frame_feat, 0)  # mfcc diff norm
