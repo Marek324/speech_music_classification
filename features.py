@@ -5,14 +5,13 @@ import sys
 
 try:
     import numpy as np
-    import scipy.signal as sg
     import librosa as lb
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
     sys.exit(1)
 
-from defaults import *
+from defaults import SAMPLE_RATE
 
 
 def short_time_energy(frame: np.ndarray) -> float:
@@ -62,7 +61,7 @@ def autocorrelation_coeff(frame: np.ndarray, sr:int = SAMPLE_RATE)-> float:
 
 
 def mfcc(frame: np.ndarray, sr: int = SAMPLE_RATE) -> np.ndarray:
-    return lb.feature.mfcc(y=frame, sr=sr, n_mfcc=10, hop_length=len(frame)+1, n_fft=len(frame))
+    return lb.feature.mfcc(y=frame, sr=sr, n_mfcc=10, hop_length=len(frame)+1, n_fft=1024)
 
 
 def mfcc_diff_norm(mfccs: np.ndarray, mfccs_prev: np.ndarray) -> float:
@@ -70,11 +69,11 @@ def mfcc_diff_norm(mfccs: np.ndarray, mfccs_prev: np.ndarray) -> float:
 
 
 def spectrum_rolloff_point(frame: np.ndarray, thr: float = 0.85, sr: int = SAMPLE_RATE) -> float:
-    return lb.feature.spectral_rolloff(y=frame, sr=sr, roll_percent=thr)[0, 0]
+    return lb.feature.spectral_rolloff(y=frame, sr=sr, roll_percent=thr, n_fft=1024)[0, 0]
 
 
 def spectrum_centroid(frame: np.ndarray, sr: int = SAMPLE_RATE) -> float:
-    return lb.feature.spectral_centroid(y=frame, sr=sr)[0, 0]
+    return lb.feature.spectral_centroid(y=frame, sr=sr, n_fft=1024)[0, 0]
 
 
 def spectral_flux(frame: np.ndarray, frame_prev: np.ndarray) -> float:
@@ -82,4 +81,4 @@ def spectral_flux(frame: np.ndarray, frame_prev: np.ndarray) -> float:
 
 
 def spectrum_spread(frame: np.ndarray, sr: int = SAMPLE_RATE) -> float:
-    return lb.feature.spectral_bandwidth(y=frame, sr=sr)[0, 0]
+    return lb.feature.spectral_bandwidth(y=frame, sr=sr, n_fft=1024)[0, 0]
