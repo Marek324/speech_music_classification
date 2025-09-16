@@ -5,14 +5,19 @@ import sys
 
 try:
     import numpy as np
-    import scipy.signal as sg
     import librosa as lb
+    import pandas as pd
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
     sys.exit(1)
 
-from defaults import *
+from defaults import (
+    SAMPLE_RATE,
+    FRAME_LEN_MS,
+    FRAME_HOP_MS,
+    REF_PATH,
+)
 
 
 def load_and_resample(file_path:str, target_fs:int) -> np.ndarray:
@@ -29,3 +34,11 @@ def framing(s: np.ndarray, fl_ms:int = FRAME_LEN_MS, fh_ms:int = FRAME_HOP_MS) -
     hann_win = np.hanning(fl)
 
     return np.array([s[i * fs:i * fs + fl] * hann_win for i in range(Nf)])
+
+
+def load_reference(ref_file: str = REF_PATH) -> list[dict[str, list[int]]]:
+    ref = []
+    df = pd.read_csv(ref_file)
+    for _, row in df.iterrows():
+        ref.append({"file": row['file'], "ref": row['reference']})
+    return ref
