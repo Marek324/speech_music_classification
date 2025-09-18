@@ -20,14 +20,14 @@ from defaults import (
 )
 
 
-def load_and_resample(file_path:str, target_fs:int) -> np.ndarray:
-    s = lb.load(file_path, sr=target_fs)[0] # mono
+def load_and_resample(file_path:str, target_sr:int = SAMPLE_RATE) -> np.ndarray:
+    s = lb.load(file_path, sr=target_sr)[0] # mono
     return s
 
 
-def framing(s: np.ndarray, fl_ms:int = FRAME_LEN_MS, fh_ms:int = FRAME_HOP_MS) -> np.ndarray:
-    fl = int(fl_ms * SAMPLE_RATE / 1000)  # frame length [samples]
-    fo = int(fh_ms * SAMPLE_RATE / 1000)  # frame overlap [samples]
+def framing(s: np.ndarray, fl_ms:int = FRAME_LEN_MS, fh_ms:int = FRAME_HOP_MS, target_sr:int = SAMPLE_RATE) -> np.ndarray:
+    fl = int(fl_ms * target_sr / 1000)  # frame length [samples]
+    fo = int(fh_ms * target_sr / 1000)  # frame overlap [samples]
     fs = fl - fo  # frame shift [samples]
     Nf = int(1 + np.floor((len(s) - fl) / fs))  # number of frames
 
@@ -41,4 +41,5 @@ def load_reference(ref_file: str = REF_PATH) -> list[dict[str, list[int]]]:
     df = pd.read_csv(ref_file)
     for _, row in df.iterrows():
         ref.append({"file": row['file'], "ref": row['reference']})
+
     return ref

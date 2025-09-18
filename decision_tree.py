@@ -12,15 +12,13 @@ if "-h" in sys.argv or "--help" in sys.argv:
 try:
     import numpy as np
     from sklearn import tree
+    from ast import literal_eval
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
     sys.exit(1)
 
-from defaults import (
-    DATASET_PATH,
-    SAMPLE_RATE
-)
+from defaults import DATASET_PATH
 
 from utils import (
     load_and_resample,
@@ -37,16 +35,16 @@ def main():
  
 
 def train(clf: tree.DecisionTreeClassifier):
-    prefix = DATASET_PATH + f"/train/{dir}"
+    ref_dict = load_reference()
+    ref = np.array([])
     features = np.array([])
-    for file in os.listdir(prefix):
-        file_path = f"{prefix}/{file}"
-        s = load_and_resample(file_path, SAMPLE_RATE)
+    for entry in ref_dict:
+        file_path = f"{DATASET_PATH}/{entry['file']}"
+        s = load_and_resample(file_path)
         features = np.vstack((features, create_features(s))) if features.size else create_features(s)
-        break
+        ref = np.vstack((ref, np.array(literal_eval(entry['ref'])))) if ref.size else np.array(literal_eval(entry['ref']))
 
-    print(f"features shape: {features.shape}")
-    ref = load_reference()
+
 
 
 def create_features(s: np.ndarray) -> np.ndarray:
@@ -78,7 +76,6 @@ def create_features(s: np.ndarray) -> np.ndarray:
 
         features = np.vstack((features, frame_feat)) if features.size else frame_feat.reshape(1, -1)
 
-        #print(f"features shape: {features.shape}")
         f_prev = f
 
         # debug counter
