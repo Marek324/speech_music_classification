@@ -27,13 +27,11 @@ from utils import (
     framing,
     load_and_resample
 )
+# other left out
+SPEECH_DIRS = ['test/speech', 'train/speech', 'train/m+s']
+MUSIC_DIRS = ['test/music/novocals', 'test/music/vocals', 'train/music']
 
-#SPEECH_DIRS = ['test/speech', 'train/speech'] # m+s and other left out for now
-#MUSIC_DIRS = ['test/music/novocals', 'test/music/vocals', 'train/music']
-SPEECH_DIRS = ['train/speech']
-MUSIC_DIRS = ['train/music']
-
-dir = sys.argv[1]
+dir = sys.argv[1] # wavfile
 
 def sort_key(s):
     return [int(c) if c.isdigit() else c for c in re.split('([0-9]+)', s)]
@@ -73,6 +71,5 @@ for d in os.walk(dir):
 
             data.append({"file": f"{rel_path}/{wav}", "reference": ref})
 
-out_dir = os.path.dirname(dir.rstrip(os.sep))
 
-pd.DataFrame(data).to_csv(f"{out_dir}/reference.csv", index=False)
+pd.DataFrame(data).to_csv(f"{dir}/reference.csv", index=False)
