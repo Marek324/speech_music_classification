@@ -1,3 +1,4 @@
 dataset/
 test*.*
 __pycache__/
+.env
