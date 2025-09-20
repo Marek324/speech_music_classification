@@ -23,15 +23,34 @@ except ImportError as e:
     print("Refer to README.md for installation instructions.")
     sys.exit(1)
 
-from utils import (
-    framing,
-    load_and_resample
-)
+
+# defaults
+SAMPLE_RATE = 44100
+FRAME_LEN_MS = 40
+FRAME_HOP_MS = 20
+
+
+def framing(s: np.ndarray, fl_ms:int = FRAME_LEN_MS, fh_ms:int = FRAME_HOP_MS, target_sr:int = SAMPLE_RATE) -> np.ndarray:
+    fl = int(fl_ms * target_sr / 1000)  # frame length [samples]
+    fo = int(fh_ms * target_sr / 1000)  # frame overlap [samples]
+    fs = fl - fo  # frame shift [samples]
+    Nf = int(1 + np.floor((len(s) - fl) / fs))  # number of frames
+
+    hann_win = np.hanning(fl)
+
+    return np.array([s[i * fs:i * fs + fl] * hann_win for i in range(Nf)])
+
+
+def load_and_resample(file_path:str, target_sr:int = SAMPLE_RATE) -> np.ndarray:
+    s = lb.load(file_path, sr=target_sr)[0] # mono
+    return s
+
+
 # other left out
 SPEECH_DIRS = ['test/speech', 'train/speech', 'train/m+s']
 MUSIC_DIRS = ['test/music/novocals', 'test/music/vocals', 'train/music']
 
-dir = sys.argv[1] # wavfile
+dir = sys.argv[1]
 
 def sort_key(s):
     return [int(c) if c.isdigit() else c for c in re.split('([0-9]+)', s)]
