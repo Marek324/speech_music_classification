@@ -23,10 +23,6 @@ This script creates frame-level labels and was also created for reproducibility 
 ## Notes
 Metacentrum hugging face SSH key
 
-Remove frame_labeling.py from this repo, move to dataset repo
-
-train/m+s/43.wav is 8 sec long, add padding
-
 Segment feature statistic
 - broadcast statistics to all frames in segment for now
 - sliding window for real time
