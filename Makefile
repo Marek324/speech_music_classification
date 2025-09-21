@@ -15,7 +15,4 @@ freeze:
 activate:
 	@echo "To activate environment run:\nmamba activate $(ENV_NAME)"
 
-dataset:
-	git clone git@hf.co:$(DATASET_URL) dataset
-
-.PHONY: freeze setup activate env dataset
+.PHONY: freeze setup activate

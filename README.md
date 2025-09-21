@@ -8,20 +8,15 @@ make activate
 
 ## Dataset
 ```
+source .env
 git clone git@hf.co:$DATASET_URL
 ```
-
-## Files
-### frame_labeling.py
-The Schreirer-Slaney music-speech corpus is labeled per-file, which is a bit of problem for this project.
-This script creates frame-level labels and was also created for reproducibility purposes as the database isn't publicly available.
 
 ## Don't forget  
 
 - [ ] metacentrum citation (https://docs.metacentrum.cz/en/docs/access/terms)
 
 ## Notes
-Metacentrum hugging face SSH key
 
 Segment feature statistic
 - broadcast statistics to all frames in segment for now
