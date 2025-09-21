@@ -36,10 +36,11 @@ def framing(s: np.ndarray, fl_ms:int = FRAME_LEN_MS, fh_ms:int = FRAME_HOP_MS, t
     return np.array([s[i * fs:i * fs + fl] * hann_win for i in range(Nf)])
 
 
-def load_reference(ref_file: str = REF_PATH) -> list[dict[str, list[int]]]:
+def load_reference(ref_file: str = REF_PATH, train: bool = True) -> list[dict[str, list[int]]]:
     ref = []
     df = pd.read_csv(ref_file)
-    for _, row in df.iterrows():
+    df_filtered = df[df['file'].str.contains('train', na=False)] if train else df[~df['file'].str.contains('train', na=False)]
+    for _, row in df_filtered.iterrows():
         ref.append({"file": row['file'], "ref": row['reference']})
 
     return ref
