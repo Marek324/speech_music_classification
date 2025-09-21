@@ -42,9 +42,11 @@ def train(clf: tree.DecisionTreeClassifier):
         file_path = f"{DATASET_PATH}/{entry['file']}"
         s = load_and_resample(file_path)
         features = np.vstack((features, create_features(s))) if features.size else create_features(s)
-        ref = np.vstack((ref, np.array(literal_eval(entry['ref'])))) if ref.size else np.array(literal_eval(entry['ref']))
+        ref = np.hstack((ref, np.array(literal_eval(entry['ref'])))) if ref.size else np.array(literal_eval(entry['ref']))
 
-
+    print(f"Training on {features.shape[0]} frames with {features.shape[1]} features each.")
+    clf.fit(features, ref)
+    print("Training complete.")
 
 
 def create_features(s: np.ndarray) -> np.ndarray:
