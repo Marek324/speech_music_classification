@@ -31,7 +31,7 @@ import features as ft
 def main():
     classifier = tree.DecisionTreeClassifier()
     train(classifier)
-    evaluate()
+    evaluate(classifier)
  
 
 def train(clf: tree.DecisionTreeClassifier):
@@ -88,9 +88,19 @@ def create_features(s: np.ndarray) -> np.ndarray:
     return features
 
 
-def evaluate():
-    ...
+def evaluate(clf: tree.DecisionTreeClassifier):
+    ref = load_reference(train=False)
+    counter = 0
+    for entry in ref:
+        file_path = f"{DATASET_PATH}/{entry['file']}"
+        s = load_and_resample(file_path)
+        features = create_features(s)
+        print(f"Evaluating {entry['file']} on {features.shape[0]} frames with {features.shape[1]} features each.")
+        res = clf.predict(features)
+        if np.array_equal(res, np.array(literal_eval(entry['ref']))):
+            counter += 1
 
+    print(f"Evaluation complete. {counter}/{len(ref)} files classified correctly.")
 
 if __name__ == "__main__":
     main()
