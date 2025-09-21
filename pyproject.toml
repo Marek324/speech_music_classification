@@ -16,5 +16,6 @@ dependencies = [
     "pysocks==1.7.1",
     "ruff==0.13.0",
     "setuptools==80.9.0",
+    "uv>=0.8.19",
     "zstandard==0.24.0",
 ]
