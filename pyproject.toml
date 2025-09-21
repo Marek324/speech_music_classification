@@ -1,0 +1,20 @@
+[project]
+name = "bp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "brotli==1.1.0",
+    "h2==4.3.0",
+    "importlib-metadata==8.7.0",
+    "librosa==0.11.0",
+    "matplotlib==3.10.6",
+    "munkres==1.1.4",
+    "pandas==2.3.2",
+    "pip==25.2",
+    "pysocks==1.7.1",
+    "ruff==0.13.0",
+    "setuptools==80.9.0",
+    "zstandard==0.24.0",
+]

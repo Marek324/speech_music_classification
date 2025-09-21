@@ -1,10 +1,5 @@
 ## Packages
-This project is using mamba as it's main package manager but it should also be compatible with pip/uv as well
-With mamba and make available run:
-```
-make setup
-make activate
-```
+uv
 
 ## Dataset
 ```
