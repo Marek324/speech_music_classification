@@ -2,7 +2,6 @@
 # Marek Hric
 
 import sys
-import os
 
 if "-h" in sys.argv or "--help" in sys.argv:
     # TODO: implement help message
@@ -13,6 +12,13 @@ try:
     import numpy as np
     from sklearn import tree
     from ast import literal_eval
+    from sklearn.metrics import (
+        accuracy_score,
+        precision_score,
+        recall_score,
+        f1_score,
+        confusion_matrix
+    )
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
@@ -89,18 +95,23 @@ def create_features(s: np.ndarray) -> np.ndarray:
 
 
 def evaluate(clf: tree.DecisionTreeClassifier):
-    ref = load_reference(train=False)
-    counter = 0
-    for entry in ref:
+    ref_dict = load_reference(train=False)
+    ref = np.array([literal_eval(entry['ref']) for entry in ref_dict]).reshape(-1)
+    prediction = np.array([])
+    for entry in ref_dict:
         file_path = f"{DATASET_PATH}/{entry['file']}"
         s = load_and_resample(file_path)
         features = create_features(s)
-        print(f"Evaluating {entry['file']} on {features.shape[0]} frames with {features.shape[1]} features each.")
-        res = clf.predict(features)
-        if np.array_equal(res, np.array(literal_eval(entry['ref']))):
-            counter += 1
+        pred = clf.predict(features)
+        prediction = np.hstack((prediction, pred)) if prediction.size else pred
 
-    print(f"Evaluation complete. {counter}/{len(ref)} files classified correctly.")
+    print(f"Evaluation complete.")
+    print(f"Accuracy: {accuracy_score(ref, prediction):.4f}")
+    print(f"Precision: {precision_score(ref, prediction):.4f}")
+    print(f"Recall: {recall_score(ref, prediction):.4f}")
+    print(f"F1 Score: {f1_score(ref, prediction):.4f}")
+    print("Confusion Matrix:")
+    print(confusion_matrix(ref, prediction))
 
 if __name__ == "__main__":
     main()
