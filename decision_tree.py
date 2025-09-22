@@ -107,9 +107,9 @@ def evaluate(clf: tree.DecisionTreeClassifier):
 
     print(f"Evaluation complete.")
     print(f"Accuracy: {accuracy_score(ref, prediction):.4f}")
-    print(f"Precision: {precision_score(ref, prediction):.4f}")
-    print(f"Recall: {recall_score(ref, prediction):.4f}")
-    print(f"F1 Score: {f1_score(ref, prediction):.4f}")
+    print(f"Precision: {precision_score(ref, prediction, average='macro'):.4f}")
+    print(f"Recall: {recall_score(ref, prediction, average='macro'):.4f}")
+    print(f"F1 Score: {f1_score(ref, prediction, average='macro'):.4f}")
     print("Confusion Matrix:")
     print(confusion_matrix(ref, prediction))
 
