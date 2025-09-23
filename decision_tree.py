@@ -24,7 +24,11 @@ except ImportError as e:
     print("Refer to README.md for installation instructions.")
     sys.exit(1)
 
-from defaults import DATASET_PATH
+from defaults import (
+    DATASET_PATH,
+    FRAME_LEN_MS,
+    SEGMENT_LEN_S
+)
 
 from utils import (
     load_and_resample,
@@ -59,11 +63,11 @@ def create_features(s: np.ndarray) -> np.ndarray:
     features = np.array([])
     frames = framing(s)
     f_prev = None
+    statistics = np.array([])
+    seg_len = SEGMENT_LEN_S * 1000 // FRAME_LEN_MS
+    seg_counter = 0
 
-    # debug counter
-    # counter = 2
-
-    for f in frames:
+    for i, f in enumerate(frames):
         frame_feat = ft.short_time_energy(f)
         frame_feat = np.append(frame_feat, ft.zero_crossing_rate(f))
         frame_feat = np.append(frame_feat, ft.band_energy_ratio(f, 0, 70, 11000, 44100))
@@ -86,12 +90,23 @@ def create_features(s: np.ndarray) -> np.ndarray:
 
         f_prev = f
 
-        # debug counter
-     #   counter -= 1
-     #   if counter == 0:
-     #       break
+        seg_counter += 1
+        if (i + 1) % seg_len == 0 or (i + 1) == frames.shape[0]: 
+            segment_stats = create_segment_statistics(features[-seg_counter:,:])
+            statistics = np.vstack((statistics, np.tile(segment_stats, (seg_counter, 1)))) if statistics.size else np.tile(segment_stats, (seg_counter, 1))
+            seg_counter = 0
+
+
+        features = np.hstack((features, statistics))
 
     return features
+
+def create_segment_statistics(segment_frames: np.ndarray) -> np.ndarray:
+    stats = np.mean(segment_frames, axis=0) # means
+    stats = np.hstack((stats, np.std(segment_frames, axis=0))) # std deviations
+    # TODO: continue from 2.4.ii
+    
+    return stats
 
 
 def evaluate(clf: tree.DecisionTreeClassifier):
