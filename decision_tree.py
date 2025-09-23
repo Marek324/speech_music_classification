@@ -97,7 +97,7 @@ def create_features(s: np.ndarray) -> np.ndarray:
             seg_counter = 0
 
 
-        features = np.hstack((features, statistics))
+    features = np.hstack((features, statistics))
 
     return features
 
