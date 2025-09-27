@@ -53,7 +53,6 @@ def train(clf: tree.DecisionTreeClassifier):
         file_path = f"{DATASET_PATH}/{entry['file']}"
         s = load_and_resample(file_path)
         features = np.vstack((features, create_features(s))) if features.size else create_features(s)
-        print(f"Extracted features from {entry['file']}, total shape: {features.shape}")
         ref = np.hstack((ref, np.array(literal_eval(entry['ref'])))) if ref.size else np.array(literal_eval(entry['ref']))
 
     print(f"Training on {features.shape[0]} frames with {features.shape[1]} features each.")
@@ -105,6 +104,10 @@ def create_features(s: np.ndarray) -> np.ndarray:
 
 
 def create_segment_statistics(segment_frames: np.ndarray) -> np.ndarray:
+    def lster(energies: np.ndarray) -> float:
+        thr = np.mean(energies) / 3
+        return np.sum(energies < thr) / len(energies)
+        
     diffs = np.abs(np.diff(segment_frames, axis=0))
     stats_list = [
         np.mean(segment_frames, axis=0),
@@ -112,7 +115,8 @@ def create_segment_statistics(segment_frames: np.ndarray) -> np.ndarray:
         np.mean(diffs, axis=0),
         np.std(diffs, axis=0),
         skew(segment_frames[:, 1]),
-        skew(diffs[:, 1])
+        skew(diffs[:, 1]),
+        lster(segment_frames[:, 0])
     ]
     
     return np.hstack(stats_list)
