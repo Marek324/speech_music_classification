@@ -19,6 +19,7 @@ try:
         f1_score,
         confusion_matrix
     )
+    from scipy.stats import skew
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
@@ -52,6 +53,7 @@ def train(clf: tree.DecisionTreeClassifier):
         file_path = f"{DATASET_PATH}/{entry['file']}"
         s = load_and_resample(file_path)
         features = np.vstack((features, create_features(s))) if features.size else create_features(s)
+        print(f"Extracted features from {entry['file']}, total shape: {features.shape}")
         ref = np.hstack((ref, np.array(literal_eval(entry['ref'])))) if ref.size else np.array(literal_eval(entry['ref']))
 
     print(f"Training on {features.shape[0]} frames with {features.shape[1]} features each.")
@@ -60,53 +62,60 @@ def train(clf: tree.DecisionTreeClassifier):
 
 
 def create_features(s: np.ndarray) -> np.ndarray:
-    features = np.array([])
     frames = framing(s)
-    f_prev = None
-    statistics = np.array([])
+    features_list = []
+    array_list = []
+
     seg_len = SEGMENT_LEN_S * 1000 // FRAME_LEN_MS
     seg_counter = 0
 
+    f_prev = None
+    f_mfcc_prev = None
+
     for i, f in enumerate(frames):
-        frame_feat = ft.short_time_energy(f)
-        frame_feat = np.append(frame_feat, ft.zero_crossing_rate(f))
-        frame_feat = np.append(frame_feat, ft.band_energy_ratio(f, 0, 70, 11000, 44100))
-        frame_feat = np.append(frame_feat, ft.autocorrelation_coeff(f))
-        frame_feat = np.hstack((frame_feat, ft.mfcc(f).flatten()))
-        frame_feat = np.append(frame_feat, ft.spectrum_rolloff_point(f))
-        frame_feat = np.append(frame_feat, ft.spectrum_centroid(f))
-        frame_feat = np.append(frame_feat, ft.spectrum_spread(f))
-
-    
-        if f_prev is not None:
-            frame_feat = np.append(frame_feat,
-                ft.mfcc_diff_norm(ft.mfcc(f).flatten(), ft.mfcc(f_prev).flatten()))
-            frame_feat = np.append(frame_feat, ft.spectral_flux(f, f_prev))
-        else:
-            frame_feat = np.append(frame_feat, 0)  # mfcc diff norm
-            frame_feat = np.append(frame_feat, 0)  # spectral flux
-
-        features = np.vstack((features, frame_feat)) if features.size else frame_feat.reshape(1, -1)
+        f_mfcc = ft.mfcc(f).flatten()
+        f_feats_scalars = np.array([
+            ft.short_time_energy(f),
+            ft.zero_crossing_rate(f),
+            ft.band_energy_ratio(f, 0, 70, 11000, 44100),
+            ft.autocorrelation_coeff(f),
+            ft.spectrum_rolloff_point(f),
+            ft.spectrum_centroid(f),
+            ft.spectrum_spread(f),
+            ft.spectral_flux(f, f_prev) if f_prev is not None else 0,
+            ft.mfcc_diff_norm(f_mfcc, f_mfcc_prev) if f_mfcc_prev is not None else 0
+        ])
 
         f_prev = f
+        f_mfcc_prev = f_mfcc
+
+        features = np.array(np.hstack((f_feats_scalars, f_mfcc)))
+        features_list.append(features)
 
         seg_counter += 1
         if (i + 1) % seg_len == 0 or (i + 1) == frames.shape[0]: 
-            segment_stats = create_segment_statistics(features[-seg_counter:,:])
-            statistics = np.vstack((statistics, np.tile(segment_stats, (seg_counter, 1)))) if statistics.size else np.tile(segment_stats, (seg_counter, 1))
+            features_array = np.array(features_list)
+            segment_stats = create_segment_statistics(features_array)
+            array_list.append(np.hstack((features_array, np.tile(segment_stats, (seg_counter, 1)))))
             seg_counter = 0
+            features_list = []
 
 
-    features = np.hstack((features, statistics))
+    return np.vstack(array_list)
 
-    return features
 
 def create_segment_statistics(segment_frames: np.ndarray) -> np.ndarray:
-    stats = np.mean(segment_frames, axis=0) # means
-    stats = np.hstack((stats, np.std(segment_frames, axis=0))) # std deviations
-    # TODO: continue from 2.4.ii
+    diffs = np.abs(np.diff(segment_frames, axis=0))
+    stats_list = [
+        np.mean(segment_frames, axis=0),
+        np.std(segment_frames, axis=0),
+        np.mean(diffs, axis=0),
+        np.std(diffs, axis=0),
+        skew(segment_frames[:, 1]),
+        skew(diffs[:, 1])
+    ]
     
-    return stats
+    return np.hstack(stats_list)
 
 
 def evaluate(clf: tree.DecisionTreeClassifier):
