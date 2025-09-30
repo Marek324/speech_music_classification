@@ -46,7 +46,7 @@ def band_energy_ratio(
         return np.sum(np.abs(dft[b1:b2])**2)
 
 
-    dft = np.fft.fft(frame)
+    dft = np.fft.fft(frame, n=N_FFT)
     E1 = band_energy(dft, fl_1, fh_1)
     E2 = band_energy(dft, fl_2, fh_2)
 
