@@ -104,6 +104,7 @@ def create_features(s: np.ndarray) -> np.ndarray:
 
 
 def create_segment_statistics(segment_frames: np.ndarray) -> np.ndarray:
+    # TODO: move to features.py
     def lster(energies: np.ndarray) -> float:
         thr = np.mean(energies) / 3
         return np.sum(energies < thr) / len(energies)
