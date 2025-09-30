@@ -13,7 +13,7 @@ except ImportError as e:
 
 from defaults import SAMPLE_RATE
 
-N_FFT = 256 
+N_FFT = 1024 
 
 def short_time_energy(frame: np.ndarray) -> float:
     return 10 * np.log10(1/frame.shape[0] * np.sum(frame**2))
