@@ -28,7 +28,7 @@ except ImportError as e:
 from defaults import (
     DATASET_PATH,
     FRAME_LEN_MS,
-    SEGMENT_LEN_S
+    SEGMENT_LEN_MS
 )
 
 from utils import (
@@ -65,7 +65,7 @@ def create_features(s: np.ndarray) -> np.ndarray:
     features_list = []
     array_list = []
 
-    seg_len = SEGMENT_LEN_S * 1000 // FRAME_LEN_MS
+    seg_len = SEGMENT_LEN_MS // FRAME_LEN_MS
     seg_counter = 0
 
     f_prev = None
