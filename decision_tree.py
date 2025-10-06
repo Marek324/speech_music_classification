@@ -20,6 +20,8 @@ try:
         confusion_matrix
     )
     from scipy.stats import skew
+    from collections.abc import Callable
+    from collections import deque
 except ImportError as e:
     print(f"Error importing: {e}")
     print("Refer to README.md for installation instructions.")
@@ -28,119 +30,123 @@ except ImportError as e:
 from defaults import (
     DATASET_PATH,
     FRAME_LEN_MS,
-    SEGMENT_LEN_MS
+    FRAME_HOP_MS,
+    SEGMENT_LEN_MS,
+    SAMPLE_RATE
 )
 
 from utils import (
     load_and_resample,
     framing,
-    load_reference
+    load_reference,
+    seg_frame_count
 )
 
 import features as ft
 
+class DecisionTree:
+    def __init__(self):
+        speech_features = {}
+        music_features = {}
+
+    def train(self, X_speech: np.ndarray, X_music: np.ndarray):
+        print(X_speech.shape)
+        print(X_music.shape)
+
+
 def main():
-    classifier = tree.DecisionTreeClassifier()
-    train(classifier)
-    evaluate(classifier)
- 
-
-def train(clf: tree.DecisionTreeClassifier):
-    ref_dict = load_reference()
-    ref = np.array([])
-    features = np.array([])
-    for entry in ref_dict:
-        file_path = f"{DATASET_PATH}/{entry['file']}"
-        s = load_and_resample(file_path)
-        features = np.vstack((features, create_features(s))) if features.size else create_features(s)
-        ref = np.hstack((ref, np.array(literal_eval(entry['ref'])))) if ref.size else np.array(literal_eval(entry['ref']))
-
-    print(f"Training on {features.shape[0]} frames with {features.shape[1]} features each.")
-    clf.fit(features, ref)
-    print("Training complete.")
+    classifier = DecisionTree().train(
+        *create_features(load_reference())
+    )
 
 
-def create_features(s: np.ndarray) -> np.ndarray:
-    frames = framing(s)
-    features_list = []
-    array_list = []
+def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.ndarray]:
 
-    seg_len = SEGMENT_LEN_MS // FRAME_LEN_MS
-    seg_counter = 0
+    def extract_features(
+        frame: np.ndarray,
+        frame_prev: np.ndarray = None,
+        frame_mfcc_prev: np.ndarray = None
+    ) -> tuple[np.ndarray, np.ndarray]:
+        return np.hstack((
+            (frame_mfcc :=ft.mfcc(frame).flatten()),
+            np.array([
+                ft.short_time_energy(frame),
+                ft.zero_crossing_rate(frame),
+                ft.band_energy_ratio(frame, 0, 70, 11000, 44100),
+                ft.autocorrelation_coeff(frame),
+                ft.spectrum_rolloff_point(frame),
+                ft.spectrum_centroid(frame),
+                ft.spectrum_spread(frame),
+                ft.spectral_flux(frame, frame_prev) if frame_prev is not None else 0,
+                ft.mfcc_diff_norm(frame_mfcc, frame_mfcc_prev) if frame_mfcc_prev is not None else 0
+            ])
+        )), frame_mfcc
+        # === extract_features() end ===
 
-    f_prev = None
-    f_mfcc_prev = None
+    def feature_statistics(
+        features: np.ndarray,
+        seg_len_ms: int = SEGMENT_LEN_MS,
+        f_len_ms: int = FRAME_LEN_MS,
+       f_hop_ms: int = FRAME_HOP_MS
+    ) -> np.ndarray:
 
-    for i, f in enumerate(frames):
-        f_mfcc = ft.mfcc(f).flatten()
-        f_feats_scalars = np.array([
-            ft.short_time_energy(f),
-            ft.zero_crossing_rate(f),
-            ft.band_energy_ratio(f, 0, 70, 11000, 44100),
-            ft.autocorrelation_coeff(f),
-            ft.spectrum_rolloff_point(f),
-            ft.spectrum_centroid(f),
-            ft.spectrum_spread(f),
-            ft.spectral_flux(f, f_prev) if f_prev is not None else 0,
-            ft.mfcc_diff_norm(f_mfcc, f_mfcc_prev) if f_mfcc_prev is not None else 0
+        # === feature_statistics() ===
+        req_frames = seg_frame_count()
+
+        n_feats = features.shape[1]
+
+        padd = req_frames - features.shape[0]
+        features = np.vstack((
+            np.zeros((padd, n_feats)),
+            features
+        ))
+
+        diffs = np.abs(np.diff(features, axis=0))
+        return np.hstack([
+            np.mean(features, axis=0),
+            np.std(features, axis=0),
+            np.mean(diffs, axis=0),
+            np.std(diffs, axis=0),
+            np.nan_to_num(skew(features[:, 1]), nan=0.0),
+            np.nan_to_num(skew(diffs[:, 1]), nan=0.0),
+            ft.lster(features[:, 0])
         ])
 
-        f_prev = f
-        f_mfcc_prev = f_mfcc
+        # === feature_statistics() end ===
 
-        features = np.array(np.hstack((f_feats_scalars, f_mfcc)))
-        features_list.append(features)
-
-        seg_counter += 1
-        if (i + 1) % seg_len == 0 or (i + 1) == frames.shape[0]: 
-            features_array = np.array(features_list)
-            segment_stats = create_segment_statistics(features_array)
-            array_list.append(np.hstack((features_array, np.tile(segment_stats, (seg_counter, 1)))))
-            seg_counter = 0
-            features_list = []
-
-
-    return np.vstack(array_list)
-
-
-def create_segment_statistics(segment_frames: np.ndarray) -> np.ndarray:
-    # TODO: move to features.py
-    def lster(energies: np.ndarray) -> float:
-        thr = np.mean(energies) / 3
-        return np.sum(energies < thr) / len(energies)
-        
-    diffs = np.abs(np.diff(segment_frames, axis=0))
-    stats_list = [
-        np.mean(segment_frames, axis=0),
-        np.std(segment_frames, axis=0),
-        np.mean(diffs, axis=0),
-        np.std(diffs, axis=0),
-        skew(segment_frames[:, 1]),
-        skew(diffs[:, 1]),
-        lster(segment_frames[:, 0])
-    ]
+    # === create_features() ===
     
-    return np.hstack(stats_list)
+    speech_list = []
+    music_list = []
 
+    for entry in ref:
+        s = load_and_resample(f"{DATASET_PATH}/{entry['file']}")
+        frames = framing(s)
 
-def evaluate(clf: tree.DecisionTreeClassifier):
-    ref_dict = load_reference(train=False)
-    ref = np.array([literal_eval(entry['ref']) for entry in ref_dict]).reshape(-1)
-    prediction = np.array([])
-    for entry in ref_dict:
-        file_path = f"{DATASET_PATH}/{entry['file']}"
-        s = load_and_resample(file_path)
-        features = create_features(s)
-        pred = clf.predict(features)
-        prediction = np.hstack((prediction, pred)) if prediction.size else pred
+        last_frame = None
+        last_frame_mfcc = None
+        stat_win = deque(maxlen=seg_frame_count())
 
-    print(f"Evaluation complete.")
-    print(f"Accuracy: {accuracy_score(ref, prediction):.4f}")
-    print(f"Precision: {precision_score(ref, prediction, average='macro'):.4f}")
-    print(f"Recall: {recall_score(ref, prediction, average='macro'):.4f}")
-    print(f"F1 Score: {f1_score(ref, prediction, average='macro'):.4f}")
-    print("Confusion Matrix:")
-    print(confusion_matrix(ref, prediction))
+        for frame, ref_c in zip(frames, entry['ref']):
+            feats, last_frame_mfcc = extract_features(frame, last_frame, last_frame_mfcc)
+            stat_win.append(feats)
+            stats = feature_statistics(np.array(list(stat_win)))
+            feats = np.hstack((feats, stats))
+            match ref_c:
+                case 0: # silence
+                    continue
+                case 1: # speech
+                    speech_list.append(feats)
+                case 2: # music
+                    music_list.append(feats)
+
+            last_frame = frame
+
+    X_speech = np.vstack(speech_list)
+    X_music = np.vstack(music_list)
+
+    return X_speech, X_music
+
 
 if __name__ == "__main__":
     main()
