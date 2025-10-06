@@ -83,3 +83,8 @@ def spectral_flux(frame: np.ndarray, frame_prev: np.ndarray) -> float:
 
 def spectrum_spread(frame: np.ndarray, sr: int = SAMPLE_RATE) -> float:
     return lb.feature.spectral_bandwidth(y=frame, sr=sr, n_fft=N_FFT)[0, 0]
+
+
+def lster(energies: np.ndarray) -> float:
+    thr = np.mean(energies) / 3
+    return np.sum(energies < thr) / len(energies)
