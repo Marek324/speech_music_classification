@@ -7,6 +7,7 @@ try:
     import numpy as np
     import librosa as lb
     import pandas as pd
+    from scipy.signal import windows as wins
     from ast import literal_eval
 except ImportError as e:
     print(f"Error importing: {e}")
