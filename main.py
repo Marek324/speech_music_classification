@@ -62,7 +62,6 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
                 ft.mfcc_diff_norm(frame_mfcc, frame_mfcc_prev) if frame_mfcc_prev is not None else 0
             ])
         )), frame_mfcc
-        # === extract_features() end ===
 
     def feature_statistics(
         features: np.ndarray,
@@ -71,7 +70,6 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
        f_hop_ms: int = FRAME_HOP_MS
     ) -> np.ndarray:
 
-        # === feature_statistics() ===
         req_frames = seg_frame_count()
 
         n_feats = features.shape[1]
@@ -93,10 +91,7 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
             ft.lster(features[:, 0])
         ])
 
-        # === feature_statistics() end ===
-
     # === create_features() ===
-    
     speech_list = []
     music_list = []
 
