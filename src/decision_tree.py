@@ -79,14 +79,27 @@ class DecisionTree:
 
         self._comp_thr_metrics(i, S, M)
 
+        #TODO: ERROR IN CALCULATIONS
     def _comp_thr_metrics(self, i: int, S: np.ndarray, M: np.ndarray):
         for key, data in self.thresholds[i].items():
             if key == 'separation': continue
 
-            target, opp = (S, M) if 'speech' in key else (M, S)
+            if 'speech' in key:
+                target, opp = S, M
+            else:
+                target, opp = M, S
+
             thr = data['thr']
-            inc = np.sum(target > thr) / len(target)
-            err = np.sum(opp > thr) / len(opp) if 'ex' in key else 0.0
+
+            if np.mean(target) > np.mean(opp):
+                inc = np.sum(target > thr)
+                err = np.sum(opp > thr)
+            else:
+                inc = np.sum(target < thr)
+                err = np.sum(opp < thr)
+
+            inc = inc * 100 / len(target)
+            err = err * 100 / len(opp)
 
             data['metrics'] = { 'I': inc, 'Er': err }
 
