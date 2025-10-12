@@ -21,11 +21,19 @@ class DecisionTree:
         self.speech_pdfs = {} # {feat_i: pdf}
         self.music_pdfs = {}
         self.thresholds = {} # {feat_i: {'ex_speech' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
+        self.n_top_feat = 5
+        self.top_features = {
+            'ex_speech': [], 'ex_music':  [],
+            'high_prob_speech': [], 'high_prob_music': [],
+            'separation': []
+        }
 
 
     def train(self, X_speech: np.ndarray, X_music: np.ndarray):
         print(X_speech.shape)
         print(X_music.shape)
+        assert X_speech.shape[1] == X_music.shape[1]
+        assert X_speech.shape[1] >= self.n_top_feat
 
         self.n_features = X_speech.shape[1]
         for i in range(self.n_features):
@@ -40,6 +48,8 @@ class DecisionTree:
             if DEBUG:
                 debug_plot(self, i, S, M)
                 #break
+
+        self._select_features(np.vstack((X_speech, X_music)))
 
 
     def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
@@ -68,7 +78,6 @@ class DecisionTree:
         def pdf_diff(x): return self.speech_pdfs[i](x) - self.music_pdfs[i](x)
         sep = brentq(pdf_diff, min(s_hprob, m_hprob), max(s_hprob, m_hprob))
 
-
         self.thresholds[i] = {
             'ex_speech':        { 'thr': s_ex, 'metrics': {} },
             'ex_music':         { 'thr': m_ex, 'metrics': {} },
@@ -78,6 +87,7 @@ class DecisionTree:
         }
 
         self._comp_thr_metrics(i, S, M)
+
 
     def _comp_thr_metrics(self, i: int, S: np.ndarray, M: np.ndarray):
         for key, data in self.thresholds[i].items():
@@ -101,6 +111,37 @@ class DecisionTree:
             err = err * 100 / len(opp)
 
             data['metrics'] = { 'I': inc, 'Er': err }
+
+
+    def _select_features(self, X: np.ndarray):
+        def correlation(Xi: np.ndarray, Xj: np.ndarray) -> float:
+            return np.dot(Xi, Xj) / np.sqrt(np.sum(Xi)**2 * np.sum(Xj)**2)
+
+        def sep_score(j: int, C: np.ndarray, X: np.ndarray, K: list[int]) -> float:
+            if len(K) == 0:
+                return C[j]
+
+            ALPHA = BETA = 0.5
+            sep_power = ALPHA * C[j]
+            other_correlation = np.sum([np.sum(np.abs(correlation(X[:, j], X[:, k]))) for k in K])
+            return sep_power - (BETA / len(K)) * other_correlation
+
+        feat_i = list(range(X.shape[1]))
+        for thr_n in ['ex_speech', 'ex_music', 'high_prob_speech', 'high_prob_music']:
+            C = [
+                (m := data[thr_n]['metrics'])['I'] if 'ex' in thr_t
+                else m['I']**2 / m['Er']
+                for _, data in self.thresholds.item()
+            ]
+
+            top_f = [(first_i := np.argmax(C))] #TODO: test if while works with empty array
+            feat_i.remove(first_i)
+
+            while len(top_f) < self.n_top_feat:
+                top_f.append(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i]))
+                feat_i.pop(ik)
+
+            self.top_features[thr_n] = top_f
 
 
 def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
@@ -139,5 +180,4 @@ def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
             print(f'\tthr: {data['thr']}')
         else:
             print(f'\tthr: {data['thr']}\tI: {data['metrics']['I']}\tEr: {data['metrics']['Er']}')
-
 
