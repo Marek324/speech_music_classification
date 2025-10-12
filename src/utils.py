@@ -69,14 +69,14 @@ def seg_frame_count(
 
 
 def asymmetric_weigth_window(
-            total_len_ms: int = 300,
-            sep:float = 0.75
-        ) -> np.ndarray:
-            total_len = total_len_ms * SAMPLE_RATE // 1000
-            len1 = int(np.floor(total_len * sep))
-            len2 = int(np.ceil(total_len * (1 - sep)))
+    total_len_ms: int = 300,
+    sep:float = 0.75
+) -> np.ndarray:
+    total_len = total_len_ms * SAMPLE_RATE // 1000
+    len1 = int(np.floor(total_len * sep))
+    len2 = int(np.ceil(total_len * (1 - sep)))
 
-            win1 = wins.hann(len1 * 2)[:len1]
-            win2 = wins.hann(len2 * 2)[len2:]
-            win = np.hstack((win1, win2))
-            return win
+    win1 = wins.hann(len1 * 2)[:len1]
+    win2 = wins.hann(len2 * 2)[len2:]
+    win = np.hstack((win1, win2))
+    return win
