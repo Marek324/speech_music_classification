@@ -39,7 +39,7 @@ class DecisionTree:
 
             if DEBUG:
                 debug_plot(self, i, S, M)
-                break
+                #break
 
 
     def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
@@ -79,7 +79,6 @@ class DecisionTree:
 
         self._comp_thr_metrics(i, S, M)
 
-        #TODO: ERROR IN CALCULATIONS
     def _comp_thr_metrics(self, i: int, S: np.ndarray, M: np.ndarray):
         for key, data in self.thresholds[i].items():
             if key == 'separation': continue
@@ -132,7 +131,7 @@ def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
     plt.xlabel(f'Value')
     plt.ylabel(f'Density')
     plt.legend()
-    plt.savefig('debug.png')
+    plt.savefig(f'debug/debug{i}.png')
 
     for key, data in dectree.thresholds[i].items():
         print(key)

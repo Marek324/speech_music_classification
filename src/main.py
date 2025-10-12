@@ -35,7 +35,7 @@ from utils import (
 import features as ft
 from decision_tree import DecisionTree
 
-DEBUG = True
+DEBUG = False
 
 def main():
     classifier = DecisionTree().train(
