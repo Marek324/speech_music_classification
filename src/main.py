@@ -35,6 +35,7 @@ from utils import (
 import features as ft
 from decision_tree import DecisionTree
 
+DEBUG = True
 
 def main():
     classifier = DecisionTree().train(
@@ -96,7 +97,15 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
     music_list = []
 
     for entry in ref:
+
         s = load_and_resample(f"{DATASET_PATH}/{entry['file']}")
+
+        if DEBUG:
+            if any(entry['file'].startswith(d) for d in ['train/speech', 'train/m+s']) and len(speech_list) > 10000: continue
+            if entry['file'].startswith('train/music') and len(music_list) > 10000: continue
+            print(f"speech_list len: {len(speech_list)}")
+            print(f"music_list len: {len(music_list)}")
+
         frames = framing(s)
 
         last_frame = None
@@ -117,6 +126,7 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
                     music_list.append(feats)
 
             last_frame = frame
+
 
     X_speech = np.vstack(speech_list)
     X_music = np.vstack(music_list)
