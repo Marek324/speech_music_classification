@@ -45,7 +45,7 @@ class DecisionTree:
 
             self._comp_thresholds(i, S, M)
 
-            if DEBUG:
+            if False:
                 debug_plot(self, i, S, M)
                 #break
 
@@ -53,6 +53,7 @@ class DecisionTree:
         #self._select_features_separation(X_speech, X_music)
 
         # remove not selected thresholds
+        if DEBUG: debug_print(self)
 
 
     def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
@@ -131,20 +132,19 @@ class DecisionTree:
 
         X = np.vstack((X_speech, X_music))
 
-        feat_i = list(range(X.shape[1]))
         for thr_n in ['ex_speech', 'ex_music', 'high_prob_speech', 'high_prob_music']:
+            feat_i = list(range(X.shape[1]))
             C = [
-                (m := data[thr_n]['metrics'])['I'] if 'ex' in thr_t
-                else m['I']**2 / m['Er']
-                for _, data in self.thresholds.item()
+                (m := data[thr_n]['metrics'])['I'] if 'ex' in thr_n
+                else m['I']**2 / (m['Er'] + 1e-15)
+                for _, data in self.thresholds.items()
             ]
 
-            top_f = [(first_i := np.argmax(C))] #TODO: test if while works with empty array
-            feat_i.remove(first_i)
+            top_f = []
 
             while len(top_f) < self.n_top_feat:
-                top_f.append(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i]))
-                feat_i.pop(ik)
+                top_f.append(int(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i])))
+                feat_i.remove(feat_i[ik])
 
             self.top_features[thr_n] = top_f
 
@@ -156,17 +156,14 @@ class DecisionTree:
             for i in range(self.n_features)
         ]
 
-        top_f = [(first_i := np.argmax(C))] #TODO: test if while works with empty array
-        feat_i.remove(first_i)
+        feat_i = list(range(X.shape[1]))
+        top_f = []
 
         while len(top_f) < self.n_top_feat:
-            top_f.append(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i]))
-            feat_i.pop(ik)
+            top_f.append(int(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i])))
+            feat_i.remove(feat_i[ik])
 
-        self.top_features[thr_n] = top_f
-
-
-
+        self.top_features['separation'] = top_f
 
 
     def _select_features_separation(self, X_speech: np.ndarray, X_music: np.ndarray):
@@ -214,6 +211,7 @@ def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
     plt.ylabel('Density')
     plt.legend()
     plt.savefig(f'debug/debug{i}.png')
+    plt.close()
 
     #for key, data in dectree.thresholds[i].items():
     #    print(key)
@@ -222,7 +220,7 @@ def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
     #    else:
     #        print(f'\tthr: {data['thr']}\tI: {data['metrics']['I']}\tEr: {data['metrics']['Er']}')
 
+def debug_print(dectree: DecisionTree):
     for key, data in dectree.top_features.items():
         print(f'Top features for {key}:')
         print(f'\t{data}')
-

@@ -35,12 +35,14 @@ from utils import (
 import features as ft
 from decision_tree import DecisionTree
 
-DEBUG = False
+DEBUG = True
+DEBUG_SAMP_MIN = 3000
 
 def main():
     classifier = DecisionTree().train(
         *create_features(load_reference())
     )
+    #evaluate(classifier, load_reference(train=False))
 
 def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.ndarray]:
 
@@ -68,7 +70,7 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
         features: np.ndarray,
         seg_len_ms: int = SEGMENT_LEN_MS,
         f_len_ms: int = FRAME_LEN_MS,
-       f_hop_ms: int = FRAME_HOP_MS
+        f_hop_ms: int = FRAME_HOP_MS
     ) -> np.ndarray:
 
         req_frames = seg_frame_count()
@@ -101,10 +103,10 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
         s = load_and_resample(f"{DATASET_PATH}/{entry['file']}")
 
         if DEBUG:
-            if any(entry['file'].startswith(d) for d in ['train/speech', 'train/m+s']) and len(speech_list) > 10000: continue
-            if entry['file'].startswith('train/music') and len(music_list) > 10000: continue
-            print(f"speech_list len: {len(speech_list)}")
-            print(f"music_list len: {len(music_list)}")
+            if any(entry['file'].startswith(d) for d in ['train/speech', 'train/m+s']) and len(speech_list) > DEBUG_SAMP_MIN: continue
+            if entry['file'].startswith('train/music') and len(music_list) > DEBUG_SAMP_MIN: continue
+#            print(f"speech_list len: {len(speech_list)}")
+#            print(f"music_list len: {len(music_list)}")
 
         frames = framing(s)
 
@@ -132,6 +134,14 @@ def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.n
     X_music = np.vstack(music_list)
 
     return X_speech, X_music
+
+
+def evaluate(clf: DecisionTree, ref: list[dict[str, list[float]]]) -> float:
+    pass
+    for entry in ref:
+        res = clf.predict(load_and_resample(f"{DATASET_PATH}/{entry['file']}"))
+
+
 
 
 if __name__ == "__main__":
