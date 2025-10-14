@@ -49,7 +49,10 @@ class DecisionTree:
                 debug_plot(self, i, S, M)
                 #break
 
-        self._select_features(np.vstack((X_speech, X_music)))
+        self._select_features(X_speech, X_music)
+        #self._select_features_separation(X_speech, X_music)
+
+        # remove not selected thresholds
 
 
     def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
@@ -113,7 +116,7 @@ class DecisionTree:
             data['metrics'] = { 'I': inc, 'Er': err }
 
 
-    def _select_features(self, X: np.ndarray):
+    def _select_features(self, X_speech: np.ndarray, X_music: np.ndarray):
         def correlation(Xi: np.ndarray, Xj: np.ndarray) -> float:
             return np.dot(Xi, Xj) / np.sqrt(np.sum(Xi)**2 * np.sum(Xj)**2)
 
@@ -125,6 +128,8 @@ class DecisionTree:
             sep_power = ALPHA * C[j]
             other_correlation = np.sum([np.sum(np.abs(correlation(X[:, j], X[:, k]))) for k in K])
             return sep_power - (BETA / len(K)) * other_correlation
+
+        X = np.vstack((X_speech, X_music))
 
         feat_i = list(range(X.shape[1]))
         for thr_n in ['ex_speech', 'ex_music', 'high_prob_speech', 'high_prob_music']:
@@ -142,6 +147,42 @@ class DecisionTree:
                 feat_i.pop(ik)
 
             self.top_features[thr_n] = top_f
+
+        # selection of separation calculated here for now with FDR
+
+        C = [
+            (np.mean(X_speech[:, i]) - np.mean(X_music[:, i]))**2 /\
+                (np.var(X_speech[:, i]) + np.var(X_music[:, i]))
+            for i in range(self.n_features)
+        ]
+
+        top_f = [(first_i := np.argmax(C))] #TODO: test if while works with empty array
+        feat_i.remove(first_i)
+
+        while len(top_f) < self.n_top_feat:
+            top_f.append(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i]))
+            feat_i.pop(ik)
+
+        self.top_features[thr_n] = top_f
+
+
+
+
+
+    def _select_features_separation(self, X_speech: np.ndarray, X_music: np.ndarray):
+        # cov expects data to be in transposed layout with rowvar=True (default)
+        def sel_crit(
+            X: np.ndarray,
+            X_speech: np.ndarray,
+            X_music: np.ndarray
+        ) -> float:
+            Sspeech = np.cov(X_speech, rowvar=False)
+            Smusic = np.cov(X_music, rowvar=True)
+            Sw = (Sspeech + Smusic) / 2
+            Sm = np.cov(X, rowvar=False)
+            return np.abs(Sm) / np.abs(Sw)
+
+        X = np.vstack((X_speech, X_music))
 
 
 def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
@@ -169,15 +210,19 @@ def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
     plt.axvline(thr['separation']['thr'], color='red', linestyle='-', linewidth=2, label='Separation')
 
     plt.title(f'Feature {i}: Estimated PDFs and thresholds')
-    plt.xlabel(f'Value')
-    plt.ylabel(f'Density')
+    plt.xlabel('Value')
+    plt.ylabel('Density')
     plt.legend()
     plt.savefig(f'debug/debug{i}.png')
 
-    for key, data in dectree.thresholds[i].items():
-        print(key)
-        if key == 'separation':
-            print(f'\tthr: {data['thr']}')
-        else:
-            print(f'\tthr: {data['thr']}\tI: {data['metrics']['I']}\tEr: {data['metrics']['Er']}')
+    #for key, data in dectree.thresholds[i].items():
+    #    print(key)
+    #    if key == 'separation':
+    #        print(f'\tthr: {data['thr']}')
+    #    else:
+    #        print(f'\tthr: {data['thr']}\tI: {data['metrics']['I']}\tEr: {data['metrics']['Er']}')
+
+    for key, data in dectree.top_features.items():
+        print(f'Top features for {key}:')
+        print(f'\t{data}')
 
