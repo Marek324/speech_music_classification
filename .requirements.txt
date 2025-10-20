@@ -42,6 +42,8 @@ six==1.17.0
 soundfile==0.13.1
 soxr==1.0.0
 threadpoolctl==3.6.0
+tqdm==4.67.1
+ty==0.0.1a23
 typing-extensions==4.15.0
 tzdata==2025.2
 urllib3==2.5.0

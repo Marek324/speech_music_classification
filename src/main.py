@@ -9,137 +9,80 @@ if "-h" in sys.argv or "--help" in sys.argv:
     sys.exit(0)
 
 
-try:
-    import numpy as np
-    from scipy.stats import skew
-    from collections import deque
-except ImportError as e:
-    print(f"Error importing: {e}")
-    print("Refer to README.md for installation instructions.")
-    sys.exit(1)
-
-from defaults import (
-    DATASET_PATH,
-    FRAME_LEN_MS,
-    FRAME_HOP_MS,
-    SEGMENT_LEN_MS,
+from sm_lib import (
+    SMDataset,
+    SMDatasetBuilder
 )
 
-from utils import (
-    load_and_resample,
-    framing,
-    load_reference,
-    seg_frame_count
+from classifiers import (
+    SMDecisionTree
 )
-
-import features as ft
-from decision_tree import DecisionTree
 
 DEBUG = True
 DEBUG_SAMP_MIN = 3000
 
 def main():
-    classifier = DecisionTree().train(
-        *create_features(load_reference())
-    )
+    d_builder: SMDatasetBuilder = SMDatasetBuilder()
+    train_data: SMDataset = d_builder.build(train=True)
+    classifier: SMDecisionTree = SMDecisionTree().fit(train_data) # noqa: F841
     #evaluate(classifier, load_reference(train=False))
 
-def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.ndarray]:
+#def create_features(ref: list[dict[str, list[float]]]) -> tuple[np.ndarray, np.ndarray]:
+#    speech_list = []
+#    music_list = []
+#
+#    extractor = SMFeatureExtractor(sr=defaults.SAMPLE_RATE)
+#    seg_len = seg_len_ms * defaults.SAMPLE_RATE // 1000
+#    f_len = f_len_ms * defaults.SAMPLE_RATE // 1000
+#    f_hop = f_hop_ms * defaults.SAMPLE_RATE // 1000
+#    seg_frames = int(np.floor((seg_len - f_len) / f_hop) + 1)
+#    seg_stats = SMSegmentStatistics(seg_frames=seg_frames)
+#
+#    for entry in ref:
+#
+#        s = load_and_resample(f"{defaults.DATASET_PATH}/{entry['file']}")
+#
+#        if DEBUG:
+#            if any(entry['file'].str.startswith(d) for d in ['train/speech', 'train/m+s']) and len(speech_list) > DEBUG_SAMP_MIN: continue # noqa: E701
+#            if entry['file'].str.startswith('train/music') and len(music_list) > DEBUG_SAMP_MIN: continue # noqa: E701
+##            print(f"speech_list len: {len(speech_list)}")
+##            print(f"music_list len: {len(music_list)}")
+#
+#        frames = framing(s)
+#
+#        stat_win = deque(maxlen=seg_frame_count())
+#
+#        for frame, ref_c in zip(frames, entry['ref']):
+#            feats = extractor.extract(frame)
+#            stat_win.append(feats)
+#            stats = feature_statistics(np.array(list(stat_win)))
+#            feats = np.hstack((feats, stats))
+#            match ref_c:
+#                case 0: # silence
+#                    continue
+#                case 1: # speech
+#                    speech_list.append(feats)
+#                case 2: # music
+#                    music_list.append(feats)
+#
+#
+#        # reset extractor memory for new file
+#        extractor.last_frame = None
+#        extractor.last_mfcc = None
+#
+#
+#    X_speech = np.vstack(speech_list)
+#    X_music = np.vstack(music_list)
+#
+#    return X_speech, X_music
+#
 
-    def extract_features(
-        frame: np.ndarray,
-        frame_prev: np.ndarray = None,
-        frame_mfcc_prev: np.ndarray = None
-    ) -> tuple[np.ndarray, np.ndarray]:
-        return np.hstack((
-            (frame_mfcc :=ft.mfcc(frame).flatten()),
-            np.array([
-                ft.short_time_energy(frame),
-                ft.zero_crossing_rate(frame),
-                ft.band_energy_ratio(frame, 0, 70, 11000, 44100),
-                ft.autocorrelation_coeff(frame),
-                ft.spectrum_rolloff_point(frame),
-                ft.spectrum_centroid(frame),
-                ft.spectrum_spread(frame),
-                ft.spectral_flux(frame, frame_prev) if frame_prev is not None else 0,
-                ft.mfcc_diff_norm(frame_mfcc, frame_mfcc_prev) if frame_mfcc_prev is not None else 0
-            ])
-        )), frame_mfcc
-
-    def feature_statistics(
-        features: np.ndarray,
-        seg_len_ms: int = SEGMENT_LEN_MS,
-        f_len_ms: int = FRAME_LEN_MS,
-        f_hop_ms: int = FRAME_HOP_MS
-    ) -> np.ndarray:
-
-        req_frames = seg_frame_count()
-
-        n_feats = features.shape[1]
-
-        padd = req_frames - features.shape[0]
-        features = np.vstack((
-            np.zeros((padd, n_feats)),
-            features
-        ))
-
-        diffs = np.abs(np.diff(features, axis=0))
-        return np.hstack([
-            np.mean(features, axis=0),
-            np.std(features, axis=0),
-            np.mean(diffs, axis=0),
-            np.std(diffs, axis=0),
-            np.nan_to_num(skew(features[:, 1]), nan=0.0),
-            np.nan_to_num(skew(diffs[:, 1]), nan=0.0),
-            ft.lster(features[:, 0])
-        ])
-
-    # === create_features() ===
-    speech_list = []
-    music_list = []
-
-    for entry in ref:
-
-        s = load_and_resample(f"{DATASET_PATH}/{entry['file']}")
-
-        if DEBUG:
-            if any(entry['file'].startswith(d) for d in ['train/speech', 'train/m+s']) and len(speech_list) > DEBUG_SAMP_MIN: continue
-            if entry['file'].startswith('train/music') and len(music_list) > DEBUG_SAMP_MIN: continue
-#            print(f"speech_list len: {len(speech_list)}")
-#            print(f"music_list len: {len(music_list)}")
-
-        frames = framing(s)
-
-        last_frame = None
-        last_frame_mfcc = None
-        stat_win = deque(maxlen=seg_frame_count())
-
-        for frame, ref_c in zip(frames, entry['ref']):
-            feats, last_frame_mfcc = extract_features(frame, last_frame, last_frame_mfcc)
-            stat_win.append(feats)
-            stats = feature_statistics(np.array(list(stat_win)))
-            feats = np.hstack((feats, stats))
-            match ref_c:
-                case 0: # silence
-                    continue
-                case 1: # speech
-                    speech_list.append(feats)
-                case 2: # music
-                    music_list.append(feats)
-
-            last_frame = frame
-
-
-    X_speech = np.vstack(speech_list)
-    X_music = np.vstack(music_list)
-
-    return X_speech, X_music
-
-
-def evaluate(clf: DecisionTree, ref: list[dict[str, list[float]]]) -> float:
+def evaluate(clf: SMDecisionTree, ref: list[dict[str, list[float]]]) -> float:
     pass
-    for entry in ref:
-        res = clf.predict(load_and_resample(f"{DATASET_PATH}/{entry['file']}"))
+#    for entry in ref:
+#        res = clf.predict(load_and_resample(f"{defaults.DATASET_PATH}/{entry['file']}")) # noqa: F841
+
+    return 0.0
 
 
 

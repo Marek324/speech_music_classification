@@ -2,6 +2,8 @@
 # Marek Hric
 
 from abc import ABC, abstractmethod
+import numpy as np
+from sm_lib import SMDataset
 
 class SMClassifier(ABC):
     @abstractmethod

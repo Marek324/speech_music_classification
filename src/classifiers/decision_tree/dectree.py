@@ -1,59 +1,58 @@
 # decision_tree.py
 # Marek Hric
 
-import sys
+
+import numpy as np
+from scipy.stats import gaussian_kde
+
+from ..sm_classifier import SMClassifier
+from sm_lib import SMDataset
+
 
 DEBUG = True
-
-try:
-    import numpy as np
-    from scipy.stats import gaussian_kde
-    if DEBUG: import matplotlib.pyplot as plt
-except ImportError as e:
-    print(f"Error importing: {e}")
-    print("Refer to README.md for installation instructions.")
-    sys.exit(1)
+if DEBUG: import matplotlib.pyplot as plt # noqa: E701
 
 
-class DecisionTree:
+class SMDecisionTree(SMClassifier):
     def __init__(self):
-        self.n_features = None
         self.speech_pdfs = {} # {feat_i: pdf}
         self.music_pdfs = {}
         self.thresholds = {} # {feat_i: {'ex_speech' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
-        self.n_top_feat = 5
         self.top_features = {
             'ex_speech': [], 'ex_music':  [],
             'high_prob_speech': [], 'high_prob_music': [],
             'separation': []
         }
+        self.n_top_feat = 5
 
 
-    def train(self, X_speech: np.ndarray, X_music: np.ndarray):
-        print(X_speech.shape)
-        print(X_music.shape)
-        assert X_speech.shape[1] == X_music.shape[1]
-        assert X_speech.shape[1] >= self.n_top_feat
+    def fit(self, X: SMDataset):
+        print(X.speech.shape)
+        print(X.music.shape)
+        assert X.n_feat >= self.n_top_feat
 
-        self.n_features = X_speech.shape[1]
-        for i in range(self.n_features):
-            S = X_speech[:, i]
-            M = X_music[:, i]
+        for i in range(X.n_feat):
+            S = X.speech[:, i]
+            M = X.music[:, i]
 
             self.speech_pdfs[i] = gaussian_kde(S)
             self.music_pdfs[i] = gaussian_kde(M)
 
             self._comp_thresholds(i, S, M)
 
-            if False:
+            if DEBUG:
                 debug_plot(self, i, S, M)
                 #break
 
-        self._select_features(X_speech, X_music)
+        self._select_features(X)
         #self._select_features_separation(X_speech, X_music)
 
         # remove not selected thresholds
-        if DEBUG: debug_print(self)
+        if DEBUG: debug_print(self) # noqa: E701
+
+    def predict(self) -> int:
+        pass
+        return 0
 
 
     def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
@@ -95,7 +94,8 @@ class DecisionTree:
 
     def _comp_thr_metrics(self, i: int, S: np.ndarray, M: np.ndarray):
         for key, data in self.thresholds[i].items():
-            if key == 'separation': continue
+            if key == 'separation':
+                continue
 
             if 'speech' in key:
                 target, opp = S, M
@@ -117,27 +117,27 @@ class DecisionTree:
             data['metrics'] = { 'I': inc, 'Er': err }
 
 
-    def _select_features(self, X_speech: np.ndarray, X_music: np.ndarray):
+    def _select_features(self, X: SMDataset):
         def correlation(Xi: np.ndarray, Xj: np.ndarray) -> float:
             return np.dot(Xi, Xj) / np.sqrt(np.sum(Xi)**2 * np.sum(Xj)**2)
 
-        def sep_score(j: int, C: np.ndarray, X: np.ndarray, K: list[int]) -> float:
+        def sep_score(j: int, C: list[float], X: SMDataset, K: list[int]) -> float:
             if len(K) == 0:
                 return C[j]
 
             ALPHA = BETA = 0.5
             sep_power = ALPHA * C[j]
-            other_correlation = np.sum([np.sum(np.abs(correlation(X[:, j], X[:, k]))) for k in K])
+            other_correlation = np.sum([np.sum(np.abs(correlation(X.xs[:, j], X.xs[:, k]))) for k in K])
             return sep_power - (BETA / len(K)) * other_correlation
 
-        X = np.vstack((X_speech, X_music))
-
         for thr_n in ['ex_speech', 'ex_music', 'high_prob_speech', 'high_prob_music']:
-            feat_i = list(range(X.shape[1]))
+            feat_i = list(range(X.n_feat))
             C = [
-                (m := data[thr_n]['metrics'])['I'] if 'ex' in thr_n
+                m['I'] if 'ex' in thr_n
                 else m['I']**2 / (m['Er'] + 1e-15)
+
                 for _, data in self.thresholds.items()
+                if (m := data[thr_n]['metrics']) 
             ]
 
             top_f = []
@@ -151,38 +151,37 @@ class DecisionTree:
         # selection of separation calculated here for now with FDR
 
         C = [
-            (np.mean(X_speech[:, i]) - np.mean(X_music[:, i]))**2 /\
-                (np.var(X_speech[:, i]) + np.var(X_music[:, i]))
-            for i in range(self.n_features)
+            (np.mean(X.speech[:, i]) - np.mean(X.music[:, i]))**2 /\
+                (np.var(X.speech[:, i]) + np.var(X.music[:, i]))
+            for i in range(X.n_feat)
         ]
 
-        feat_i = list(range(X.shape[1]))
+        feat_i = list(range(X.n_feat))
         top_f = []
 
-        while len(top_f) < self.n_top_feat:
+        while len(top_f) < 5:
             top_f.append(int(ik := np.argmax([sep_score(j, C, X, top_f) for j in feat_i])))
             feat_i.remove(feat_i[ik])
 
         self.top_features['separation'] = top_f
 
 
+    # TODO: finish SFFS
+    # not used now
     def _select_features_separation(self, X_speech: np.ndarray, X_music: np.ndarray):
         # cov expects data to be in transposed layout with rowvar=True (default)
-        def sel_crit(
-            X: np.ndarray,
-            X_speech: np.ndarray,
-            X_music: np.ndarray
-        ) -> float:
+        def sel_crit(X_speech: np.ndarray, X_music: np.ndarray) -> float:
+            X = np.vstack((X_speech, X_music))
             Sspeech = np.cov(X_speech, rowvar=False)
             Smusic = np.cov(X_music, rowvar=True)
             Sw = (Sspeech + Smusic) / 2
             Sm = np.cov(X, rowvar=False)
             return np.abs(Sm) / np.abs(Sw)
 
-        X = np.vstack((X_speech, X_music))
+        pass
 
 
-def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
+def debug_plot(dectree: SMDecisionTree, i: int, S: np.ndarray, M: np.ndarray):
     x_min = min(S.min(), M.min())
     x_max = max(S.max(), M.max())
 
@@ -220,7 +219,7 @@ def debug_plot(dectree: DecisionTree, i: int, S: np.ndarray, M: np.ndarray):
     #    else:
     #        print(f'\tthr: {data['thr']}\tI: {data['metrics']['I']}\tEr: {data['metrics']['Er']}')
 
-def debug_print(dectree: DecisionTree):
+def debug_print(dectree: SMDecisionTree):
     for key, data in dectree.top_features.items():
         print(f'Top features for {key}:')
         print(f'\t{data}')

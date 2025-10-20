@@ -10,4 +10,4 @@ SEGMENT_LEN_MS = 300  # Segment length in milliseconds
 
 SRC_PATH = f"{Path(__file__).parent.parent}"
 DATASET_PATH = f"{SRC_PATH}/dataset"  # Path to the dataset
-REF_PATH = f"{SRC_PATH}/dataset/reference.csv"  # Path to the reference file
+REF_PATH = f"{DATASET_PATH}/reference.csv"  # Path to the reference file
