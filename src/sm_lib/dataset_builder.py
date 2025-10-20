@@ -13,8 +13,8 @@ from .feature_extractor import SMFeatureExtractor
 import defaults
 
 
-DEBUG = True
-DEBUG_FRAMES = True
+DEBUG = False
+DEBUG_FRAMES = 3000
 
 
 class SMDatasetBuilder:

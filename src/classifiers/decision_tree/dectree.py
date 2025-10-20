@@ -40,7 +40,7 @@ class SMDecisionTree(SMClassifier):
 
             self._comp_thresholds(i, S, M)
 
-            if DEBUG:
+            if False:
                 debug_plot(self, i, S, M)
                 #break
 

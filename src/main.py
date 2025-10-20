@@ -18,8 +18,6 @@ from classifiers import (
     SMDecisionTree
 )
 
-DEBUG = True
-DEBUG_SAMP_MIN = 3000
 
 def main():
     d_builder: SMDatasetBuilder = SMDatasetBuilder()
