@@ -32,14 +32,14 @@ class SMDataLoader:
         def _load_and_resample(file_path: Path) -> np.ndarray:
             return lb.load(file_path, sr=self._sr)[0] # mono
 
-        df: pd.DataFrame = pd.read_csv(self._path / Path('reference.csv'))
-        df: pd.DataFrame = df[df['file'].str.startswith(
+        df = pd.read_csv(self._path / Path('reference.csv'))
+        df = df[df['file'].str.startswith(
             tuple(self._prefixes['train' if train else 'test'])
         )]
 
-        result: list[tuple[list[int], list[np.ndarray]]] = []
+        result = []
         for _, row in tqdm(df.iterrows(), desc=f"Loading files [{'train' if train else 'test'}]"):
-            audio: np.ndarray = _load_and_resample(self._path / Path(row['file']))
+            audio = _load_and_resample(self._path / Path(row['file']))
             result.append((ast.literal_eval(row['reference']), self._framing(audio)))
 
         return result

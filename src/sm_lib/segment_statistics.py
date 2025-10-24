@@ -9,16 +9,16 @@ class SMSegmentStatistics:
         self.segment_frames: int= seg_frames
 
     def compute(self, feats: np.ndarray) -> np.ndarray:
-        n_frames: int = feats.shape[0]
+        n_frames = feats.shape[0]
         assert n_frames <= self.segment_frames
-        padd: int = self.segment_frames - n_frames
+        padd = self.segment_frames - n_frames
 
-        feats: np.ndarray = np.vstack((
+        feats = np.vstack((
             np.zeros((padd, feats.shape[1])),
             feats
         ))
 
-        diffs: np.ndarray = np.abs(np.diff(feats, axis=0))
+        diffs = np.abs(np.diff(feats, axis=0))
         return np.hstack([
             np.mean(feats, axis=0),
             np.std(feats, axis=0),
@@ -31,6 +31,6 @@ class SMSegmentStatistics:
 
 
     def _lster(self, energies: np.ndarray) -> float:
-        thr: float = float(np.mean(energies) / 3)
+        thr = float(np.mean(energies) / 3)
         return np.sum(energies < thr) / len(energies)
 

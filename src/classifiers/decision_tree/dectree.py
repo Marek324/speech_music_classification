@@ -4,6 +4,7 @@
 
 import numpy as np
 from scipy.stats import gaussian_kde
+from scipy.optimize import brentq
 
 from ..sm_classifier import SMClassifier
 from sm_lib import SMDataset
@@ -15,15 +16,16 @@ if DEBUG: import matplotlib.pyplot as plt # noqa: E701
 
 class SMDecisionTree(SMClassifier):
     def __init__(self):
-        self.speech_pdfs = {} # {feat_i: pdf}
-        self.music_pdfs = {}
-        self.thresholds = {} # {feat_i: {'ex_speech' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
-        self.top_features = {
+        self.speech_pdfs: dict[int, gaussian_kde] = {} # {feat_i: pdf}
+        self.music_pdfs: dict[int, gaussian_kde] = {}
+        # {feat_i: {'ex_speech' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
+        self.thresholds: dict[int, dict[str, dict[str, float|dict[str, float]]]] = {} 
+        self.top_features: dict[str, list[int]] = {
             'ex_speech': [], 'ex_music':  [],
             'high_prob_speech': [], 'high_prob_music': [],
             'separation': []
         }
-        self.n_top_feat = 5
+        self.n_top_feat: int = 5
 
 
     def fit(self, X: SMDataset):
@@ -47,12 +49,11 @@ class SMDecisionTree(SMClassifier):
         self._select_features(X)
         #self._select_features_separation(X_speech, X_music)
 
-        # remove not selected thresholds
         if DEBUG: debug_print(self) # noqa: E701
 
-    def predict(self) -> int:
+    def predict(self, X: np.ndarray) -> int:
         pass
-        return 0
+        return 1
 
 
     def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
@@ -63,7 +64,7 @@ class SMDecisionTree(SMClassifier):
             s_ex = np.min(S[S > np.max(M)], initial=np.max(M))
             m_ex = np.max(M[M < np.min(S)], initial=np.min(S))
 
-        x_range = np.linspace(
+        x_range: np.ndarray = np.linspace(
             min(S.min(), M.min()),
             max(S.max(), M.max()),
             1000
@@ -77,7 +78,6 @@ class SMDecisionTree(SMClassifier):
         s_hprob = x_range[np.argmax(d_pdf_diff)]
         m_hprob = x_range[np.argmin(d_pdf_diff)]
 
-        from scipy.optimize import brentq
         def pdf_diff(x): return self.speech_pdfs[i](x) - self.music_pdfs[i](x)
         sep = brentq(pdf_diff, min(s_hprob, m_hprob), max(s_hprob, m_hprob))
 
