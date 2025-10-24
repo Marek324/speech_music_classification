@@ -25,7 +25,7 @@ from .mfcc import (
 
 
 class SMFeatureExtractor:
-    def __init__(self, sr: int, n_fft:int = 512):
+    def __init__(self, sr: int, n_fft:int = 1024):
         self.SAMPLE_RATE = sr # import from default in caller
         self.N_FFT = n_fft
 

@@ -25,10 +25,11 @@ def main():
     d_builder = SMDatasetBuilder()
 
     train_data = d_builder.build(train=True)
-    classifier = SMDecisionTree().fit(train_data) # noqa: F841
+    classifier = SMDecisionTree()
+    classifier.fit(train_data)
 
     test_data = d_builder.build(train=False)
-    evaluate(classifier, test_data)
+    print(evaluate(classifier, test_data))
 
 def evaluate(clf: SMClassifier, data: SMDataset) -> float:
     correct: int = 0 
