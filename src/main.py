@@ -16,6 +16,7 @@ from sm_lib import (
 )
 
 from classifiers import (
+    SMClassifier,
     SMDecisionTree
 )
 
@@ -29,12 +30,12 @@ def main():
     test_data = d_builder.build(train=False)
     evaluate(classifier, test_data)
 
-def evaluate(clf: SMDecisionTree, data: SMDataset) -> float:
+def evaluate(clf: SMClassifier, data: SMDataset) -> float:
     correct: int = 0 
     total: int = data.xs.shape[0]
 
-    for sample, t in tqdm(zip(data.xs, data.targets), desc='Evaluating'):
-        if clf.predict(sample) == t:
+    for frame, t in tqdm(zip(data.xs, data.targets), desc='Evaluating'):
+        if clf.predict(frame) == t:
             correct += 1
 
     return correct / total

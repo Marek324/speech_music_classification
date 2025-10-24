@@ -25,13 +25,12 @@ from .mfcc import (
 
 
 class SMFeatureExtractor:
-    def __init__(self, sr: int, n_fft:int = 1024):
+    def __init__(self, sr: int, n_fft:int = 512):
         self.SAMPLE_RATE = sr # import from default in caller
         self.N_FFT = n_fft
 
         self.last_frame = None
         self.last_mfcc = None
-        print("SMFeatureExtractor created")
 
 
     def extract(self, frame: np.ndarray) -> np.ndarray:
