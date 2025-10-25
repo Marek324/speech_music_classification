@@ -4,10 +4,10 @@
 
 import numpy as np
 from scipy.stats import gaussian_kde
-from scipy.optimize import brentq
 
 from ..sm_classifier import SMClassifier
 from sm_lib import SMDataset
+from .threshold_computation import comp_thresholds
 
 
 class SMDecisionTree(SMClassifier):
@@ -36,80 +36,22 @@ class SMDecisionTree(SMClassifier):
             self.speech_pdfs[i] = gaussian_kde(S)
             self.music_pdfs[i] = gaussian_kde(M)
 
-            self._comp_thresholds(i, S, M)
-
-            if False:
-                debug_plot(self, i, S, M)
-                #break
+            comp_thresholds(self, i, S, M)
 
         self._select_features(X)
         #self._select_features_separation(X_speech, X_music)
 
 
     def predict(self, X: np.ndarray) -> int:
-        pass
+        # duplicate code from frame_labeling.py:60
+        E = np.sum(X**2)
+        if E < 0.2: # silence
+            return 2
+
+
+
+
         return 1
-
-
-    def _comp_thresholds(self, i: int, S: np.ndarray, M: np.ndarray):
-        if np.mean(S) < np.mean(M):
-            s_ex = np.max(S[S < np.min(M)], initial=np.min(M))
-            m_ex = np.min(M[M > np.max(S)], initial=np.max(S))
-        else:
-            s_ex = np.min(S[S > np.max(M)], initial=np.max(M))
-            m_ex = np.max(M[M < np.min(S)], initial=np.min(S))
-
-        x_range: np.ndarray = np.linspace(
-            min(S.min(), M.min()),
-            max(S.max(), M.max()),
-            1000
-        )
-
-        # d - discrete
-        d_pdf_s = self.speech_pdfs[i](x_range)
-        d_pdf_m = self.music_pdfs[i](x_range)
-        d_pdf_diff = d_pdf_s - d_pdf_m
-
-        s_hprob = x_range[np.argmax(d_pdf_diff)]
-        m_hprob = x_range[np.argmin(d_pdf_diff)]
-
-        def pdf_diff(x): return self.speech_pdfs[i](x) - self.music_pdfs[i](x)
-        sep = brentq(pdf_diff, min(s_hprob, m_hprob), max(s_hprob, m_hprob))
-
-        self.thresholds[i] = {
-            'ex_speech':        { 'thr': s_ex, 'metrics': {} },
-            'ex_music':         { 'thr': m_ex, 'metrics': {} },
-            'high_prob_speech': { 'thr': s_hprob, 'metrics': {} },
-            'high_prob_music':  { 'thr': m_hprob, 'metrics': {} },
-            'separation':       { 'thr': sep }
-        }
-
-        self._comp_thr_metrics(i, S, M)
-
-
-    def _comp_thr_metrics(self, i: int, S: np.ndarray, M: np.ndarray):
-        for key, data in self.thresholds[i].items():
-            if key == 'separation':
-                continue
-
-            if 'speech' in key:
-                target, opp = S, M
-            else:
-                target, opp = M, S
-
-            thr = data['thr']
-
-            if np.mean(target) > np.mean(opp):
-                inc = np.sum(target > thr)
-                err = np.sum(opp > thr)
-            else:
-                inc = np.sum(target < thr)
-                err = np.sum(opp < thr)
-
-            inc = inc * 100 / len(target)
-            err = err * 100 / len(opp)
-
-            data['metrics'] = { 'I': inc, 'Er': err }
 
 
     def _select_features(self, X: SMDataset):
