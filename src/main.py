@@ -3,6 +3,7 @@
 
 import sys
 from tqdm import tqdm
+import warnings
 
 if "-h" in sys.argv or "--help" in sys.argv:
     # TODO: implement help message
@@ -19,6 +20,8 @@ from classifiers import (
     SMClassifier,
     SMDecisionTree
 )
+
+warnings.filterwarnings('ignore', message='n_fft=.* is too large for input signal of length=.*')
 
 
 def main():
