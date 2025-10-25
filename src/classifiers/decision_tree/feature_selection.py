@@ -4,12 +4,21 @@
 
 import numpy as np
 
-from .dectree import SMDecisionTree
 from sm_lib import SMDataset
 
 
-def select_features(dectree: SMDecisionTree, X: SMDataset):
-    for thr in ['ex_speech', 'ex_music', 'high_prob_speech', 'high_prob_music', 'separation']:
+def select_features(
+    X: SMDataset,
+    thrs: dict[int, dict[str, dict[str, float|dict[str, float]]]],
+    n_top: int
+) -> dict[str, list[int]]:
+    top_features: dict[str, list[int]] = {
+            'ex_speech': [], 'ex_music':  [],
+            'high_prob_speech': [], 'high_prob_music': [],
+            'separation': []
+        }
+
+    for thr in top_features:
         C: list[float] = []
         if 'separation':
             C = [ (np.mean(X.speech[:, i]) - np.mean(X.music[:, i]))**2 /\
@@ -17,12 +26,14 @@ def select_features(dectree: SMDecisionTree, X: SMDataset):
                 for i in range(X.n_feat) ]
         else:
             if 'ex' in thr:
-                C = [ data[thr]['metrics']['I'] for _, data in dectree.thresholds.items() ]
+                C = [ data[thr]['metrics']['I'] for _, data in thrs.items() ]
             else:
                 C = [ m['I']**2 / (m['Er'] + 1e-15) 
-                        for _, data in dectree.thresholds.items() if (m := data[thr]['metrics']) ]
+                        for _, data in thrs.items() if (m := data[thr]['metrics']) ]
 
-        dectree.top_features[thr] = select(X, C, dectree.n_top_feat)
+        top_features[thr] = select(X, C, n_top)
+
+    return top_features
 
 
 def select(X: SMDataset, C: list[float], n_top: int) -> list[int]:
@@ -54,7 +65,7 @@ def sep_score(j: int, C: list[float], X: SMDataset, K: list[int]) -> float:
 # TODO: finish SFFS
 # not used now
 # remove separation from thr list and first if
-def select_features_separation(dectree: SMDecisionTree, X_speech: np.ndarray, X_music: np.ndarray):
+def select_features_separation(dectree: None, X_speech: np.ndarray, X_music: np.ndarray):
     def sel_crit(X_speech: np.ndarray, X_music: np.ndarray) -> float:
         X = np.vstack((X_speech, X_music))
         # cov expects data to be in transposed layout with rowvar=True (default)

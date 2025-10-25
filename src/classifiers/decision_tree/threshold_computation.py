@@ -4,17 +4,14 @@
 
 import numpy as np
 from scipy.optimize import brentq
+from scipy.stats import gaussian_kde
 
-from .dectree import SMDecisionTree
 
-
-def comp_thresholds(dectree: SMDecisionTree, i: int, S: np.ndarray, M: np.ndarray):
-    if np.mean(S) < np.mean(M):
-        s_ex = np.max(S[S < np.min(M)], initial=np.min(M))
-        m_ex = np.min(M[M > np.max(S)], initial=np.max(S))
-    else:
-        s_ex = np.min(S[S > np.max(M)], initial=np.max(M))
-        m_ex = np.max(M[M < np.min(S)], initial=np.min(S))
+def comp_thresholds(
+    i: int, 
+    S: np.ndarray, M: np.ndarray,
+    pdf_s: gaussian_kde, pdf_m: gaussian_kde
+) -> dict[str, dict[str, float|dict[str, float]]]:
 
     x_range: np.ndarray = np.linspace(
         min(S.min(), M.min()),
@@ -23,17 +20,25 @@ def comp_thresholds(dectree: SMDecisionTree, i: int, S: np.ndarray, M: np.ndarra
     )
 
     # d - discrete
-    d_pdf_s = dectree.speech_pdfs[i](x_range)
-    d_pdf_m = dectree.music_pdfs[i](x_range)
+    d_pdf_s = pdf_s(x_range)
+    d_pdf_m = pdf_m(x_range)
     d_pdf_diff = d_pdf_s - d_pdf_m
 
     s_hprob = x_range[np.argmax(d_pdf_diff)]
     m_hprob = x_range[np.argmin(d_pdf_diff)]
 
-    def pdf_diff(x): return dectree.speech_pdfs[i](x) - dectree.music_pdfs[i](x)
+    if s_hprob < m_hprob:
+        s_ex = np.max(S[S < np.min(M)], initial=np.min(M))
+        m_ex = np.min(M[M > np.max(S)], initial=np.max(S))
+    else:
+        s_ex = np.min(S[S > np.max(M)], initial=np.max(M))
+        m_ex = np.max(M[M < np.min(S)], initial=np.min(S))
+
+    def pdf_diff(x): return pdf_s(x) - pdf_m(x)
+
     sep = brentq(pdf_diff, min(s_hprob, m_hprob), max(s_hprob, m_hprob))
 
-    dectree.thresholds[i] = {
+    ret = {
         'ex_speech':        { 'thr': s_ex, 'metrics': {} },
         'ex_music':         { 'thr': m_ex, 'metrics': {} },
         'high_prob_speech': { 'thr': s_hprob, 'metrics': {} },
@@ -41,11 +46,33 @@ def comp_thresholds(dectree: SMDecisionTree, i: int, S: np.ndarray, M: np.ndarra
         'separation':       { 'thr': sep }
     }
 
-    metrics(dectree, i, S, M)
+    metrics(ret, i, S, M)
 
 
-def metrics(dectree: SMDecisionTree, i: int, S: np.ndarray, M: np.ndarray):
-    for key, data in dectree.thresholds[i].items():
+    # debug
+    xs = ret['ex_speech']['thr']
+    xm = ret['ex_music']['thr']
+    hs = ret['high_prob_speech']['thr']
+    hm = ret['high_prob_music']['thr']
+    s = ret['separation']['thr']
+
+    print(f"""
+{i}: 
+    s : {s},
+    hs: {xs}, hm: {hm}
+    xs: {xs}, xm: {xm}
+    OK: {'YES' if ( xs >= hs >= s >= hm >= xm or xs <= hs <= s <= hm <= xm ) else 'NO'}
+""")
+
+    return ret
+
+
+def metrics(
+    thrs: dict[str, dict[str, float|dict[str, float]]],
+    i: int, 
+    S: np.ndarray, M: np.ndarray
+):
+    for key, data in thrs.items():
         if key == 'separation':
             continue
 

@@ -7,7 +7,6 @@ from scipy.stats import gaussian_kde
 
 from ..sm_classifier import SMClassifier
 from sm_lib import SMDataset
-from .threshold_computation import comp_thresholds
 
 from .threshold_computation import comp_thresholds
 from .feature_selection import select_features
@@ -15,15 +14,11 @@ from .feature_selection import select_features
 
 class SMDecisionTree(SMClassifier):
     def __init__(self):
-        self.speech_pdfs: dict[int, gaussian_kde] = {} # {feat_i: pdf}
-        self.music_pdfs: dict[int, gaussian_kde] = {}
+        #self.speech_pdfs: dict[int, gaussian_kde] = {} # {feat_i: pdf}
+        #self.music_pdfs: dict[int, gaussian_kde] = {}
         # {feat_i: {'ex_speech' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
         self.thresholds: dict[int, dict[str, dict[str, float|dict[str, float]]]] = {} 
-        self.top_features: dict[str, list[int]] = {
-            'ex_speech': [], 'ex_music':  [],
-            'high_prob_speech': [], 'high_prob_music': [],
-            'separation': []
-        }
+        self.top_features: dict[str, list[int]] = {}
         self.n_top_feat: int = 5
 
 
@@ -36,12 +31,12 @@ class SMDecisionTree(SMClassifier):
             S = X.speech[:, i]
             M = X.music[:, i]
 
-            self.speech_pdfs[i] = gaussian_kde(S)
-            self.music_pdfs[i] = gaussian_kde(M)
+            pdf_s = gaussian_kde(S)
+            pdf_m = gaussian_kde(M)
 
-            comp_thresholds(self, i, S, M)
+            self. thresholds[i] = comp_thresholds(i, S, M, pdf_s, pdf_m)
 
-        select_features(self, X)
+        self.top_features = select_features(X, self.thresholds, self.n_top_feat)
 
 
     def predict(self, X: np.ndarray) -> int:
