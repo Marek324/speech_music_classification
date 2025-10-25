@@ -8,8 +8,9 @@ from scipy.stats import gaussian_kde
 from ..sm_classifier import SMClassifier
 from sm_lib import SMDataset
 
-from .threshold_computation import comp_thresholds
+from .threshold_computation import feature_thresholds
 from .feature_selection import select_features
+from .threshold_comparison import comp_thresholds
 
 
 class SMDecisionTree(SMClassifier):
@@ -34,7 +35,7 @@ class SMDecisionTree(SMClassifier):
             pdf_s = gaussian_kde(S)
             pdf_m = gaussian_kde(M)
 
-            self. thresholds[i] = comp_thresholds(i, S, M, pdf_s, pdf_m)
+            self.thresholds[i] = feature_thresholds(i, S, M, pdf_s, pdf_m)
 
         self.top_features = select_features(X, self.thresholds, self.n_top_feat)
 
@@ -45,7 +46,7 @@ class SMDecisionTree(SMClassifier):
         if E < 0.2: # silence
             return 2
 
-
+        comp_thresholds()
 
 
         return 1

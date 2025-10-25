@@ -7,7 +7,7 @@ from scipy.optimize import brentq
 from scipy.stats import gaussian_kde
 
 
-def comp_thresholds(
+def feature_thresholds(
     i: int, 
     S: np.ndarray, M: np.ndarray,
     pdf_s: gaussian_kde, pdf_m: gaussian_kde
