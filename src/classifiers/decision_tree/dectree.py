@@ -10,10 +10,6 @@ from ..sm_classifier import SMClassifier
 from sm_lib import SMDataset
 
 
-DEBUG = True
-if DEBUG: import matplotlib.pyplot as plt # noqa: E701
-
-
 class SMDecisionTree(SMClassifier):
     def __init__(self):
         self.speech_pdfs: dict[int, gaussian_kde] = {} # {feat_i: pdf}
@@ -49,7 +45,6 @@ class SMDecisionTree(SMClassifier):
         self._select_features(X)
         #self._select_features_separation(X_speech, X_music)
 
-        if DEBUG: debug_print(self) # noqa: E701
 
     def predict(self, X: np.ndarray) -> int:
         pass
