@@ -50,11 +50,11 @@ def comp_thresholds(
 
 
     # debug
-    xs = ret['ex_speech']['thr']
-    xm = ret['ex_music']['thr']
-    hs = ret['high_prob_speech']['thr']
-    hm = ret['high_prob_music']['thr']
-    s = ret['separation']['thr']
+    xs = float(ret['ex_speech']['thr'])
+    xm = float(ret['ex_music']['thr'])
+    hs = float(ret['high_prob_speech']['thr'])
+    hm = float(ret['high_prob_music']['thr'])
+    s = float(ret['separation']['thr'])
 
     print(f"""
 {i}: 
