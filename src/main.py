@@ -32,14 +32,14 @@ def main():
     classifier.fit(train_data)
 
     test_data = d_builder.build(train=False)
-    print("eval: ", evaluate(classifier, test_data))
+    print("eval: %0.4f", evaluate(classifier, test_data))
 
 def evaluate(clf: SMClassifier, data: SMDataset) -> float:
     correct: int = 0 
     total: int = data.xs.shape[0]
 
     for frame, t in tqdm(zip(data.xs, data.targets), desc='Evaluating'):
-        if clf.predict(frame) == t:
+        if clf.predict(frame) * t > 0:
             correct += 1
 
     return correct / total
