@@ -9,7 +9,7 @@ from sm_lib import SMDataset
 
 def select_features(
     X: SMDataset,
-    thrs: dict[int, dict[str, dict[str, float|dict[str, float]]]],
+    thresholds: dict[int, dict[str, dict[str, float|dict[str, float]]]],
     n_top: int
 ) -> dict[str, list[int]]:
     top_features: dict[str, list[int]] = {
@@ -25,11 +25,11 @@ def select_features(
                     (np.var(X.speech[:, i]) + np.var(X.music[:, i]))
                 for i in range(X.n_feat) ]
         else:
-            if 'ex' in thr:
-                C = [ data[thr]['metrics']['I'] for _, data in thrs.items() ]
+            if 'x' in thr:
+                C = [ data[thr]['metrics']['I'] for _, data in thresholds.items() ]
             else:
                 C = [ m['I']**2 / (m['Er'] + 1e-15) 
-                        for _, data in thrs.items() if (m := data[thr]['metrics']) ]
+                        for _, data in thresholds.items() if (m := data[thr]['metrics']) ]
 
         top_features[thr] = select(X, C, n_top)
 
