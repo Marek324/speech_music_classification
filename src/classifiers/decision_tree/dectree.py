@@ -5,7 +5,7 @@
 import numpy as np
 from scipy.stats import gaussian_kde
 
-from ..sm_classifier import SMClassifier
+from classifiers import SMClassifier
 from sm_lib import SMDataset
 
 from .threshold_computation import feature_thresholds
@@ -15,9 +15,7 @@ from .threshold_comparison import comp_thresholds
 
 class SMDecisionTree(SMClassifier):
     def __init__(self):
-        #self.speech_pdfs: dict[int, gaussian_kde] = {} # {feat_i: pdf}
-        #self.music_pdfs: dict[int, gaussian_kde] = {}
-        # {feat_i: {'ex_speech' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
+        # {feat_i: {'sx' : {'thr': float, 'metrics': {'I': float, 'Er': float}}}}
         self.thresholds: dict[int, dict[str, dict[str, float|dict[str, float]]]] = {} 
         self.top_features: dict[str, list[int]] = {}
         self.n_top_feat: int = 5
@@ -40,14 +38,25 @@ class SMDecisionTree(SMClassifier):
         self.top_features = select_features(X, self.thresholds, self.n_top_feat)
 
 
-    def predict(self, X: np.ndarray) -> int:
+    def predict(self, x: np.ndarray) -> int:
+        assert x.ndim == 1 and x.size > 0 # x = sample
         # duplicate code from frame_labeling.py:60
-        E = np.sum(X**2)
+        E = np.sum(x**2)
         if E < 0.2: # silence
             return 2
 
-        comp_thresholds()
+        comp: dict[str, int] = comp_thresholds(x, self.top_features, self.thresholds)
 
+        ALPHA = 0.80
 
-        return 1
+        if comp['sx'] > 0 and comp['mx'] == comp['mh'] == 0 \
+            or comp['sx'] > 1 and comp['mx'] == 0 \
+            or comp['sh'] > ALPHA * self.n_top_feat and comp['mh'] == 0:
+            return -1
+        elif comp['mx'] > 0 and comp['sx'] == comp['sh'] == 0 \
+            or comp['mx'] > 1 and comp['sx'] == 0 \
+            or comp['mh'] > ALPHA * self.n_top_feat and comp['sh'] == 0:
+            return 1
+        else:
+            return (comp['mp'] - comp['sp']) / self.n_top_feat
 

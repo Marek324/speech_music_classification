@@ -13,14 +13,14 @@ def select_features(
     n_top: int
 ) -> dict[str, list[int]]:
     top_features: dict[str, list[int]] = {
-            'ex_speech': [], 'ex_music':  [],
-            'high_prob_speech': [], 'high_prob_music': [],
-            'separation': []
+            'sx': [], 'mx':  [],
+            'hs': [], 'mh': [],
+            's': []
         }
 
     for thr in top_features:
         C: list[float] = []
-        if 'separation':
+        if 's':
             C = [ (np.mean(X.speech[:, i]) - np.mean(X.music[:, i]))**2 /\
                     (np.var(X.speech[:, i]) + np.var(X.music[:, i]))
                 for i in range(X.n_feat) ]
@@ -64,8 +64,8 @@ def sep_score(j: int, C: list[float], X: SMDataset, K: list[int]) -> float:
 
 # TODO: finish SFFS
 # not used now
-# remove separation from thr list and first if
-def select_features_separation(dectree: None, X_speech: np.ndarray, X_music: np.ndarray):
+# remove s from thr list and first if
+def select_features_s(dectree: None, X_speech: np.ndarray, X_music: np.ndarray):
     def sel_crit(X_speech: np.ndarray, X_music: np.ndarray) -> float:
         X = np.vstack((X_speech, X_music))
         # cov expects data to be in transposed layout with rowvar=True (default)

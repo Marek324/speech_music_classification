@@ -39,22 +39,22 @@ def feature_thresholds(
     sep = brentq(pdf_diff, min(s_hprob, m_hprob), max(s_hprob, m_hprob))
 
     ret = {
-        'ex_speech':        { 'thr': s_ex, 'metrics': {} },
-        'ex_music':         { 'thr': m_ex, 'metrics': {} },
-        'high_prob_speech': { 'thr': s_hprob, 'metrics': {} },
-        'high_prob_music':  { 'thr': m_hprob, 'metrics': {} },
-        'separation':       { 'thr': sep }
+        'sx':        { 'thr': s_ex, 'metrics': {} },
+        'mx':         { 'thr': m_ex, 'metrics': {} },
+        'hs': { 'thr': s_hprob, 'metrics': {} },
+        'mh':  { 'thr': m_hprob, 'metrics': {} },
+        's':       { 'thr': sep }
     }
 
     metrics(ret, i, S, M)
 
 
     # debug
-    xs = float(ret['ex_speech']['thr'])
-    xm = float(ret['ex_music']['thr'])
-    hs = float(ret['high_prob_speech']['thr'])
-    hm = float(ret['high_prob_music']['thr'])
-    s = float(ret['separation']['thr'])
+    xs = float(ret['sx']['thr'])
+    xm = float(ret['mx']['thr'])
+    hs = float(ret['hs']['thr'])
+    hm = float(ret['mh']['thr'])
+    s = float(ret['s']['thr'])
 
     print(f"""
 {i}: 
@@ -73,7 +73,7 @@ def metrics(
     S: np.ndarray, M: np.ndarray
 ):
     for key, data in thrs.items():
-        if key == 'separation':
+        if key == 's':
             continue
 
         if 'speech' in key:
