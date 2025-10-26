@@ -32,7 +32,7 @@ def main():
     classifier.fit(train_data)
 
     test_data = d_builder.build(train=False)
-    print(evaluate(classifier, test_data))
+    print("eval: ", evaluate(classifier, test_data))
 
 def evaluate(clf: SMClassifier, data: SMDataset) -> float:
     correct: int = 0 

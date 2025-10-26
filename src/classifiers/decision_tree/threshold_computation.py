@@ -50,13 +50,14 @@ def feature_thresholds(
 
 
     # debug
-    xs = float(ret['sx']['thr'])
-    xm = float(ret['mx']['thr'])
-    hs = float(ret['hs']['thr'])
-    hm = float(ret['mh']['thr'])
-    s = float(ret['s']['thr'])
+    if False:
+        xs = float(ret['sx']['thr'])
+        xm = float(ret['mx']['thr'])
+        hs = float(ret['hs']['thr'])
+        hm = float(ret['mh']['thr'])
+        s = float(ret['s']['thr'])
 
-    print(f"""
+        print(f"""
 {i}: 
     s : {s},
     hs: {xs}, hm: {hm}
