@@ -20,7 +20,7 @@ def select_features(
 
     for thr in top_features:
         C: list[float] = []
-        if 's':
+        if thr == 's':
             C = [ (np.mean(X.speech[:, i]) - np.mean(X.music[:, i]))**2 /\
                     (np.var(X.speech[:, i]) + np.var(X.music[:, i]))
                 for i in range(X.n_feat) ]
