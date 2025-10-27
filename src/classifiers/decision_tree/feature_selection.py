@@ -9,27 +9,34 @@ from sm_lib import SMDataset
 
 def select_features(
     X: SMDataset,
-    thresholds: dict[int, dict[str, dict[str, float|dict[str, float]]]],
-    n_top: int
+    thresholds: dict[int, dict[str, dict[str, float | dict[str, float]]]],
+    n_top: int,
 ) -> dict[str, list[int]]:
     top_features: dict[str, list[int]] = {
-            'sx': [], 'mx':  [],
-            'hs': [], 'mh': [],
-            's': []
-        }
+        "sx": [],
+        "mx": [],
+        "hs": [],
+        "mh": [],
+        "s": [],
+    }
 
     for thr in top_features:
         C: list[float] = []
-        if thr == 's':
-            C = [ (np.mean(X.speech[:, i]) - np.mean(X.music[:, i]))**2 /\
-                    (np.var(X.speech[:, i]) + np.var(X.music[:, i]))
-                for i in range(X.n_feat) ]
+        if thr == "s":
+            C = [
+                (np.mean(X.speech[:, i]) - np.mean(X.music[:, i])) ** 2
+                / (np.var(X.speech[:, i]) + np.var(X.music[:, i]))
+                for i in range(X.n_feat)
+            ]
         else:
-            if 'x' in thr:
-                C = [ data[thr]['metrics']['I'] for _, data in thresholds.items() ]
+            if "x" in thr:
+                C = [data[thr]["metrics"]["I"] for _, data in thresholds.items()]
             else:
-                C = [ m['I']**2 / (m['Er'] + 1e-15) 
-                        for _, data in thresholds.items() if (m := data[thr]['metrics']) ]
+                C = [
+                    m["I"] ** 2 / (m["Er"] + 1e-15)
+                    for _, data in thresholds.items()
+                    if (m := data[thr]["metrics"])
+                ]
 
         top_features[thr] = select(X, C, n_top)
 
@@ -49,17 +56,17 @@ def select(X: SMDataset, C: list[float], n_top: int) -> list[int]:
 
 def sep_score(j: int, C: list[float], X: SMDataset, K: list[int]) -> float:
     def correlation(Xi: np.ndarray, Xj: np.ndarray) -> float:
-        return np.dot(Xi, Xj) / np.sqrt(np.sum(Xi)**2 * np.sum(Xj)**2)
+        return np.dot(Xi, Xj) / np.sqrt(np.sum(Xi) ** 2 * np.sum(Xj) ** 2)
 
     if len(K) == 0:
         return C[j]
 
     ALPHA = BETA = 0.5
     sep_power = ALPHA * C[j]
-    other_correlation = np.sum([np.sum(np.abs(correlation(X.xs[:, j], X.xs[:, k]))) for k in K])
+    other_correlation = np.sum(
+        [np.sum(np.abs(correlation(X.xs[:, j], X.xs[:, k]))) for k in K]
+    )
     return sep_power - (BETA / len(K)) * other_correlation
-
-
 
 
 # TODO: finish SFFS

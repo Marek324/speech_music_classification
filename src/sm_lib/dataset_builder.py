@@ -24,27 +24,27 @@ class SMDatasetBuilder:
         self._seg_frames: int = int(np.floor((seg_len - _fl) / _fh) + 1)
 
         self._loader: SMDataLoader = SMDataLoader(
-            path=Path(defaults.DATASET_PATH).absolute(),
-            sr=_sr, fl=_fl, fh=_fh
+            path=Path(defaults.DATASET_PATH).absolute(), sr=_sr, fl=_fl, fh=_fh
         )
         print("SMDatasetBuilder created")
-
 
     def build(self, train: bool) -> SMDataset:
         recs: list[tuple[list[int], list[np.ndarray]]] = self._loader.load(train=train)
 
         process_fn = partial(
             self._process_recording,
-            sr = defaults.SAMPLE_RATE,
-            seg_frames = self._seg_frames
+            sr=defaults.SAMPLE_RATE,
+            seg_frames=self._seg_frames,
         )
 
         with Pool() as pool:
-            results = list(tqdm(
-                pool.imap(process_fn, recs),
-                total=len(recs),
-                desc='Building dataset'
-            ))
+            results = list(
+                tqdm(
+                    pool.imap(process_fn, recs),
+                    total=len(recs),
+                    desc="Building dataset",
+                )
+            )
 
         speech_list: list[np.ndarray] = []
         music_list: list[np.ndarray] = []
@@ -53,12 +53,11 @@ class SMDatasetBuilder:
             speech_list.extend(speech_feats)
             music_list.extend(music_feats)
 
-        return SMDataset(
-            X_speech = np.vstack(speech_list),
-            X_music = np.vstack(music_list)
-        )
+        return SMDataset(X_speech=np.vstack(speech_list), X_music=np.vstack(music_list))
 
-    def _process_recording(self, rec: np.ndarray, sr: int, seg_frames: int) -> tuple[list[np.ndarray], list[np.ndarray]]:
+    def _process_recording(
+        self, rec: np.ndarray, sr: int, seg_frames: int
+    ) -> tuple[list[np.ndarray], list[np.ndarray]]:
         ex = SMFeatureExtractor(sr)
         st = SMSegmentStatistics(seg_frames)
 
@@ -71,18 +70,16 @@ class SMDatasetBuilder:
             feats = ex.extract(frame)
             win.append(feats)
 
-            if ref_c == 2: # silence
+            if ref_c == 2:  # silence
                 continue
 
             stats = st.compute(np.array(list(win)))
             feats = np.hstack((feats, stats))
 
             match ref_c:
-                case -1: # speech
+                case -1:  # speech
                     speech_list.append(feats)
-                case 1: # music
+                case 1:  # music
                     music_list.append(feats)
 
         return speech_list, music_list
-
-

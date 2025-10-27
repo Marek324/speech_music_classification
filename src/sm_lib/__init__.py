@@ -12,5 +12,5 @@ __all__ = [
     "SMDataLoader",
     "SMDataset",
     "SMSegmentStatistics",
-    "SMDatasetBuilder"
+    "SMDatasetBuilder",
 ]

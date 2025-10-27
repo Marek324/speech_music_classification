@@ -5,6 +5,7 @@ from abc import ABC, abstractmethod
 import numpy as np
 from sm_lib import SMDataset
 
+
 class SMClassifier(ABC):
     @abstractmethod
     def fit(self, X: SMDataset):
@@ -13,4 +14,3 @@ class SMClassifier(ABC):
     @abstractmethod
     def predict(self, X: np.ndarray) -> int:
         pass
-

@@ -3,5 +3,4 @@
 
 from .extractor import SMFeatureExtractor
 
-__all__ = ['SMFeatureExtractor']
-
+__all__ = ["SMFeatureExtractor"]
