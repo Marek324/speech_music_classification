@@ -1,4 +1,8 @@
 dataset/
-test*.*
-__pycache__/
 .env
+
+debug/
+debug*.*
+test*.*
+
+__pycache__/
