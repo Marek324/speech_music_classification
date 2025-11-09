@@ -29,14 +29,15 @@ def select_features(
                 for i in range(X.n_feat)
             ]
         else:
-            if "x" in thr:
-                C = [data[thr]["metrics"]["I"] for _, data in thresholds.items()]
-            else:
-                C = [
-                    m["I"] ** 2 / (m["Er"] + 1e-15)
-                    for _, data in thresholds.items()
-                    if (m := data[thr]["metrics"])
-                ]
+            for _, data in thresholds.items():
+                metrics = data.get(thr, {}).get("metrics")
+                if not metrics:
+                    continue
+
+                if "x" in thr:
+                    C.append(metrics["I"])
+                else:
+                    C.append(metrics["I"] ** 2 / (metrics["Er"] + 1e-15))
 
         top_features[thr] = select(X, C, n_top)
 

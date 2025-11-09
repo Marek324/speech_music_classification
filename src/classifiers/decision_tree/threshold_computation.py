@@ -9,7 +9,7 @@ from scipy.stats import gaussian_kde
 
 def feature_thresholds(
     i: int, S: np.ndarray, M: np.ndarray, pdf_s: gaussian_kde, pdf_m: gaussian_kde
-) -> dict[str, dict[str, float | dict[str, float]]]:
+) -> dict[str, dict[str, float | bool | dict[str, float]]]:
     x_range: np.ndarray = np.linspace(
         min(S.min(), M.min()), max(S.max(), M.max()), 1000
     )
@@ -22,12 +22,16 @@ def feature_thresholds(
     s_hprob = x_range[np.argmax(d_pdf_diff)]
     m_hprob = x_range[np.argmin(d_pdf_diff)]
 
+    dir_max: bool = True
     if s_hprob < m_hprob:
-        s_ex = np.max(S[S < np.min(M)], initial=np.min(M))
-        m_ex = np.min(M[M > np.max(S)], initial=np.max(S))
-    else:
+        dir_max = False
+
+    if dir_max:
         s_ex = np.min(S[S > np.max(M)], initial=np.max(M))
         m_ex = np.max(M[M < np.min(S)], initial=np.min(S))
+    else:
+        s_ex = np.max(S[S < np.min(M)], initial=np.min(M))
+        m_ex = np.min(M[M > np.max(S)], initial=np.max(S))
 
     def pdf_diff(x):
         return pdf_s(x) - pdf_m(x)
@@ -35,11 +39,11 @@ def feature_thresholds(
     sep = brentq(pdf_diff, min(s_hprob, m_hprob), max(s_hprob, m_hprob))
 
     ret = {
-        "sx": {"thr": s_ex, "metrics": {}},
-        "mx": {"thr": m_ex, "metrics": {}},
-        "hs": {"thr": s_hprob, "metrics": {}},
-        "mh": {"thr": m_hprob, "metrics": {}},
-        "s": {"thr": sep},
+        "sx": {"thr": s_ex, "dir_max": dir_max, "metrics": {}},
+        "mx": {"thr": m_ex, "dir_max": not dir_max, "metrics": {}},
+        "hs": {"thr": s_hprob, "dir_max": dir_max, "metrics": {}},
+        "mh": {"thr": m_hprob, "dir_max": not dir_max, "metrics": {}},
+        "s": {"thr": sep, "dir_max": dir_max},
     }
 
     metrics(ret, i, S, M)
@@ -64,7 +68,7 @@ def feature_thresholds(
 
 
 def metrics(
-    thrs: dict[str, dict[str, float | dict[str, float]]],
+    thrs: dict[str, dict[str, float | bool | dict[str, float]]],
     i: int,
     S: np.ndarray,
     M: np.ndarray,
@@ -73,14 +77,14 @@ def metrics(
         if key == "s":
             continue
 
-        if "speech" in key:
+        if "s" in key:  # speech
             target, opp = S, M
         else:
             target, opp = M, S
 
         thr = data["thr"]
 
-        if np.mean(target) > np.mean(opp):
+        if data["dir_max"]:
             inc = np.sum(target > thr)
             err = np.sum(opp > thr)
         else:
