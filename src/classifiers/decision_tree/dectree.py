@@ -62,4 +62,4 @@ class SMDecisionTree(SMClassifier):
         ):
             return 1
         else:
-            return (comp["mp"] - comp["sp"]) / self.n_top_feat
+            return (comp["ms"] - comp["ss"]) / self.n_top_feat
