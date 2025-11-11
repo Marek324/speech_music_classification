@@ -6,6 +6,7 @@ readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "brotli==1.1.0",
+    "datasets>=4.4.1",
     "h2==4.3.0",
     "importlib-metadata==8.7.0",
     "librosa==0.11.0",
