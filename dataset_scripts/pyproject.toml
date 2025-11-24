@@ -1,0 +1,23 @@
+[project]
+name = "dataset"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "boto3>=1.40.74",
+    "datasets>=4.4.1",
+    "dotenv>=0.9.9",
+    "jsonlines>=4.0.0",
+    "librosa>=0.11.0",
+    "numpy>=2.3.4",
+    "pyarrow>=22.0.0",
+    "pydub>=0.25.1",
+    "ruff>=0.14.4",
+    "silero-vad>=6.2.0",
+    "soundfile>=0.13.1",
+    "torchaudio>=2.9.0",
+    "tqdm>=4.67.1",
+    "ty>=0.0.1a26",
+    "webrtcvad>=2.0.10",
+]
