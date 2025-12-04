@@ -12,7 +12,7 @@ from .dataset import SMDataset
 from .data_loader import SMDataLoader
 from .segment_statistics import SMSegmentStatistics
 from .feature_extractor import SMFeatureExtractor
-import defaults
+import o.defaults as defaults
 
 
 class SMDatasetBuilder:
