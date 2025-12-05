@@ -296,7 +296,7 @@ def main():
         "dataset", ds_link="Marek324/speech-music-classification", ds_split="train"
     )
     ds = FrameDataset(ih)
-    print(ds.summary)
+    print(ds.summary())
 
 
 if __name__ == "__main__":
