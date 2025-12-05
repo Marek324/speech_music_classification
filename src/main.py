@@ -17,7 +17,7 @@ def frame_label(
     anns: List[Dict[str, Optional[Dict[str, int]]]], f_start: int, f_end: int
 ):
     lbl_val = {"speech": -1, "music": 1, "inactive": 2}
-    overlap = {-1: 0, 1: 0, 2: 0}
+    overlap = {"speech": 0, "music": 0, "inactive": 0}
 
     for ann in anns:
         for lbl in ["speech", "music", "inactive"]:
@@ -300,5 +300,6 @@ def main():
     ds = FrameDataset(ih)
     print(ds.summary)
 
-if __name__=="__main__":
+
+if __name__ == "__main__":
     main()
