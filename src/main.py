@@ -172,7 +172,6 @@ class InputHandler:
         # metadata
         self.ds_item_class = item["class"]
         self.ds_item_subclass = item["subclass"]
-        print(item["labels"])
         self.ds_item_labels = item["labels"]
         self.frame_start = 0
 
@@ -200,9 +199,6 @@ class InputHandler:
 
         meta = None
         if self.mode == "dataset":
-            assert isinstance(
-                self.ds_item_labels, List[Dict[str, Optional[Dict[str, int]]]]
-            )
             meta = FrameMetadata(
                 label=frame_label(
                     self.ds_item_labels,
@@ -233,6 +229,7 @@ class FrameDataset:
         if input_handler.mode != "dataset":
             raise ValueError("FrameDataset requires an InputHandler in dataset mode.")
 
+        print("FrameDataset init")
         self.frames: List[FrameData] = []
 
         self.classes: Dict[int, List[FrameData]] = {
@@ -243,6 +240,7 @@ class FrameDataset:
 
         # consume stream
         for frame in input_handler:
+            print(frame)
             self._handle_frame(frame)
 
         self.length = len(self.frames)
@@ -301,3 +299,6 @@ def main():
     )
     ds = FrameDataset(ih)
     print(ds.summary)
+
+if __name__=="__main__":
+    main()
