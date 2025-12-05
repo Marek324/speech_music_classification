@@ -229,7 +229,6 @@ class FrameDataset:
         if input_handler.mode != "dataset":
             raise ValueError("FrameDataset requires an InputHandler in dataset mode.")
 
-        print("FrameDataset init")
         self.frames: List[FrameData] = []
 
         self.classes: Dict[int, List[FrameData]] = {
@@ -240,7 +239,6 @@ class FrameDataset:
 
         # consume stream
         for frame in input_handler:
-            print(frame)
             self._handle_frame(frame)
 
         self.length = len(self.frames)
