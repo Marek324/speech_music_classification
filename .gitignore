@@ -7,3 +7,6 @@ test*.*
 
 __pycache__/
 uv.lock
+
+*.log
+job.sh.*
