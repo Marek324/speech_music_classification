@@ -1,0 +1,42 @@
+defaults:
+  sample_rate: 16000
+  frame_length_ms: 20
+  hop_length_ms: 10
+  max_buffer_ms: 300
+  channels: 1
+  n_fft: 1024
+
+models:
+  decision_tree:
+    aggregate: true
+    selector:
+      enable: true
+
+    features:
+      mfcc:
+        enable: true
+        n_mfcc: 10
+      mfcc_diff_norm:
+        enable: true
+        n_mfcc: 10
+      st_energy:
+        enable: true
+      zcr:
+        enable: true
+      band_energy_ratio:
+        enable: true
+        lband:
+          lbound: 0
+          ubound: 70
+        uband:
+          lbound: 8000
+          ubound: 16000
+      s_rolloff_point:
+        enable: true
+        thr: 0.85
+      s_centroid:
+        enable: true
+      s_spread:
+        enable: true
+      s_flux:
+        enable: true

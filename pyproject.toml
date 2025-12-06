@@ -15,6 +15,7 @@ dependencies = [
     "pandas==2.3.2",
     "pip==25.2",
     "pysocks==1.7.1",
+    "pyyaml>=6.0.3",
     "ruff==0.13.0",
     "setuptools==80.9.0",
     "torchcodec>=0.8.1",
