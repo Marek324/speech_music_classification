@@ -9,6 +9,7 @@ from feat_extractor import FeatExtractor
 from frame_dataset import FrameDataset
 from input_handler import InputHandler
 from modelclass import ModelClass
+from evaluator import Evaluator
 
 
 def main():
@@ -19,6 +20,14 @@ def main():
     # if cfg.fsel is not None:
     #     fe = FeatSelector(fe)
 
+    match cfg.model.name:
+        case "decision_tree":
+            input = FrameDataset(input)
+            print(input.summary())
+            model = DecisionTree()
+
+    assert isinstance(model, ModelClass)
+
     match cfg.mode:  # will need to rethink validation in InputHandler
         case "train":
             input = InputHandler(
@@ -28,23 +37,20 @@ def main():
                 ds_split="train",
             )
         case "eval":
-            input = InputHandler(
-                "dataset",
-                fe,
-                ds_link="Marek324/speech-music-classification",
-                ds_split="test",
+            input: FrameDataset = FrameDataset(
+                InputHandler(
+                    "dataset",
+                    fe,
+                    ds_link="Marek324/speech-music-classification",
+                    ds_split="test",
+                )
             )
+            evaluator = Evaluator(input)
+            evaluator.eval(model)
         case "mic":
             input = InputHandler("microphone", fe)
 
-    match cfg.model.name:
-        case "decision_tree":
-            input = FrameDataset(input)
-            print(input.summary())
-            model = DecisionTree()
-
     # input either iterabledataset or framedataset based on model
-    assert isinstance(model, ModelClass)
 
     # model.fit
 
