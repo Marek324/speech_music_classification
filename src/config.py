@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 from dataclasses import dataclass, fields, is_dataclass
-from typing import Optional, Any, Type, TypeVar, Dict
+from typing import Optional, Any, Type, TypeVar, Dict, get_args, get_origin
 import sys
 import yaml
 
@@ -80,20 +80,66 @@ class ModelConfig:
     aggregate: bool
 
 
-def from_dict(cls: Type[T], data: Any) -> T:
-    """
-    Recursively load a nested dict into a dataclass.
-    """
-    if not is_dataclass(cls):
-        return data  # base case
+FEAT_FIELD_TYPES = {
+    "mfcc": MFCCConfig,
+    "mfcc_diff_norm": MFCCConfig,
+    "st_energy": FeatureConfig,
+    "zcr": FeatureConfig,
+    "band_energy_ratio": BandEnergyRatioConfig,
+    "ac_coeff": AutoCorrConfig,
+    "s_rolloff_point": SpecRolloffPointConfig,
+    "s_centroid": FeatureConfig,
+    "s_spread": FeatureConfig,
+    "s_flux": FeatureConfig,
+    "lband": BandConfig,
+    "uband": BandConfig,
+}
 
-    field_types = {f.name: f.type for f in fields(cls)}
+
+def from_dict(cls: Type[T], data: Any) -> T:
+    if not is_dataclass(cls):
+        return data
+
     init_values = {}
-    for name, typ in field_types.items():
-        if name in data:
-            value = data[name]
-            init_values[name] = from_dict(typ, value)  # type: ignore error[invalid-argument-type]
+    for f in fields(cls):
+        name = f.name
+        if name not in data:
+            continue
+        value = data[name]
+
+        # Use concrete type if available (for FeatureConfig subclasses)
+        field_type = FEAT_FIELD_TYPES.get(name, f.type)
+
+        # handle Optional
+        origin = get_origin(field_type)
+        if origin is Optional:
+            field_type = get_args(field_type)[0]
+
+        # recurse
+        if is_dataclass(field_type):
+            value = from_dict(field_type, value)
+
+        init_values[name] = value
+
     return cls(**init_values)
+
+
+#
+# def from_dict(cls: Type[T], data: Any) -> T:
+#     """
+#     Recursively load a nested dict into a dataclass.
+#     """
+#     if not is_dataclass(cls):
+#         return data  # base case
+#
+#     field_types = {f.name: f.type for f in fields(cls)}
+#     init_values = {}
+#     for name, typ in field_types.items():
+#         if name in data:
+#             value = data[name]
+#             init_values[name] = from_dict(typ, value)  # type: ignore error[invalid-argument-type]
+#     return cls(**init_values)
+#
 
 
 class Config:
