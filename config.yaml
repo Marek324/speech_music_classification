@@ -31,6 +31,10 @@ models:
         uband:
           lbound: 8000
           ubound: 16000
+      ac_coeff:
+        enable: true
+        min_lag_ms: 3
+        max_lag_ms: 16
       s_rolloff_point:
         enable: true
         thr: 0.85

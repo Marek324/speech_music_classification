@@ -5,6 +5,10 @@ from common import FrameData
 
 class FrameDataset:
     def __init__(self, input_handler):
+        """
+        frames:  List[FrameData]
+        classes: Dict[int, List[FrameData]]
+        """
         if input_handler.mode != "dataset":
             raise ValueError("FrameDataset requires an InputHandler in dataset mode.")
 
@@ -20,8 +24,6 @@ class FrameDataset:
         for frame in input_handler:
             self._handle_frame(frame)
 
-        self.length = len(self.frames)
-
     def _handle_frame(self, frame: FrameData):
         self.frames.append(frame)
 
@@ -33,7 +35,7 @@ class FrameDataset:
         self.classes[lbl].append(frame)
 
     def __len__(self):
-        return self.length
+        return len(self.frames)
 
     def __getitem__(self, index) -> FrameData:
         return self.frames[index]

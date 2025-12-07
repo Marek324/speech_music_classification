@@ -43,6 +43,12 @@ class BandEnergyRatioConfig(FeatureConfig):
 
 
 @dataclass
+class AutoCorrConfig(FeatureConfig):
+    min_lag_ms: int
+    max_lag_ms: int
+
+
+@dataclass
 class SpecRolloffPointConfig(FeatureConfig):
     thr: float = 0.85
 
@@ -55,6 +61,7 @@ class FeatExtractorConfig:
     st_energy: FeatureConfig
     zcr: FeatureConfig
     band_energy_ratio: BandEnergyRatioConfig
+    ac_coeff: AutoCorrConfig
     s_rolloff_point: SpecRolloffPointConfig
     s_centroid: FeatureConfig
     s_spread: FeatureConfig
