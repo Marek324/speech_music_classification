@@ -20,7 +20,6 @@ class FeatExtractor:
         self.last_frame: Optional[np.ndarray]
         if self.cfg.mfcc.enable:
             self.last_mfcc: Optional[np.ndarray]
-        pass
 
     def extract(self, frame: np.ndarray) -> np.ndarray:
         assert isinstance(self.cfg, config.FeatExtractorConfig)
@@ -119,7 +118,7 @@ class FeatExtractor:
         )
 
     def _sf(self, frame: np.ndarray) -> float:
-        last_frame = self.last_frame
+        last_frame = getattr(self, "last_frame", None)
         if last_frame is None:
             return 0
 
@@ -137,7 +136,7 @@ class FeatExtractor:
         return np.array([])
 
     def _mfcc_diff_norm(self, mfccs: np.ndarray) -> float:
-        last_mfccs = self.last_mfcc
+        last_mfccs = getattr(self, "last_mfcc", None)
         if last_mfccs is None:
             return 0
 
