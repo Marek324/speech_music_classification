@@ -14,7 +14,7 @@ import config
 class FeatExtractor:
     def __init__(self):
         cfg = config.get_config()
-        assert isinstance(self.cfg, config.Config)
+        assert isinstance(cfg, config.Config)
         self.cfg = cfg.fext
         self.defaults = cfg.defaults
         self.last_frame: Optional[np.ndarray]

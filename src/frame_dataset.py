@@ -1,3 +1,6 @@
+# frame_dataset.py
+# Marek Hric
+
 from typing import Dict, List
 
 import numpy as np
