@@ -1,6 +1,7 @@
 from dataclasses import dataclass
+from typing import Dict, List, Optional
+
 import numpy as np
-from typing import Optional, Dict, List
 
 
 class EndOfDatasetException(Exception):

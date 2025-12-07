@@ -1,5 +1,7 @@
 from typing import Dict, List
+
 import numpy as np
+
 from common import FrameData
 
 
@@ -43,11 +45,11 @@ class FrameDataset:
     def get_all_audio(self) -> np.ndarray:
         return np.stack([f.audio for f in self.frames])
 
-    def get_all_labels(self) -> List[str]:
+    def get_all_labels(self) -> List[int]:
         labels = []
         for f in self.frames:
             if f.metadata is None:
-                labels.append("unknown")
+                labels.append(3)
             else:
                 labels.append(f.metadata.label)
         return labels

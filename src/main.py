@@ -2,10 +2,13 @@
 # Marek Hric
 
 import argparse
-from input_handler import InputHandler
-from frame_dataset import FrameDataset
-from feat_extractor import FeatExtractor
+
 import config
+from decisiontree import DecisionTree
+from feat_extractor import FeatExtractor
+from frame_dataset import FrameDataset
+from input_handler import InputHandler
+from modelclass import ModelClass
 
 
 def main():
@@ -38,9 +41,10 @@ def main():
         case "decision_tree":
             input = FrameDataset(input)
             print(input.summary())
-            # model = DecisionTree()
+            model = DecisionTree()
 
     # input either iterabledataset or framedataset based on model
+    assert isinstance(model, ModelClass)
 
     # model.fit
 
@@ -75,8 +79,11 @@ if __name__ == "__main__":
     )
     config.init_config(vars(argparser.parse_args()))
     cfg = config.get_config()
-    # print(cfg.model)
-    # print(cfg.fext)
-    # print(cfg.fsel)
+    print(cfg.model)
+    print(cfg.fext)
+    print(cfg.fsel)
 
-    # main(cfg)
+    main()
+
+    # TODO: train saves model on disk
+    # eval/run loads from disk, don't forget to check if exists
