@@ -5,4 +5,4 @@ cd $HOME_DIR
 source .venv/bin/activate
 module load ffmpeg
 
-uv run src/main.py "$@" > out.log 2> err.log
+uv run src/main.py train > out.log 2> err.log
