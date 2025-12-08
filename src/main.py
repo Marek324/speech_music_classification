@@ -22,8 +22,6 @@ def main():
 
     match cfg.model.name:
         case "decision_tree":
-            input = FrameDataset(input)
-            print(input.summary())
             model = DecisionTree()
 
     assert isinstance(model, ModelClass)
