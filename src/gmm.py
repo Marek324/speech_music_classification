@@ -1,19 +1,19 @@
-# decisiontree.py
+# gmm.py
 # Marek Hric
 
 
 import joblib
 import numpy as np
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.mixture import GaussianMixture
 
 from modelclass import ModelClass
 
 
-class DecisionTree(ModelClass):
+class GMM(ModelClass):
     name: str = "unnamed"
 
     def __init__(self, name: str):
-        self.tree = DecisionTreeClassifier()
+        self.tree = GaussianMixture()
         self.name = name
 
     def fit(self, X: np.ndarray, y: np.ndarray):

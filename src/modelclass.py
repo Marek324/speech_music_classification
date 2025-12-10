@@ -2,19 +2,37 @@
 # Marek Hric
 
 from abc import ABC, abstractmethod
-from typing import Union
 
 import numpy as np
 
-from frame_dataset import FrameDataset
-from input_handler import InputHandler
-
 
 class ModelClass(ABC):
+    name: str
+
     @abstractmethod
-    def fit(self, X: Union[InputHandler, FrameDataset]):
+    def fit(self, X: np.ndarray, y: np.ndarray):
         pass
 
     @abstractmethod
-    def predict(self, X: np.ndarray) -> int:
+    def predict(self, frame: np.ndarray) -> int:
+        pass
+
+    @abstractmethod
+    def predict_proba(self, frame: np.ndarray) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def predict_batch(self, X: np.ndarray) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
+        pass
+
+    @abstractmethod
+    def save(self):
+        pass
+
+    @abstractmethod
+    def load(self):
         pass

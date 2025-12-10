@@ -4,6 +4,7 @@
 from typing import Dict, List
 
 import numpy as np
+from tqdm import tqdm
 
 from common import FrameData
 
@@ -26,7 +27,7 @@ class FrameDataset:
         }
 
         # consume stream
-        for frame in input_handler:
+        for frame in tqdm(input_handler, desc="Aggregating input"):
             self._handle_frame(frame)
 
     def _handle_frame(self, frame: FrameData):
@@ -44,6 +45,12 @@ class FrameDataset:
 
     def __getitem__(self, index) -> FrameData:
         return self.frames[index]
+
+    def get_X(self) -> np.ndarray:
+        return np.stack([f.feats for f in self.frames])
+
+    def get_y(self) -> np.ndarray:
+        return np.stack([f.metadata.label for f in self.frames])
 
     def get_all_audio(self) -> np.ndarray:
         return np.stack([f.audio for f in self.frames])

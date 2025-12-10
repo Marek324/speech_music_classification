@@ -24,27 +24,50 @@ class FeatExtractor:
     def extract(self, frame: np.ndarray) -> np.ndarray:
         assert isinstance(self.cfg, config.FeatExtractorConfig)
         feats = []
+        mfccs = None
+        # DEBUG
+        feat_names = []
+
         if self.cfg.mfcc.enable:
             mfccs = self._mfcc(frame).flatten()
+            mfccs = np.nan_to_num(mfccs, nan=0.0, posinf=0.0, neginf=0.0)
+            feats.append(mfccs)
+            feat_names.append("mfcc")
             if self.cfg.mfcc_diff_norm.enable:
                 feats.append(self._mfcc_diff_norm(mfccs))
+                feat_names.append("mfcc_diff_norm")
 
         if self.cfg.st_energy.enable:
             feats.append(self._ste(frame))
+            feat_names.append("ste")
         if self.cfg.zcr.enable:
             feats.append(self._zcr(frame))
+            feat_names.append("zcr")
         if self.cfg.band_energy_ratio.enable:
             feats.append(self._ber(frame))
+            feat_names.append("ber")
         if self.cfg.ac_coeff.enable:
             feats.append(self._acc(frame))
+            feat_names.append("acc")
         if self.cfg.s_rolloff_point.enable:
             feats.append(self._srp(frame))
+            feat_names.append("srp")
         if self.cfg.s_centroid.enable:
             feats.append(self._sc(frame))
+            feat_names.append("sc")
         if self.cfg.s_flux.enable:
             feats.append(self._sf(frame))
+            feat_names.append("sf")
 
-        feat = np.hstack((mfccs, np.array(feats)))
+        # DEBUG: Check each feature before concatenation
+        # for i, (f, name) in enumerate(zip(feats, feat_names)):
+        #     if np.any(np.isinf(f)) or np.any(np.isnan(f)):
+        #         print(f"WARNING: Feature '{name}' contains inf/nan: {f}")
+        #     feats[i] = np.nan_to_num(f, nan=0.0, posinf=0.0, neginf=0.0)
+
+        feat = np.hstack(feats)
+        feat = np.nan_to_num(feat, nan=0.0, posinf=0.0, neginf=0.0)
+        feat /= np.linalg.norm(feat) + 1e-10
 
         self.last_frame = deepcopy(frame)
         if self.cfg.mfcc.enable:
@@ -52,7 +75,7 @@ class FeatExtractor:
         return feat
 
     def _ste(self, frame: np.ndarray) -> float:
-        return 10 * np.log10(1 / frame.shape[0] * np.sum(frame**2))
+        return 10 * np.log10(1 / frame.shape[0] * np.sum(frame**2) + 1e-10)
 
     def _zcr(self, frame: np.ndarray) -> float:
         count = 0
@@ -82,8 +105,11 @@ class FeatExtractor:
         dft = np.fft.fft(frame, n=self.defaults.n_fft)
         E1 = band_energy(dft, llb, lub)
         E2 = band_energy(dft, ulb, uub)
+        ratio = (E1 + 1e-10) / (E2 + 1e-10)
+        ratio = np.clip(ratio, 1e-10, 1e10)
+        result = 10 * np.log10(ratio)
 
-        return 10 * np.log10(E1 / E2) if E2 > 0 else np.inf
+        return 0.0 if np.isinf(result) or np.isnan(result) else float(result)
 
     def _acc(self, frame: np.ndarray) -> float:
         ac = correlate(frame, frame, mode="full")
@@ -104,11 +130,12 @@ class FeatExtractor:
         )
 
     def _sc(self, frame: np.ndarray) -> float:
-        return float(
+        value = float(
             libfeat.spectral_centroid(
                 y=frame, sr=self.defaults.sample_rate, n_fft=self.defaults.n_fft
             )[0, 0]
         )
+        return 0.0 if np.isnan(value) or np.isinf(value) else value
 
     def _ss(self, frame: np.ndarray) -> float:
         return float(
@@ -130,7 +157,7 @@ class FeatExtractor:
             y=frame,
             sr=self.defaults.sample_rate,
             n_mfcc=10,
-            hop_length=len(frame) + 1,
+            hop_length=self.defaults.hop_length,
             n_fft=self.defaults.n_fft,
         )
         return np.array([])
