@@ -2,6 +2,8 @@
 # Marek Hric
 
 
+import os
+
 import joblib
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
@@ -33,7 +35,13 @@ class DecisionTree(ModelClass):
         return np.array([])
 
     def save(self):
-        joblib.dump(self.tree, f"{self.name}")
+        modeldumppath = f"{os.path.dirname(__file__)}/../model_dump"
+        os.makedirs(f"{modeldumppath}/self.name", exist_ok=True)
+        fullpath = f"{modeldumppath}/{self.name}"
+        joblib.dump(self.tree, fullpath)
 
     def load(self):
-        self.tree = joblib.load(f"{self.name}")
+        modeldumppath = f"{os.path.dirname(__file__)}/../model_dump"
+        fullpath = f"{modeldumppath}/{self.name}"
+        os.path.exists(fullpath)
+        self.tree = joblib.load(fullpath)
