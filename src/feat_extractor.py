@@ -37,6 +37,8 @@ class FeatExtractor:
                 feats.append(self._mfcc_diff_norm(mfccs))
                 feat_names.append("mfcc_diff_norm")
 
+            self.last_mfcc = deepcopy(mfccs)
+
         if self.cfg.st_energy.enable:
             feats.append(self._ste(frame))
             feat_names.append("ste")
@@ -70,8 +72,6 @@ class FeatExtractor:
         feat /= np.linalg.norm(feat) + 1e-10
 
         self.last_frame = deepcopy(frame)
-        if self.cfg.mfcc.enable:
-            self.last_mfcc = deepcopy(mfccs)
         return feat
 
     def _ste(self, frame: np.ndarray) -> float:
