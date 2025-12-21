@@ -26,13 +26,13 @@ class DecisionTree(ModelClass):
         return self.tree.predict(frame)
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
-        return np.array([])
+        return self.tree.predict_proba(frame)
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
-        return np.array([])
+        return self.tree.predict(X)
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
-        return np.array([])
+        return self.tree.predict_proba(X)
 
     def save(self):
         modeldumppath = f"{os.path.dirname(__file__)}/../model_dump"
