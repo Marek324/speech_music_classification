@@ -36,7 +36,7 @@ class DecisionTree(ModelClass):
 
     def save(self):
         modeldumppath = f"{os.path.dirname(__file__)}/../model_dump"
-        os.makedirs(f"{modeldumppath}/self.name", exist_ok=True)
+        os.makedirs(f"{modeldumppath}", exist_ok=True)
         fullpath = f"{modeldumppath}/{self.name}"
         joblib.dump(self.tree, fullpath)
 
