@@ -54,7 +54,7 @@ class InputHandler:
             processed = self.dataset.map(
                 self._process_row,
                 desc="Extracting frames/features",
-                num_proc=16,
+                num_proc=30,
                 load_from_cache_file=False,
             )
 
