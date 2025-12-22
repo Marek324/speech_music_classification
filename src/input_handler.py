@@ -1,7 +1,7 @@
 from datasets import Dataset, load_dataset, Audio
 from typing import Optional, Dict, List
 import numpy as np
-from common import EndOfDatasetException, FrameData, FrameMetadata, frame_label
+from common import FrameData, FrameMetadata, frame_label
 from feat_extractor import FeatExtractor
 import config
 
@@ -60,22 +60,20 @@ class InputHandler:
 
             feats_all = []
             labels_all = []
+            subclasses_all = []
+
             for idx, row in enumerate(tqdm(processed, desc="Aggregating")):
                 row_feats = row["feats"]
                 row_labels = row["labels"]
-
-                # Validate each feature vector
-                # for i, feat in enumerate(row_feats):
-                #     if np.any(np.isinf(feat)) or np.any(np.isnan(feat)):
-                #         # print(f"BAD FEATURE at row {idx}, frame {i}: {feat}")
-                #         feat = np.nan_to_num(feat, nan=0.0, posinf=0.0, neginf=0.0)
-                #         row_feats[i] = feat
+                row_subclasses = row["subclasses"]
 
                 feats_all.extend(row_feats)
                 labels_all.extend(row_labels)
+                subclasses_all.extend(row_subclasses)
 
             self.X = np.asarray(feats_all, dtype=np.float32)
             self.y = np.asarray(labels_all)
+            self.subclasses = np.asarray(subclasses_all, dtype="U<15")
 
             # FINAL SAFETY CHECK
             self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
@@ -113,7 +111,7 @@ class InputHandler:
 
         return FrameData(frame, feats, meta)
 
-    def _process_row(self, row) -> Dict[str, List[np.ndarray] | List[int]]:
+    def _process_row(self, row) -> Dict[str, List[np.ndarray] | List[int] | List[str]]:
         audio = row["audio"].get_all_samples().data
         if hasattr(audio, "cpu"):
             audio.cpu()
@@ -125,6 +123,7 @@ class InputHandler:
 
         feats = []
         labels_list = []
+        subclasses = []
         frame_start = 0
 
         while len(audio) > self.frame_len:
@@ -141,14 +140,18 @@ class InputHandler:
 
             feats.append(f.feats)
             labels_list.append(f.metadata.label)
+            subclasses.append(f.metadata.subclass)
 
-        return {"feats": feats, "labels": labels_list}
+        return {"feats": feats, "labels": labels_list, "subclasses": subclasses}
 
     def getX(self):
         return self.X
 
     def getY(self):
         return self.y
+
+    def getSubclasses(self):
+        return self.subclasses
 
     #
     # def _extract_frame(self) -> np.ndarray:

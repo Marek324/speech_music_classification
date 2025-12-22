@@ -2,19 +2,16 @@
 # Marek Hric
 
 import argparse
-from concurrent.futures import ProcessPoolExecutor, as_completed
 
 import numpy as np
-from tqdm import tqdm
 
 import config
 from decisiontree import DecisionTree
 from evaluator import Evaluator
 from feat_extractor import FeatExtractor
-from frame_dataset import FrameDataset
+from gmm import GMM
 from input_handler import InputHandler
 from modelclass import ModelClass
-from gmm import GMM
 
 
 def train(model):
@@ -68,7 +65,7 @@ def train(model):
     model.save()
 
 
-def eval(model):
+def eval(model: ModelClass):
     model.load()
 
     fe = FeatExtractor()
@@ -79,27 +76,9 @@ def eval(model):
         ds_split="test",
     )
 
-    X = ih.getX()
-    y = ih.getY()
-
     evaluator = Evaluator()
-    results = evaluator.eval(model, X, y)
-
-    print("=== Evaluation Results ===")
-    print(f"Accuracy: {results['accuracy']:.4f}")
-
-    print("\nConfusion Matrix:")
-    print(results["confusion_matrix"])
-
-    print("\nClassification Report:")
-    print(results["classification_report"])
-
-    if results["log_loss"] is not None:
-        print(f"\nLog-loss: {results['log_loss']:.4f}")
-    else:
-        print("\nLog-loss: (model does not provide probabilities)")
-
-    print("\nExiting after evaluation.")
+    res = evaluator.eval(model, ih.getX(), ih.getY(), ih.getSubclasses())
+    print(res)
 
 
 def mic(model):

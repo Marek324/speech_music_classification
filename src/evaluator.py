@@ -1,39 +1,55 @@
 # evaluator.py
 # Marek Hric
 
-from typing import Any, Dict
+from typing import Dict, List, Optional
+from dataclasses import dataclass
 
 import numpy as np
 from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
+    f1_score,
     confusion_matrix,
-    log_loss,
 )
 
 from modelclass import ModelClass
 
 
-class Evaluator:
-    def __init__(self):
-        pass
+@dataclass
+class SubClassEvalResults:
+    f1: float
+    conf_mat: np.ndarray
 
-    def eval(self, model: ModelClass, X: np.ndarray, y: np.ndarray) -> Dict[str, Any]:
+
+@dataclass
+class EvalResults:
+    f1: float
+    conf_mat: np.ndarray
+    by_subclass: Dict[str, SubClassEvalResults]
+
+
+class Evaluator:
+    def __init__(self, class_labels: Optional[List[int]] = None):
+        self.class_labels = class_labels if class_labels is not None else [-1, 1, 2]
+
+    def eval(
+        self, model: ModelClass, X: np.ndarray, y: np.ndarray, subclasses: np.ndarray
+    ) -> EvalResults:
         y_pred = model.predict_batch(X)
 
-        acc = accuracy_score(y, y_pred)
-        conf = confusion_matrix(y, y_pred)
-        cls_report = classification_report(y, y_pred, output_dict=True)
+        f1_overall = f1_score(y, y_pred, average="macro", zero_division=0)
+        conf_overall = confusion_matrix(y, y_pred, labels=self.class_labels)
+        by_sub = {}
 
-        try:
-            y_proba = model.predict_proba_batch(X)
-            ll = log_loss(y, y_proba)
-        except Exception:
-            ll = None
+        for sub in np.unique(subclasses):
+            mask = subclasses == sub
 
-        return {
-            "accuracy": acc,
-            "confusion_matrix": conf,
-            "classification_report": cls_report,
-            "log_loss": ll,
-        }
+            y_true_sub = y[mask]
+            y_pred_sub = y_pred[mask]
+
+            by_sub[str(sub)] = SubClassEvalResults(
+                f1=f1_score(y_true_sub, y_pred_sub, average="macro", zero_division=0),
+                conf_mat=confusion_matrix(
+                    y_true_sub, y_pred_sub, labels=self.class_labels
+                ),
+            )
+
+        return EvalResults(f1=f1_overall, conf_mat=conf_overall, by_subclass=by_sub)

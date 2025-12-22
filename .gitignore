@@ -12,3 +12,5 @@ uv.lock
 job.sh.*
 
 model_dump/
+
+etc/
