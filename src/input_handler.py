@@ -73,7 +73,7 @@ class InputHandler:
 
             self.X = np.asarray(feats_all, dtype=np.float32)
             self.y = np.asarray(labels_all)
-            self.subclasses = np.asarray(subclasses_all, dtype="U<15")
+            self.subclasses = np.asarray(subclasses_all, dtype="U15")
 
             # FINAL SAFETY CHECK
             self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
