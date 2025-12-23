@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
     argparser.add_argument(
         "mode",
-        choices=["train", "eval", "run"],
+        choices=["train", "eval", "run", "dataset_stats"],
         help="Mode of execution: train, eval, run",
     )
     argparser.add_argument(
