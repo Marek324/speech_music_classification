@@ -89,6 +89,20 @@ def mic(model):
     # model predict
 
 
+def dataset_stats():
+    class DummyFeatExtractor(FeatExtractor):
+        def extract(self, frame):
+            # Returns a valid numpy array so downstream code doesn't break
+            return np.zeros(1, dtype=np.float32)
+
+    ih = InputHandler(
+        mode="dataset",
+        feat_extractor=DummyFeatExtractor(),
+        ds_link="Marek324/speech-music-classification",
+        ds_split="train",
+    )
+
+
 def main():
     cfg = config.get_config()
 
@@ -112,6 +126,8 @@ def main():
             eval(model)
         case "mic":
             mic(model)
+        case "dataset_stats":
+            dataset_stats()
 
 
 if __name__ == "__main__":

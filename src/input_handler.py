@@ -73,7 +73,7 @@ class InputHandler:
 
             self.X = np.asarray(feats_all, dtype=np.float32)
             self.y = np.asarray(labels_all)
-            self.subclasses = np.asarray(subclasses_all, dtype="U15")
+            self.subclasses = np.asarray(subclasses_all, dtype="U20")
 
             # FINAL SAFETY CHECK
             self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
@@ -152,6 +152,55 @@ class InputHandler:
 
     def getSubclasses(self):
         return self.subclasses
+
+    def summary(self):
+        print("Input Handler summary:")
+        if self.mode == "microphone":
+            print("mic mode, nothing to sum")
+            return
+
+        total_frames = len(self.X)
+        # Duration approx: num_frames * hop_len / sample_rate
+        total_seconds = (total_frames * self.hop_len) / self.sr
+        total_minutes = total_seconds / 60
+
+        print(f"Total Frames:   {total_frames:,}")
+        print(f"Total Duration: {total_minutes:.2f} min  ({total_seconds:.2f} sec)")
+        print("-" * 60)
+
+        # 2. Class Breakdown (0=Speech, 1=Music, 2=Silence)
+        # Adjust these names if your label mapping is different
+        label_names = {0: "Speech", 1: "Music", 2: "Silence/Noise"}
+
+        unique_labels, counts = np.unique(self.y, return_counts=True)
+
+        print(f"{'CLASS':<25} | {'FRAMES':<10} | {'MINUTES':<10} | {'%':<5}")
+        print("-" * 60)
+
+        for label, count in zip(unique_labels, counts):
+            name = label_names.get(int(label), f"Class {int(label)}")
+            minutes = (count * self.hop_len) / self.sr / 60
+            perc = (count / total_frames) * 100
+            print(f"{name:<25} | {count:<10,} | {minutes:<10.2f} | {perc:>5.1f}%")
+
+        print("-" * 60)
+
+        # 3. Subclass Breakdown
+        unique_subs, sub_counts = np.unique(self.subclasses, return_counts=True)
+
+        # Sort by count descending for better readability
+        sorted_indices = np.argsort(-sub_counts)
+        unique_subs = unique_subs[sorted_indices]
+        sub_counts = sub_counts[sorted_indices]
+
+        print(f"{'SUBCLASS':<30} | {'FRAMES':<10} | {'MINUTES':<10}")
+        print("-" * 60)
+
+        for sub, count in zip(unique_subs, sub_counts):
+            minutes = (count * self.hop_len) / self.sr / 60
+            print(f"{sub:<30} | {count:<10,} | {minutes:<10.2f}")
+
+        print("=" * 60 + "\n")
 
     #
     # def _extract_frame(self) -> np.ndarray:
