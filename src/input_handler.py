@@ -168,9 +168,7 @@ class InputHandler:
         print(f"Total Duration: {total_minutes:.2f} min  ({total_seconds:.2f} sec)")
         print("-" * 60)
 
-        # 2. Class Breakdown (0=Speech, 1=Music, 2=Silence)
-        # Adjust these names if your label mapping is different
-        label_names = {0: "Speech", 1: "Music", 2: "Silence/Noise"}
+        label_names = {-1: "Speech", 1: "Music", 2: "Inactive"}
 
         unique_labels, counts = np.unique(self.y, return_counts=True)
 
@@ -200,7 +198,7 @@ class InputHandler:
             minutes = (count * self.hop_len) / self.sr / 60
             print(f"{sub:<30} | {count:<10,} | {minutes:<10.2f}")
 
-        print("=" * 60 + "\n")
+        print("=" * 0 + "\n")
 
     #
     # def _extract_frame(self) -> np.ndarray:
