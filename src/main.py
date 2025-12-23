@@ -102,6 +102,8 @@ def dataset_stats():
         ds_split="train",
     )
 
+    ih.summary()
+
 
 def main():
     cfg = config.get_config()
