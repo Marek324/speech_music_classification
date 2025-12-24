@@ -1,11 +1,19 @@
-from datasets import Dataset, load_dataset, Audio
-from typing import Optional, Dict, List
+from collections import Counter
+from typing import Dict, List, Optional, Any, TypedDict
+
 import numpy as np
+from datasets import Audio, Dataset, load_dataset
+from tqdm import tqdm
+
+import config
 from common import FrameData, FrameMetadata, frame_label
 from feat_extractor import FeatExtractor
-import config
 
-from tqdm import tqdm
+
+class RowStats(TypedDict):
+    frames: int
+    classes: Counter[int]
+    subclasses: Counter[str]
 
 
 class InputHandler:
@@ -42,6 +50,14 @@ class InputHandler:
         # self.ds_item_labels: List[Dict[str, Optional[Dict[str, int]]]] = []
         #
         if self.mode == "dataset":
+            self.ds_stats = {
+                "total": {
+                    "frames": 0,
+                    "classes": Counter(),
+                    "subclasses": Counter(),
+                }
+            }
+
             assert ds_link != "", "Dataset mode requires ds_link"
 
             self.dataset = load_dataset(ds_link, split=ds_split).cast_column(
@@ -62,14 +78,15 @@ class InputHandler:
             labels_all = []
             subclasses_all = []
 
-            for idx, row in enumerate(tqdm(processed, desc="Aggregating")):
-                row_feats = row["feats"]
-                row_labels = row["labels"]
-                row_subclasses = row["subclasses"]
+            for row in tqdm(processed, desc="Aggregating"):
+                feats_all.extend(row["feats"])
+                labels_all.extend(row["labels"])
+                subclasses_all.extend(row["subclasses"])
 
-                feats_all.extend(row_feats)
-                labels_all.extend(row_labels)
-                subclasses_all.extend(row_subclasses)
+                rs = row["stats"]
+                self.ds_stats["frames"] += rs["frames"]
+                self.ds_stats["classes"].update(rs["classes"])
+                self.ds_stats["subclasses"].update(rs["subclasses"])
 
             self.X = np.asarray(feats_all, dtype=np.float32)
             self.y = np.asarray(labels_all)
@@ -111,7 +128,7 @@ class InputHandler:
 
         return FrameData(frame, feats, meta)
 
-    def _process_row(self, row) -> Dict[str, List[np.ndarray] | List[int] | List[str]]:
+    def _process_row(self, row) -> Dict[str, Any]:
         audio = row["audio"].get_all_samples().data
         if hasattr(audio, "cpu"):
             audio.cpu()
@@ -124,25 +141,46 @@ class InputHandler:
         feats = []
         labels_list = []
         subclasses = []
+
+        row_stats: RowStats = {
+            "frames": 0,
+            "classes": Counter(),
+            "subclasses": Counter(),
+        }
+
         frame_start = 0
+        n_samples = len(audio)
 
-        while len(audio) > self.frame_len:
+        while frame_start + self.frame_len <= n_samples:
             frame = audio[frame_start : frame_start + self.frame_len]
-            audio = audio[self.hop_len :]
 
-            f = self._process_frame(frame, frame_start, labels, _class, subclass)
-            # Validate features
-            if np.any(np.isinf(f.feats)) or np.any(np.isnan(f.feats)):
-                print(f"ERROR in row class={_class}, frame_start={frame_start}")
-                print(f"Features: {f.feats}")
-                # Skip this frame or use zeros
+            f = self._process_frame(
+                frame,
+                frame_start,
+                labels,
+                _class,
+                subclass,
+            )
+
+            if np.any(np.isnan(f.feats)) or np.any(np.isinf(f.feats)):
                 f.feats = np.zeros_like(f.feats)
 
             feats.append(f.feats)
             labels_list.append(f.metadata.label)
             subclasses.append(f.metadata.subclass)
 
-        return {"feats": feats, "labels": labels_list, "subclasses": subclasses}
+            row_stats["frames"] += 1
+            row_stats["classes"][f.metadata.label] += 1
+            row_stats["subclasses"][f.metadata.subclass] += 1
+
+            frame_start += self.hop_len
+
+        return {
+            "feats": feats,
+            "labels": labels_list,
+            "subclasses": subclasses,
+            "stats": row_stats,
+        }
 
     def getX(self):
         return self.X
@@ -159,9 +197,12 @@ class InputHandler:
             print("mic mode, nothing to sum")
             return
 
-        total_frames = len(self.X)
-        # Duration approx: num_frames * hop_len / sample_rate
-        total_seconds = (total_frames * self.hop_len) / self.sr
+        sr = self.sr
+        hop = self.hop_len
+
+        total_frames = self.ds_stats["frames"]
+        assert isinstance(total_frames, int)
+        total_seconds = (total_frames * hop) / sr
         total_minutes = total_seconds / 60
 
         print(f"Total Frames:   {total_frames:,}")
@@ -170,37 +211,25 @@ class InputHandler:
 
         label_names = {-1: "Speech", 1: "Music", 2: "Inactive"}
 
-        unique_labels, counts = np.unique(self.y, return_counts=True)
-
         print(f"{'CLASS':<25} | {'FRAMES':<10} | {'MINUTES':<10} | {'%':<5}")
         print("-" * 60)
 
-        for label, count in zip(unique_labels, counts):
-            name = label_names.get(int(label), f"Class {int(label)}")
-            minutes = (count * self.hop_len) / self.sr / 60
+        for lbl, count in self.ds_stats["classes"].items():
+            assert isinstance(count, int)
+            name = label_names.get(lbl, str(lbl))
+            minutes = (count * hop) / sr / 60
             perc = (count / total_frames) * 100
             print(f"{name:<25} | {count:<10,} | {minutes:<10.2f} | {perc:>5.1f}%")
 
         print("-" * 60)
 
-        # 3. Subclass Breakdown
-        unique_subs, sub_counts = np.unique(self.subclasses, return_counts=True)
-
-        # Sort by count descending for better readability
-        sorted_indices = np.argsort(-sub_counts)
-        unique_subs = unique_subs[sorted_indices]
-        sub_counts = sub_counts[sorted_indices]
-
         print(f"{'SUBCLASS':<30} | {'FRAMES':<10} | {'MINUTES':<10}")
         print("-" * 60)
 
-        for sub, count in zip(unique_subs, sub_counts):
-            minutes = (count * self.hop_len) / self.sr / 60
-            print(f"{sub:<30} | {count:<10,} | {minutes:<10.2f}")
+        for sub, count in self.ds_stats["subclasses"].most_common():
+            minutes = (count * hop) / sr / 60
+            print(f"{sub:<30} | {count:<10,} | {minutes:<10.2f}")  #
 
-        print("=" * 0 + "\n")
-
-    #
     # def _extract_frame(self) -> np.ndarray:
     #     # load next item on empty buffer
     #     if self.st_buffer is None:
