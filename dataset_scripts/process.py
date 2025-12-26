@@ -1,9 +1,10 @@
 import io
-import jsonlines
 import os
 import sys
 import time
+from typing import Optional
 
+import jsonlines
 import soundfile as sf
 from datasets import Audio, Dataset, IterableDataset, load_dataset, load_from_disk
 from pydub import AudioSegment, silence
@@ -15,7 +16,15 @@ RAND_SEED = 381
 DATA_DIR = "data"
 
 NAMES = [
-    "clean",
+    "clean1",
+    "clean2",
+    "clean3",
+    "clean4",
+    "clean5",
+    "clean6",
+    "clean7",
+    "clean8",
+    "clean9",
     "noisy",
     "noisyenv",
     "noise",
@@ -41,7 +50,7 @@ class Silence:
 
     def label(
         self, x: AudioDecoder | dict[str, str | bytes], _
-    ) -> list[dict[str, dict[str, int]]]:
+    ) -> Optional[list[dict[str, dict[str, int]]]]:
         if isinstance(x, AudioDecoder):
             siglen = int(x.get_all_samples().duration_seconds * 1000)
         else:
@@ -61,7 +70,7 @@ class VAD:
 
     def label(
         self, decoder: AudioDecoder | dict[str, str | bytes], _
-    ) -> list[dict[str, dict[str, int]]]:
+    ) -> Optional[list[dict[str, dict[str, int]]]]:
         def stoms(sample: int) -> int:
             # sample to ms
             global sr
@@ -69,7 +78,10 @@ class VAD:
 
         assert isinstance(decoder, AudioDecoder)
 
-        x = decoder.get_all_samples()
+        try:
+            x = decoder.get_all_samples()
+        except RuntimeError as e:
+            return None
 
         stamps: list[dict[str, int]] = get_speech_timestamps(x.data, self.model)
 
@@ -108,7 +120,7 @@ class MusicSilenceDetector:
 
     def label(
         self, x: AudioDecoder | dict[str, str | bytes], thr: int
-    ) -> list[dict[str, dict[str, int]]]:
+    ) -> Optional[list[dict[str, dict[str, int]]]]:
         assert isinstance(x, dict)
         labels: list[dict[str, dict[str, int]]] = []
 
@@ -153,10 +165,12 @@ def process_file(
     idx: int,
     name: str,
     sil_thr: int = -16,
-) -> tuple[bool, list[dict[str, dict[str, int]]]]:
+) -> Optional[tuple[bool, list[dict[str, dict[str, int]]]]]:
     labels = silence_detector.label(audio, sil_thr)
+    if labels is None:
+        return None
 
-    file_name = f"{DATA_DIR}/{split}/{name}_{idx:04d}.wav"
+    file_name = f"{DATA_DIR}/{split}/{name}_{idx:05d}.wav"
     if os.path.exists(file_name):
         return (False, labels)
 
@@ -196,7 +210,7 @@ class Meta:
     ):
         self.file.write(
             {
-                "file_name": f"{self.name}_{self.idx:04d}.wav",
+                "file_name": f"{self.name}_{self.idx:05d}.wav",
                 "class": _class,
                 "subclass": subclass,
                 "labels": labels,
@@ -225,9 +239,13 @@ def process_dataset(
 
     for split, meta in splits:
         for row in tqdm(split, desc=f"{name} - {meta.split}"):
-            new, labels = process_file(
+            res = process_file(
                 row["audio"], silence_detector, meta.split, meta.idx, name, sil_thr
             )
+            if res is None:
+                print("Invalid data, skipping", file=sys.stderr)
+                continue
+            new, labels = res
             meta.write(_class, subclass, labels)
 
     print("Finished\n")
@@ -259,23 +277,170 @@ def main():
     sil = Silence()
 
     match sys.argv[1]:
-        case "clean":
-            print("Downloading clean")
-            clean = load_dataset(
+        case "download":
+            # case "clean1":
+            print("Downloading clean1")
+
+            clean1 = load_dataset(
                 "ammagra/english-arabic-speech-translation",
                 split="test",
                 streaming=True,
             )
-            assert isinstance(clean, IterableDataset)
-            clean = (
-                clean.shuffle(seed=RAND_SEED)
+            assert isinstance(clean1, IterableDataset)
+            clean1 = (
+                clean1.shuffle(seed=RAND_SEED)
                 .select_columns("audio")
-                .take(2000)
+                .take(4000)
                 .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
             )
-            process_dataset(clean, vad, "speech", "speech_clean", 2000, "clean")
-        case "noisy":
+            process_dataset(clean1, vad, "speech", "speech_clean", 4000, "clean1")
+
+            # case "clean2":
+            print("Downloading clean2")
+
+            clean2 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean2, IterableDataset)
+            clean2 = (
+                clean2.select_columns("audio")
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean2, vad, "speech", "speech_clean", 8000, "clean2")
+
+            # case "clean3":
+            print("Downloading clean3")
+
+            clean3 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean3, IterableDataset)
+            clean3 = (
+                clean3.select_columns("audio")
+                .skip(8000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean3, vad, "speech", "speech_clean", 8000, "clean3")
+
+            # case "clean4":
+            print("Downloading clean4")
+
+            clean4 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean4, IterableDataset)
+            clean4 = (
+                clean4.select_columns("audio")
+                .skip(16000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean4, vad, "speech", "speech_clean", 8000, "clean4")
+
+            # case "clean5":
+            print("Downloading clean5")
+
+            clean5 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean5, IterableDataset)
+            clean5 = (
+                clean5.select_columns("audio")
+                .skip(24000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean5, vad, "speech", "speech_clean", 8000, "clean5")
+
+            # case "clean6":
+            print("Downloading clean6")
+
+            clean6 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean6, IterableDataset)
+            clean6 = (
+                clean6.select_columns("audio")
+                .skip(32000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean6, vad, "speech", "speech_clean", 8000, "clean6")
+
+            # case "clean7":
+            print("Downloading clean7")
+
+            clean7 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean7, IterableDataset)
+            clean7 = (
+                clean7.select_columns("audio")
+                .skip(40000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean7, vad, "speech", "speech_clean", 8000, "clean7")
+
+            # case "clean8":
+            print("Downloading clean8")
+
+            clean8 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean8, IterableDataset)
+            clean8 = (
+                clean8.select_columns("audio")
+                .skip(48000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean8, vad, "speech", "speech_clean", 8000, "clean8")
+
+            # case "clean9":
+            print("Downloading clean9")
+
+            clean9 = load_dataset(
+                "MLCommons/peoples_speech",
+                "clean",
+                split="train",
+                streaming=True,
+            )
+            assert isinstance(clean9, IterableDataset)
+            clean9 = (
+                clean9.select_columns("audio")
+                .skip(56000)
+                .take(8000)
+                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            )
+            process_dataset(clean9, vad, "speech", "speech_clean", 8000, "clean9")
+
+            # case "noisy":
             print("Downloading noisy")
+
             noisy = load_dataset(
                 "Jzuluaga/atco2_corpus_1h", split="test", streaming=True
             )
@@ -287,8 +452,9 @@ def main():
             )
             process_dataset(noisy, vad, "speech", "speech_noisy", 871, "noisy")
 
-        case "noisyenv":
+            # case "noisyenv":
             print("Downloading noisyenv")
+
             noisy_env = load_from_disk("noizeus_dataset")
             assert isinstance(noisy_env, Dataset)
             noisy_env = noisy_env.to_iterable_dataset()
@@ -302,7 +468,7 @@ def main():
                 noisy_env, vad, "speech", "speech_noisyenv", 630, "noisyenv"
             )
 
-        case "jazz":
+            # case "jazz":
             print("Downloading jazz")
 
             jazz = load_dataset(
@@ -320,7 +486,7 @@ def main():
                 jazz, msd, "music", "music_acoustic", 50, "jazz", sil_thr=-20
             )
 
-        case "country":
+            # case "country":
             print("Downloading country")
 
             country = load_dataset(
@@ -338,7 +504,7 @@ def main():
                 country, msd, "music", "music_acoustic", 142, "country", sil_thr=-25
             )
 
-        case "folk":
+            # case "folk":
             print("Downloading folk")
             folk = load_dataset("lewtun/music_genres", split="train", streaming=True)
             assert isinstance(folk, IterableDataset)
@@ -355,7 +521,7 @@ def main():
                 folk, msd, "music", "music_acoustic", 1000, "folk", sil_thr=-33
             )
 
-        case "pop":
+            # case "pop":
             print("Downloading pop")
 
             pop = load_dataset(
@@ -373,7 +539,7 @@ def main():
                 pop, msd, "music", "music_mainstream", 268, "pop", sil_thr=-22
             )
 
-        case "rock":
+            # case "rock":
             print("Downloading rock")
             rock = load_dataset("lewtun/music_genres", split="train", streaming=True)
             assert isinstance(rock, IterableDataset)
@@ -390,7 +556,7 @@ def main():
                 rock, msd, "music", "music_mainstream", 2000, "rock", sil_thr=-30
             )
 
-        case "electronic":
+            # case "electronic":
             print("Downloading electronic")
 
             electronic = load_dataset(
@@ -414,7 +580,7 @@ def main():
                 sil_thr=-25,
             )
 
-        case "instrumental":
+            # case "instrumental":
             print("Downloading instrumental")
             instrumental = load_dataset(
                 "PlutoG99001/MusicGen-Classical", split="train", streaming=True
@@ -437,7 +603,7 @@ def main():
                 sil_thr=-27,
             )
 
-        case "vocal1":
+            # case "vocal1":
             print("Downloading vocal1")
 
             vocal1 = load_dataset(
@@ -455,7 +621,7 @@ def main():
                 vocal1, msd, "music", "music_vocal", 22, "vocal1", sil_thr=-48
             )
 
-        case "vocal2":
+            # case "vocal2":
             print("Downloading vocal2")
 
             vocal2 = load_dataset(
@@ -473,7 +639,7 @@ def main():
                 vocal2, msd, "music", "music_vocal", 22, "vocal2", sil_thr=-48
             )
 
-        case "vocal3":
+            # case "vocal3":
             print("Downloading vocal3")
 
             vocal3 = load_dataset(
@@ -491,7 +657,7 @@ def main():
                 vocal3, msd, "music", "music_vocal", 22, "vocal3", sil_thr=-48
             )
 
-        case "noise":
+            # case "noise":
             print("Downloading noise")
 
             noise = load_from_disk("musan_noise_dataset")

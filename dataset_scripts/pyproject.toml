@@ -17,6 +17,7 @@ dependencies = [
     "silero-vad>=6.2.0",
     "soundfile>=0.13.1",
     "torchaudio>=2.9.0",
+    "torchcodec>=0.9.1",
     "tqdm>=4.67.1",
     "ty>=0.0.1a26",
     "webrtcvad>=2.0.10",
