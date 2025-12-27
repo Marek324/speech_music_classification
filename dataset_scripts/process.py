@@ -253,12 +253,15 @@ def process_dataset(
 
 def combine_metas():
     for split in ["train", "val", "test"]:
-        with jsonlines.open(f"{DATA_DIR}/{split}/metadata.jsonl", mode="w") as meta:
+        file_path = f"{DATA_DIR}/{split}/metadata.jsonl"
+        with jsonlines.open(file_path, mode="w") as meta:
             for name in NAMES:
                 try:
                     with jsonlines.open(f"partial/{name}/{split}.jsonl") as part:
                         for line in part:
                             meta.write(line)
+
+                    print(f"Written to: {file_path}")
                 except FileNotFoundError:
                     if split == "train":
                         print(f"{name} not downloaded")
