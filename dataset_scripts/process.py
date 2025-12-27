@@ -1,7 +1,10 @@
 import io
+import json
 import os
+import shutil
 import sys
 import time
+from pathlib import Path
 from typing import Optional
 
 import jsonlines
@@ -265,6 +268,92 @@ def combine_metas():
                 except FileNotFoundError:
                     if split == "train":
                         print(f"{name} not downloaded")
+
+
+def split_files(max_per_folder=9000):
+    data_path = Path(DATA_DIR)
+    for split in ["train", "test", "val"]:
+        split_path = data_path / split
+        if not split_path.exists():
+            continue
+
+        print(f"Processing {split} split...")
+
+        # Get all files except metadata.jsonl
+        all_files = [f for f in split_path.iterdir() if f.is_file()]
+        audio_files = [f for f in all_files if f.name != "metadata.jsonl"]
+        metadata_files = [f for f in all_files if f.name == "metadata.jsonl"]
+
+        if len(audio_files) <= max_per_folder:
+            print(f"  {split} has {len(audio_files)} files, no splitting needed")
+            continue
+
+        # Load original metadata
+        original_metadata = {}
+        if metadata_files:
+            metadata_path = metadata_files[0]
+            with open(metadata_path, "r", encoding="utf-8") as f:
+                for line in f:
+                    if line.strip():
+                        item = json.loads(line.strip())
+                        # Use filename as key (adjust based on your metadata structure)
+                        file_name = item.get(
+                            "file_name", item.get("audio_file_path", "")
+                        )
+                        if file_name:
+                            original_metadata[file_name] = item
+
+        # Create numbered subfolders
+        num_subfolders = (len(audio_files) + max_per_folder - 1) // max_per_folder
+        print(f"  Creating {num_subfolders} subfolders for {len(audio_files)} files")
+
+        # Create subfolders and distribute files
+        subfolder_files = []
+        for i in range(num_subfolders):
+            start_idx = i * max_per_folder
+            end_idx = min((i + 1) * max_per_folder, len(audio_files))
+            subfolder_files.append(audio_files[start_idx:end_idx])
+
+        # Create subfolders and move files
+        new_metadata_entries = []
+        for i, files_in_subfolder in enumerate(subfolder_files):
+            subfolder_name = f"{i:03d}"
+            subfolder_path = split_path / subfolder_name
+            subfolder_path.mkdir(exist_ok=True)
+
+            # Move files to subfolder
+            for file_path in files_in_subfolder:
+                new_path = subfolder_path / file_path.name
+                shutil.move(str(file_path), str(new_path))
+
+                # Update metadata entry with new path
+                if original_metadata:
+                    # Try different possible keys for filename
+                    file_key = file_path.name
+                    if file_key in original_metadata:
+                        entry = original_metadata[file_key].copy()
+                        # Update the file path in metadata
+                        if "file_name" in entry:
+                            entry["file_name"] = f"{subfolder_name}/{file_path.name}"
+                        elif "audio_file_path" in entry:
+                            entry["audio_file_path"] = (
+                                f"{subfolder_name}/{file_path.name}"
+                            )
+                        new_metadata_entries.append(entry)
+
+            # Create metadata.jsonl in each subfolder
+            if new_metadata_entries:
+                subfolder_metadata_path = subfolder_path / "metadata.jsonl"
+                with open(subfolder_metadata_path, "w", encoding="utf-8") as f:
+                    for entry in new_metadata_entries:
+                        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+                new_metadata_entries = []
+
+        # Remove original metadata.jsonl from root
+        if metadata_files:
+            metadata_files[0].unlink()
+
+        print(f"  {split} split completed")
 
 
 def main():
@@ -676,6 +765,9 @@ def main():
 
         case "combine":
             combine_metas()
+
+        case "split":
+            split_files()
 
 
 if __name__ == "__main__":
