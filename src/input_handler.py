@@ -6,13 +6,20 @@ from datasets import Audio, Dataset, load_dataset
 from tqdm import tqdm
 
 import config
-from common import FrameData, FrameMetadata, frame_label
+from common import (
+    FrameData,
+    FrameDataStrLabel,
+    FrameMetadata,
+    FrameMetadataStrLabel,
+    frame_label,
+    frame_label_str,
+)
 from feat_extractor import FeatExtractor
 
 
 class RowStats(TypedDict):
     frames: int
-    classes: Counter[int]
+    classes: Counter[str]
     subclasses: Counter[str]
 
 
@@ -111,13 +118,13 @@ class InputHandler:
         labels: List[Dict[str, Dict[str, int] | None]],
         _class: str,
         subclass: str,
-    ) -> FrameData:
+    ) -> FrameDataStrLabel:
         padd = np.zeros(self.frame_len, dtype=np.float32)
         padd[: len(frame)] = frame
         frame = padd
         feats = self.fextractor.extract(frame)
-        meta = FrameMetadata(
-            label=frame_label(
+        meta = FrameMetadataStrLabel(
+            label=frame_label_str(
                 labels,
                 frame_start,
                 frame_start + self.frame_len,
@@ -126,7 +133,7 @@ class InputHandler:
             subclass=subclass,
         )
 
-        return FrameData(frame, feats, meta)
+        return FrameDataStrLabel(frame, feats, meta)
 
     def _process_row(self, row) -> Dict[str, Any]:
         audio = row["audio"].get_all_samples().data

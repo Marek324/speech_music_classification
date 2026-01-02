@@ -1,12 +1,14 @@
 # feat_extractor.py
 # Marek Hric
 
+from collections import deque
 from copy import deepcopy
 from typing import Optional
 
 import numpy as np
-from scipy.signal import correlate
 from librosa import feature as libfeat
+from scipy.signal import correlate, lfilter
+from scipy.ndimage import uniform_filter1d
 
 import config
 
@@ -16,8 +18,20 @@ class FeatExtractor:
         cfg = config.get_config()
         assert isinstance(cfg, config.Config)
         self.cfg = cfg.fext
+        assert isinstance(self.cfg, config.FeatExtractorConfig)
         self.defaults = cfg.defaults
-        self.last_frame: Optional[np.ndarray]
+        assert isinstance(self.defaults, config.Defaults)
+
+        # buffers
+        # signal buffer for raw signal, non-overlapping samples
+        self.signal_buffer: deque[float] = deque(maxlen=self.defaults.max_buffer)
+
+        # feat buffer for previous features signal, overlapping feature vectors
+        self.feat_buf_size = int(
+            (self.defaults.max_buffer / self.defaults.hop_length) - 1
+        )
+        self.feat_buffer: deque[np.ndarray] = deque(maxlen=self.feat_buf_size)
+
         if self.cfg.mfcc.enable:
             self.last_mfcc: Optional[np.ndarray]
 
@@ -25,73 +39,84 @@ class FeatExtractor:
         assert isinstance(self.cfg, config.FeatExtractorConfig)
         feats = []
         mfccs = None
-        # DEBUG
-        feat_names = []
 
         if self.cfg.mfcc.enable:
             mfccs = self._mfcc(frame).flatten()
             mfccs = np.nan_to_num(mfccs, nan=0.0, posinf=0.0, neginf=0.0)
             feats.append(mfccs)
-            feat_names.append("mfcc")
             if self.cfg.mfcc_diff_norm.enable:
                 feats.append(self._mfcc_diff_norm(mfccs))
-                feat_names.append("mfcc_diff_norm")
 
             self.last_mfcc = deepcopy(mfccs)
 
-        if self.cfg.st_energy.enable:
-            feats.append(self._ste(frame))
-            feat_names.append("ste")
-        if self.cfg.zcr.enable:
-            feats.append(self._zcr(frame))
-            feat_names.append("zcr")
+        if self.cfg.short_time_energy.enable:
+            feats.append(self._short_time_energy(frame))
+        if self.cfg.zero_crossing_rate.enable:
+            feats.append(self._zero_crossing_rate(frame))
         if self.cfg.band_energy_ratio.enable:
-            feats.append(self._ber(frame))
-            feat_names.append("ber")
-        if self.cfg.ac_coeff.enable:
-            feats.append(self._acc(frame))
-            feat_names.append("acc")
-        if self.cfg.s_rolloff_point.enable:
-            feats.append(self._srp(frame))
-            feat_names.append("srp")
-        if self.cfg.s_centroid.enable:
-            feats.append(self._sc(frame))
-            feat_names.append("sc")
-        if self.cfg.s_flux.enable:
-            feats.append(self._sf(frame))
-            feat_names.append("sf")
-
-        # DEBUG: Check each feature before concatenation
-        # for i, (f, name) in enumerate(zip(feats, feat_names)):
-        #     if np.any(np.isinf(f)) or np.any(np.isnan(f)):
-        #         print(f"WARNING: Feature '{name}' contains inf/nan: {f}")
-        #     feats[i] = np.nan_to_num(f, nan=0.0, posinf=0.0, neginf=0.0)
+            feats.append(self._band_energy_ratio(frame))
+        if self.cfg.autocorrelation_coefficient.enable:
+            feats.append(self._autocorrelation_coefficient(frame))
+        if self.cfg.spectral_rolloff_point.enable:
+            feats.append(self._spectral_rolloff_point(frame))
+        if self.cfg.spectrum_centroid.enable:
+            feats.append(self._spectrum_centroid(frame))
+        if self.cfg.spectral_flux.enable:
+            feats.append(self._spectral_flux(frame))
 
         feat = np.hstack(feats)
         feat = np.nan_to_num(feat, nan=0.0, posinf=0.0, neginf=0.0)
         feat /= np.linalg.norm(feat) + 1e-10
 
-        self.last_frame = deepcopy(frame)
         return feat
 
-    def _ste(self, frame: np.ndarray) -> float:
+    # =============================
+    #           HELPERS
+    # =============================
+
+    def _get_sig_buffer(self) -> np.ndarray:
+        buffer: deque[float] = self.signal_buffer
+        max_size = self.defaults.max_buffer
+
+        out = np.zeros(max_size, dtype=float)
+        out[-len(buffer) :] = np.fromiter(buffer, dtype=float)
+
+        return out
+
+    def _get_feat_buffer(self) -> np.ndarray:
+        buffer = self.feat_buffer
+
+        out = np.zeros(self.feat_buf_size, dtype=float)
+        out[-len(buffer) :] = np.fromiter(buffer, dtype=float)
+
+        return out
+
+    def _get_last_frame(self) -> Optional[np.ndarray]:
+        return self.feat_buffer[-1] if self.feat_buffer else None
+
+    # =============================
+    #           FEATURES
+    # =============================
+
+    def _short_time_energy(self, frame: np.ndarray) -> float:
         return 10 * np.log10(1 / frame.shape[0] * np.sum(frame**2) + 1e-10)
 
-    def _zcr(self, frame: np.ndarray) -> float:
+    def _zero_crossing_rate(self, frame: np.ndarray) -> float:
         count = 0
         for i in range(1, frame.shape[0]):
             if frame[i] * frame[i - 1] < 0:
                 count += 1
         return count / 2
 
-    def _ber(self, frame: np.ndarray) -> float:
+    def _band_energy_ratio(self, frame: np.ndarray) -> float:
         sr = self.defaults.sample_rate
         berconf = self.cfg.band_energy_ratio
         assert isinstance(berconf, config.BandEnergyRatioConfig)
-        llb = berconf.lband.lbound
-        lub = berconf.lband.ubound
-        ulb = berconf.uband.lbound
-        uub = berconf.uband.ubound
+
+        lowlow = berconf.lower_band.lower_bound
+        lowup = berconf.lower_band.upper_bound
+        uplow = berconf.upper_band.lower_bound
+        upup = berconf.upper_band.upper_bound
 
         def bin_num(f: float, K: int) -> int:
             return int(np.floor((K * f) / sr))
@@ -103,33 +128,37 @@ class FeatExtractor:
             return np.sum(np.abs(dft[b1:b2]) ** 2)
 
         dft = np.fft.fft(frame, n=self.defaults.n_fft)
-        E1 = band_energy(dft, llb, lub)
-        E2 = band_energy(dft, ulb, uub)
+        E1 = band_energy(dft, lowlow, lowup)
+        E2 = band_energy(dft, uplow, upup)
         ratio = (E1 + 1e-10) / (E2 + 1e-10)
         ratio = np.clip(ratio, 1e-10, 1e10)
         result = 10 * np.log10(ratio)
 
         return 0.0 if np.isinf(result) or np.isnan(result) else float(result)
 
-    def _acc(self, frame: np.ndarray) -> float:
+    def _autocorrelation_coefficient(self, frame: np.ndarray) -> float:
         ac = correlate(frame, frame, mode="full")
         ac = ac[ac.shape[0] // 2 :]
-        min_lag = self.cfg.ac_coeff.min_lag_ms * int(self.defaults.sample_rate / 1000)
-        max_lag = self.cfg.ac_coeff.max_lag_ms * int(self.defaults.sample_rate / 1000)
+        min_lag = self.cfg.autocorrelation_coefficient.min_lag_ms * int(
+            self.defaults.sample_rate / 1000
+        )
+        max_lag = self.cfg.autocorrelation_coefficient.max_lag_ms * int(
+            self.defaults.sample_rate / 1000
+        )
         return np.max(ac[min_lag:max_lag])
 
-    def _srp(self, frame: np.ndarray) -> float:
+    def _spectral_rolloff_point(self, frame: np.ndarray) -> float:
         assert isinstance(self.cfg, config.FeatExtractorConfig)
         return float(
             libfeat.spectral_rolloff(
                 y=frame,
                 sr=self.defaults.sample_rate,
-                roll_percent=self.cfg.s_rolloff_point.thr,
+                roll_percent=self.cfg.spectral_rolloff_point.thr,
                 n_fft=self.defaults.n_fft,
             )[0, 0]
         )
 
-    def _sc(self, frame: np.ndarray) -> float:
+    def _spectrum_centroid(self, frame: np.ndarray) -> float:
         value = float(
             libfeat.spectral_centroid(
                 y=frame, sr=self.defaults.sample_rate, n_fft=self.defaults.n_fft
@@ -137,15 +166,15 @@ class FeatExtractor:
         )
         return 0.0 if np.isnan(value) or np.isinf(value) else value
 
-    def _ss(self, frame: np.ndarray) -> float:
+    def _spectrum_spread(self, frame: np.ndarray) -> float:
         return float(
             libfeat.spectral_bandwidth(
                 y=frame, sr=self.defaults.sample_rate, n_fft=self.defaults.n_fft
             )[0, 0]
         )
 
-    def _sf(self, frame: np.ndarray) -> float:
-        last_frame = getattr(self, "last_frame", None)
+    def _spectral_flux(self, frame: np.ndarray) -> float:
+        last_frame = self._get_last_frame()
         if last_frame is None:
             return 0
 
@@ -168,3 +197,24 @@ class FeatExtractor:
             return 0
 
         return np.sqrt(np.sum(np.abs(mfccs - last_mfccs) ** 2))
+
+    def _naps_of_zffs(self, frame: np.ndarray) -> float:
+        # Add frame to buffer
+        # TODO: Move to separate function
+        self.signal_buffer.extend(frame)
+
+        sig = self._get_sig_buffer()
+
+        # ZFFS
+        diff = np.diff(sig, prepend=sig[0])
+
+        y = lfilter([1], [1, -4, 6, -4, 1], diff)
+
+        N = int(self.defaults.sample_rate * 0.01)  # 10ms
+        y_1 = y - uniform_filter1d(y, size=N, mode="nearest")
+        zffs = y_1 - uniform_filter1d(y_1, size=N, mode="nearest")
+
+        # NAPS
+        zffs = zffs[-self.defaults.frame_length]
+
+        return 0.0
