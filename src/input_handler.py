@@ -71,7 +71,7 @@ class InputHandler:
                 self._process_row,
                 desc="Extracting frames/features",
                 num_proc=30,
-                load_from_cache_file=False,
+                load_from_cache_file=True,
             )
 
             feats_all = []

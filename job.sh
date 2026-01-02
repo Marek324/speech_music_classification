@@ -9,5 +9,5 @@ source .env
 
 uvx hf download Marek324/speech-music-classification --repo-type dataset --token $HF_TOKEN > out_hf_cli_download.log 2> err_hf_cli_download.log
 
-#uv run src/main.py train > out_train.log 2> err_train.log
+uv run src/main.py train > out_train.log 2> err_train.log
 uv run src/main.py eval > out_eval.log 2> err_eval.log

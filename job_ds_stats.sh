@@ -1,12 +1,16 @@
 #!/bin/bash
+#PBS -N DatasetStatsJob
+#PBS -l walltime=12:00:00
+#PBS -l select=1:ncpus=32:mem=150gb:scratch_local=150gb
 
-HOME_DIR=/storage/brno2/home/marek324/bp
-cd $HOME_DIR
-source .venv/bin/activate
-module load ffmpeg
+PROJ_DIR=/storage/brno2/home/marek324/bp
 
-source .env
+source $PROJ_DIR/setup.sh
 
-uvx hf download Marek324/speech-music-classification --repo-type dataset --token $HF_TOKEN > out_hf_cli_download.log 2> err_hf_cli_download.log
+# logs
+LOGS="$PROJ_DIR/logs/ds_stats/$PBS_JOBID"
+mkdir -p "$LOGS"
 
-uv run src/main.py dataset_stats > out_ds_stats.log 2> err_ds_stats.log
+cd $PROJ_DIR
+
+uv run --active $PROJ_DIR/src/main.py dataset_stats --config-file "$PROJ_DIR/config.yaml" > "$LOGS/out.log" 2> "$LOGS/err.log"

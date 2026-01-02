@@ -334,10 +334,10 @@ def split_files(max_per_folder=9000):
                         entry = original_metadata[file_key].copy()
                         # Update the file path in metadata
                         if "file_name" in entry:
-                            entry["file_name"] = f"{subfolder_name}/{file_path.name}"
+                            entry["file_name"] = f"{file_path.name}"
                         elif "audio_file_path" in entry:
                             entry["audio_file_path"] = (
-                                f"{subfolder_name}/{file_path.name}"
+                                f"{file_path.name}"
                             )
                         new_metadata_entries.append(entry)
 
