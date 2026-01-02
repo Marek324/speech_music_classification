@@ -90,10 +90,13 @@ class InputHandler:
                 labels_all.extend(row["labels"])
                 subclasses_all.extend(row["subclasses"])
 
-                rs = row["stats"]
-                self.ds_stats["frames"] += rs["frames"]
-                self.ds_stats["classes"].update(rs["classes"])
-                self.ds_stats["subclasses"].update(rs["subclasses"])
+                # rs = row["stats"]
+                # self.ds_stats["frames"] += rs["frames"]
+                # self.ds_stats["classes"].update(rs["classes"])
+                # self.ds_stats["subclasses"].update(rs["subclasses"])
+                self.ds_stats["frames"] = len(row["labels"])
+                self.ds_stats["classes"].update(row["labels"])
+                self.ds_stats["subclasses"].update(row["subclasses"])
 
             self.X = np.asarray(feats_all, dtype=np.float32)
             self.y = np.asarray(labels_all)
@@ -148,12 +151,12 @@ class InputHandler:
         feats = []
         labels_list = []
         subclasses = []
-
-        row_stats: RowStats = {
-            "frames": 0,
-            "classes": Counter(),
-            "subclasses": Counter(),
-        }
+        #
+        # row_stats: RowStats = {
+        #     "frames": 0,
+        #     "classes": Counter(),
+        #     "subclasses": Counter(),
+        # }
 
         frame_start = 0
         n_samples = len(audio)
@@ -176,9 +179,9 @@ class InputHandler:
             labels_list.append(f.metadata.label)
             subclasses.append(f.metadata.subclass)
 
-            row_stats["frames"] += 1
-            row_stats["classes"][f.metadata.label] += 1
-            row_stats["subclasses"][f.metadata.subclass] += 1
+            # row_stats["frames"] += 1
+            # row_stats["classes"][f.metadata.label] += 1
+            # row_stats["subclasses"][f.metadata.subclass] += 1
 
             frame_start += self.hop_len
 
@@ -186,7 +189,7 @@ class InputHandler:
             "feats": feats,
             "labels": labels_list,
             "subclasses": subclasses,
-            "stats": row_stats,
+            # "stats": row_stats,
         }
 
     def getX(self):
