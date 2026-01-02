@@ -32,14 +32,14 @@ class MFCCConfig(FeatureConfig):
 
 @dataclass
 class BandConfig:
-    lbound: int
-    ubound: int
+    lower_bound: int
+    upper_bound: int
 
 
 @dataclass
 class BandEnergyRatioConfig(FeatureConfig):
-    lband: BandConfig
-    uband: BandConfig
+    lower_band: BandConfig
+    upper_band: BandConfig
 
 
 @dataclass
@@ -58,14 +58,14 @@ class FeatExtractorConfig:
     verbose: bool
     mfcc: MFCCConfig
     mfcc_diff_norm: MFCCConfig
-    st_energy: FeatureConfig
-    zcr: FeatureConfig
+    short_time_energy: FeatureConfig
+    zero_crossing_rate: FeatureConfig
     band_energy_ratio: BandEnergyRatioConfig
-    ac_coeff: AutoCorrConfig
-    s_rolloff_point: SpecRolloffPointConfig
-    s_centroid: FeatureConfig
-    s_spread: FeatureConfig
-    s_flux: FeatureConfig
+    autocorrelation_coefficient: AutoCorrConfig
+    spectral_rolloff_point: SpecRolloffPointConfig
+    spectrum_centroid: FeatureConfig
+    spectrum_spread: FeatureConfig
+    spectral_flux: FeatureConfig
 
 
 @dataclass
@@ -83,16 +83,16 @@ class ModelConfig:
 FEAT_FIELD_TYPES = {
     "mfcc": MFCCConfig,
     "mfcc_diff_norm": MFCCConfig,
-    "st_energy": FeatureConfig,
-    "zcr": FeatureConfig,
+    "short_time_energy": FeatureConfig,
+    "zero_crossing_rate": FeatureConfig,
     "band_energy_ratio": BandEnergyRatioConfig,
-    "ac_coeff": AutoCorrConfig,
-    "s_rolloff_point": SpecRolloffPointConfig,
-    "s_centroid": FeatureConfig,
-    "s_spread": FeatureConfig,
-    "s_flux": FeatureConfig,
-    "lband": BandConfig,
-    "uband": BandConfig,
+    "autocorrelation_coefficient": AutoCorrConfig,
+    "spectral_rolloff_point": SpecRolloffPointConfig,
+    "spectrum_centroid": FeatureConfig,
+    "spectrum_spread": FeatureConfig,
+    "spectral_flux": FeatureConfig,
+    "lower_band": BandConfig,
+    "upper_band": BandConfig,
 }
 
 

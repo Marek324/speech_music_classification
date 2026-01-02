@@ -19,30 +19,30 @@ models:
       mfcc_diff_norm:
         enable: true
         n_mfcc: 10
-      st_energy:
+      short_time_energy:
         enable: true
-      zcr:
+      zero_crossing_rate:
         enable: true
       band_energy_ratio:
         enable: true
-        lband:
-          lbound: 0
-          ubound: 70
-        uband:
-          lbound: 8000
-          ubound: 16000
-      ac_coeff:
+        lower_band:
+          lower_bound: 0
+          upper_bound: 70
+        upper_band:
+          lower_bound: 8000
+          upper_bound: 16000
+      autocorrelation_coefficient:
         enable: true
         min_lag_ms: 3
         max_lag_ms: 16
-      s_rolloff_point:
+      spectral_rolloff_point:
         enable: true
         thr: 0.85
-      s_centroid:
+      spectrum_centroid:
         enable: true
-      s_spread:
+      spectrum_spread:
         enable: true
-      s_flux:
+      spectral_flux:
         enable: true
 
   gmm:
@@ -57,28 +57,28 @@ models:
       mfcc_diff_norm:
         enable: true
         n_mfcc: 10
-      st_energy:
+      short_time_energy:
         enable: true
-      zcr:
+      zero_crossing_rate:
         enable: true
       band_energy_ratio:
         enable: true
-        lband:
-          lbound: 0
-          ubound: 70
-        uband:
-          lbound: 8000
-          ubound: 16000
-      ac_coeff:
+        lower_band:
+          lower_bound: 0
+          upper_bound: 70
+        upper_band:
+          lower_bound: 8000
+          upper_bound: 16000
+      autocorrelation_coefficient:
         enable: true
         min_lag_ms: 3
         max_lag_ms: 16
-      s_rolloff_point:
+      spectral_rolloff_point:
         enable: true
         thr: 0.85
-      s_centroid:
+      spectrum_centroid:
         enable: true
-      s_spread:
+      spectrum_spread:
         enable: true
-      s_flux:
+      spectral_flux:
         enable: true

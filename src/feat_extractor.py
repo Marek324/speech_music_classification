@@ -7,8 +7,8 @@ from typing import Optional
 
 import numpy as np
 from librosa import feature as libfeat
-from scipy.signal import correlate, lfilter
 from scipy.ndimage import uniform_filter1d
+from scipy.signal import correlate, lfilter
 
 import config
 
