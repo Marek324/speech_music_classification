@@ -58,11 +58,9 @@ class InputHandler:
         #
         if self.mode == "dataset":
             self.ds_stats = {
-                "total": {
-                    "frames": 0,
-                    "classes": Counter(),
-                    "subclasses": Counter(),
-                }
+                "frames": 0,
+                "classes": Counter(),
+                "subclasses": Counter(),
             }
 
             assert ds_link != "", "Dataset mode requires ds_link"
@@ -94,7 +92,7 @@ class InputHandler:
                 # self.ds_stats["frames"] += rs["frames"]
                 # self.ds_stats["classes"].update(rs["classes"])
                 # self.ds_stats["subclasses"].update(rs["subclasses"])
-                self.ds_stats["frames"] = len(row["labels"])
+                self.ds_stats["frames"] += len(row["labels"])
                 self.ds_stats["classes"].update(row["labels"])
                 self.ds_stats["subclasses"].update(row["subclasses"])
 
