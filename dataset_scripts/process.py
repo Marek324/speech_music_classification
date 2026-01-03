@@ -336,9 +336,7 @@ def split_files(max_per_folder=9000):
                         if "file_name" in entry:
                             entry["file_name"] = f"{file_path.name}"
                         elif "audio_file_path" in entry:
-                            entry["audio_file_path"] = (
-                                f"{file_path.name}"
-                            )
+                            entry["audio_file_path"] = f"{file_path.name}"
                         new_metadata_entries.append(entry)
 
             # Create metadata.jsonl in each subfolder
@@ -441,94 +439,94 @@ def main():
             process_dataset(clean4, vad, "speech", "speech_clean", 8000, "clean4")
 
             # case "clean5":
-            print("Downloading clean5")
-
-            clean5 = load_dataset(
-                "MLCommons/peoples_speech",
-                "clean",
-                split="train",
-                streaming=True,
-            )
-            assert isinstance(clean5, IterableDataset)
-            clean5 = (
-                clean5.select_columns("audio")
-                .skip(24000)
-                .take(8000)
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(clean5, vad, "speech", "speech_clean", 8000, "clean5")
+            # print("Downloading clean5")
+            #
+            # clean5 = load_dataset(
+            #     "MLCommons/peoples_speech",
+            #     "clean",
+            #     split="train",
+            #     streaming=True,
+            # )
+            # assert isinstance(clean5, IterableDataset)
+            # clean5 = (
+            #     clean5.select_columns("audio")
+            #     .skip(24000)
+            #     .take(8000)
+            #     .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            # )
+            # process_dataset(clean5, vad, "speech", "speech_clean", 8000, "clean5")
 
             # case "clean6":
-            print("Downloading clean6")
-
-            clean6 = load_dataset(
-                "MLCommons/peoples_speech",
-                "clean",
-                split="train",
-                streaming=True,
-            )
-            assert isinstance(clean6, IterableDataset)
-            clean6 = (
-                clean6.select_columns("audio")
-                .skip(32000)
-                .take(8000)
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(clean6, vad, "speech", "speech_clean", 8000, "clean6")
-
-            # case "clean7":
-            print("Downloading clean7")
-
-            clean7 = load_dataset(
-                "MLCommons/peoples_speech",
-                "clean",
-                split="train",
-                streaming=True,
-            )
-            assert isinstance(clean7, IterableDataset)
-            clean7 = (
-                clean7.select_columns("audio")
-                .skip(40000)
-                .take(8000)
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(clean7, vad, "speech", "speech_clean", 8000, "clean7")
-
-            # case "clean8":
-            print("Downloading clean8")
-
-            clean8 = load_dataset(
-                "MLCommons/peoples_speech",
-                "clean",
-                split="train",
-                streaming=True,
-            )
-            assert isinstance(clean8, IterableDataset)
-            clean8 = (
-                clean8.select_columns("audio")
-                .skip(48000)
-                .take(8000)
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(clean8, vad, "speech", "speech_clean", 8000, "clean8")
-
-            # case "clean9":
-            print("Downloading clean9")
-
-            clean9 = load_dataset(
-                "MLCommons/peoples_speech",
-                "clean",
-                split="train",
-                streaming=True,
-            )
-            assert isinstance(clean9, IterableDataset)
-            clean9 = (
-                clean9.select_columns("audio")
-                .skip(56000)
-                .take(8000)
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(clean9, vad, "speech", "speech_clean", 8000, "clean9")
+            # print("Downloading clean6")
+            #
+            # clean6 = load_dataset(
+            #     "MLCommons/peoples_speech",
+            #     "clean",
+            #     split="train",
+            #     streaming=True,
+            # )
+            # assert isinstance(clean6, IterableDataset)
+            # clean6 = (
+            #     clean6.select_columns("audio")
+            #     .skip(32000)
+            #     .take(8000)
+            #     .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            # )
+            # process_dataset(clean6, vad, "speech", "speech_clean", 8000, "clean6")
+            #
+            # # case "clean7":
+            # print("Downloading clean7")
+            #
+            # clean7 = load_dataset(
+            #     "MLCommons/peoples_speech",
+            #     "clean",
+            #     split="train",
+            #     streaming=True,
+            # )
+            # assert isinstance(clean7, IterableDataset)
+            # clean7 = (
+            #     clean7.select_columns("audio")
+            #     .skip(40000)
+            #     .take(8000)
+            #     .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            # )
+            # process_dataset(clean7, vad, "speech", "speech_clean", 8000, "clean7")
+            #
+            # # case "clean8":
+            # print("Downloading clean8")
+            #
+            # clean8 = load_dataset(
+            #     "MLCommons/peoples_speech",
+            #     "clean",
+            #     split="train",
+            #     streaming=True,
+            # )
+            # assert isinstance(clean8, IterableDataset)
+            # clean8 = (
+            #     clean8.select_columns("audio")
+            #     .skip(48000)
+            #     .take(8000)
+            #     .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            # )
+            # process_dataset(clean8, vad, "speech", "speech_clean", 8000, "clean8")
+            #
+            # # case "clean9":
+            # print("Downloading clean9")
+            #
+            # clean9 = load_dataset(
+            #     "MLCommons/peoples_speech",
+            #     "clean",
+            #     split="train",
+            #     streaming=True,
+            # )
+            # assert isinstance(clean9, IterableDataset)
+            # clean9 = (
+            #     clean9.select_columns("audio")
+            #     .skip(56000)
+            #     .take(8000)
+            #     .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            # )
+            # process_dataset(clean9, vad, "speech", "speech_clean", 8000, "clean9")
 
             # case "noisy":
             print("Downloading noisy")
