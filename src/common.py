@@ -55,6 +55,9 @@ def frame_label(
                 if start < end:
                     overlap[lbl] += end - start
 
+    if sum(overlap.values()) == 0:
+        return lbl_val["inactive"]
+
     majority = max(overlap.items(), key=lambda x: x[1])[0]
     return lbl_val[majority]
 
@@ -72,6 +75,9 @@ def frame_label_str(
                 end = min(f_end, ran["end"])
                 if start < end:
                     overlap[lbl] += end - start
+
+    if sum(overlap.values()) == 0:
+        return "inactive"
 
     majority = max(overlap.items(), key=lambda x: x[1])[0]
     return majority

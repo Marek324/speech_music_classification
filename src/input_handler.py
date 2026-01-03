@@ -171,7 +171,10 @@ class InputHandler:
 
             feats.append(f.feats)
             labels_list.append(f.metadata.label)
-            subclasses.append(f.metadata.subclass)
+            if f.metadata.label == "inactive":
+                subclasses.append("inactive")
+            else:
+                subclasses.append(f.metadata.subclass)
 
             frame_start += self.hop_len
 
