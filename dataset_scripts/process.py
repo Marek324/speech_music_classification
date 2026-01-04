@@ -354,6 +354,11 @@ def split_files(max_per_folder=9000):
         print(f"  {split} split completed")
 
 
+def upload():
+    dataset = load_dataset("audiofolder", data_dir=DATA_DIR)
+    dataset.push_to_hub(repo_id="Marek324/speech-music-classification")
+
+
 def main():
     for dir in [
         f"{DATA_DIR}/train",
@@ -766,6 +771,9 @@ def main():
 
         case "split":
             split_files()
+
+        case "upload":
+            upload()
 
 
 if __name__ == "__main__":
