@@ -21,26 +21,26 @@ DATA_DIR = "data"
 NAMES = [
     "clean1",
     "clean2",
-    "clean3",
+    #"clean3",
     # "clean4",
     # "clean5",
     # "clean6",
     # "clean7",
     # "clean8",
     # "clean9",
-    "noisy",
-    "noisyenv",
-    "noise",
+    #"noisy",
+    #"noisyenv",
+    #"noise",
     "jazz",
     "country",
-    "folk",
-    "pop",
-    "rock",
+    #"folk",
+    #"pop",
+    #"rock",
     "electronic",
     "instrumental",
-    "vocal1",
-    "vocal2",
-    "vocal3",
+    #"vocal1",
+    #"vocal2",
+    #"vocal3",
 ]
 
 sr = 16000
@@ -408,22 +408,22 @@ def main():
             process_dataset(clean2, vad, "speech", "speech_clean", 8000, "clean2")
 
             # case "clean3":
-            print("Downloading clean3")
+            #print("Downloading clean3")
 
-            clean3 = load_dataset(
-                "MLCommons/peoples_speech",
-                "clean",
-                split="train",
-                streaming=True,
-            )
-            assert isinstance(clean3, IterableDataset)
-            clean3 = (
-                clean3.select_columns("audio")
-                .skip(8000)
-                .take(8000)
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(clean3, vad, "speech", "speech_clean", 8000, "clean3")
+            #clean3 = load_dataset(
+            #    "MLCommons/peoples_speech",
+            #    "clean",
+            #    split="train",
+            #    streaming=True,
+            #)
+            #assert isinstance(clean3, IterableDataset)
+            #clean3 = (
+            #    clean3.select_columns("audio")
+            #    .skip(8000)
+            #    .take(8000)
+            #    .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            #)
+            #process_dataset(clean3, vad, "speech", "speech_clean", 8000, "clean3")
 
             # case "clean4":
             # print("Downloading clean4")
@@ -534,34 +534,34 @@ def main():
             # process_dataset(clean9, vad, "speech", "speech_clean", 8000, "clean9")
 
             # case "noisy":
-            print("Downloading noisy")
+            #print("Downloading noisy")
 
-            noisy = load_dataset(
-                "Jzuluaga/atco2_corpus_1h", split="test", streaming=True
-            )
-            assert isinstance(noisy, IterableDataset)
-            noisy = (
-                noisy.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(noisy, vad, "speech", "speech_noisy", 871, "noisy")
+            #noisy = load_dataset(
+            #    "Jzuluaga/atco2_corpus_1h", split="test", streaming=True
+            #)
+            #assert isinstance(noisy, IterableDataset)
+            #noisy = (
+            #    noisy.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            #)
+            #process_dataset(noisy, vad, "speech", "speech_noisy", 871, "noisy")
 
-            # case "noisyenv":
-            print("Downloading noisyenv")
+            ## case "noisyenv":
+            #print("Downloading noisyenv")
 
-            noisy_env = load_from_disk("noizeus_dataset")
-            assert isinstance(noisy_env, Dataset)
-            noisy_env = noisy_env.to_iterable_dataset()
-            assert isinstance(noisy_env, IterableDataset)
-            noisy_env = (
-                noisy_env.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(
-                noisy_env, vad, "speech", "speech_noisyenv", 630, "noisyenv"
-            )
+            #noisy_env = load_from_disk("noizeus_dataset")
+            #assert isinstance(noisy_env, Dataset)
+            #noisy_env = noisy_env.to_iterable_dataset()
+            #assert isinstance(noisy_env, IterableDataset)
+            #noisy_env = (
+            #    noisy_env.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            #)
+            #process_dataset(
+            #    noisy_env, vad, "speech", "speech_noisyenv", 630, "noisyenv"
+            #)
 
             # case "jazz":
             print("Downloading jazz")
@@ -600,56 +600,56 @@ def main():
             )
 
             # case "folk":
-            print("Downloading folk")
-            folk = load_dataset("lewtun/music_genres", split="train", streaming=True)
-            assert isinstance(folk, IterableDataset)
-            folk = (
-                folk.shuffle(seed=RAND_SEED)
-                .select_columns(["audio", "genre"])
-                .filter(lambda row: row["genre"] == "Folk")
-                .take(1000)
-                .cast_column(
-                    "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
-                )
-            )
-            process_dataset(
-                folk, msd, "music", "music_acoustic", 1000, "folk", sil_thr=-33
-            )
+            #print("Downloading folk")
+            #folk = load_dataset("lewtun/music_genres", split="train", streaming=True)
+            #assert isinstance(folk, IterableDataset)
+            #folk = (
+            #    folk.shuffle(seed=RAND_SEED)
+            #    .select_columns(["audio", "genre"])
+            #    .filter(lambda row: row["genre"] == "Folk")
+            #    .take(1000)
+            #    .cast_column(
+            #        "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            #    )
+            #)
+            #process_dataset(
+            #    folk, msd, "music", "music_acoustic", 1000, "folk", sil_thr=-33
+            #)
 
-            # case "pop":
-            print("Downloading pop")
+            ## case "pop":
+            #print("Downloading pop")
 
-            pop = load_dataset(
-                "memepottaboah/POPMUSIC1981", split="train", streaming=True
-            )
-            assert isinstance(pop, IterableDataset)
-            pop = (
-                pop.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column(
-                    "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
-                )
-            )
-            process_dataset(
-                pop, msd, "music", "music_mainstream", 268, "pop", sil_thr=-22
-            )
+            #pop = load_dataset(
+            #    "memepottaboah/POPMUSIC1981", split="train", streaming=True
+            #)
+            #assert isinstance(pop, IterableDataset)
+            #pop = (
+            #    pop.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column(
+            #        "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            #    )
+            #)
+            #process_dataset(
+            #    pop, msd, "music", "music_mainstream", 268, "pop", sil_thr=-22
+            #)
 
-            # case "rock":
-            print("Downloading rock")
-            rock = load_dataset("lewtun/music_genres", split="train", streaming=True)
-            assert isinstance(rock, IterableDataset)
-            rock = (
-                rock.shuffle(seed=RAND_SEED)
-                .select_columns(["audio", "genre"])
-                .filter(lambda row: row["genre"] == "Rock")
-                .take(2000)
-                .cast_column(
-                    "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
-                )
-            )
-            process_dataset(
-                rock, msd, "music", "music_mainstream", 2000, "rock", sil_thr=-30
-            )
+            ## case "rock":
+            #print("Downloading rock")
+            #rock = load_dataset("lewtun/music_genres", split="train", streaming=True)
+            #assert isinstance(rock, IterableDataset)
+            #rock = (
+            #    rock.shuffle(seed=RAND_SEED)
+            #    .select_columns(["audio", "genre"])
+            #    .filter(lambda row: row["genre"] == "Rock")
+            #    .take(2000)
+            #    .cast_column(
+            #        "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            #    )
+            #)
+            #process_dataset(
+            #    rock, msd, "music", "music_mainstream", 2000, "rock", sil_thr=-30
+            #)
 
             # case "electronic":
             print("Downloading electronic")
@@ -699,72 +699,72 @@ def main():
             )
 
             # case "vocal1":
-            print("Downloading vocal1")
+            #print("Downloading vocal1")
 
-            vocal1 = load_dataset(
-                "ccmusic-database/acapella", split="song1", streaming=True
-            )
-            assert isinstance(vocal1, IterableDataset)
-            vocal1 = (
-                vocal1.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column(
-                    "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
-                )
-            )
-            process_dataset(
-                vocal1, msd, "music", "music_vocal", 22, "vocal1", sil_thr=-48
-            )
+            #vocal1 = load_dataset(
+            #    "ccmusic-database/acapella", split="song1", streaming=True
+            #)
+            #assert isinstance(vocal1, IterableDataset)
+            #vocal1 = (
+            #    vocal1.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column(
+            #        "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            #    )
+            #)
+            #process_dataset(
+            #    vocal1, msd, "music", "music_vocal", 22, "vocal1", sil_thr=-48
+            #)
 
-            # case "vocal2":
-            print("Downloading vocal2")
+            ## case "vocal2":
+            #print("Downloading vocal2")
 
-            vocal2 = load_dataset(
-                "ccmusic-database/acapella", split="song2", streaming=True
-            )
-            assert isinstance(vocal2, IterableDataset)
-            vocal2 = (
-                vocal2.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column(
-                    "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
-                )
-            )
-            process_dataset(
-                vocal2, msd, "music", "music_vocal", 22, "vocal2", sil_thr=-48
-            )
+            #vocal2 = load_dataset(
+            #    "ccmusic-database/acapella", split="song2", streaming=True
+            #)
+            #assert isinstance(vocal2, IterableDataset)
+            #vocal2 = (
+            #    vocal2.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column(
+            #        "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            #    )
+            #)
+            #process_dataset(
+            #    vocal2, msd, "music", "music_vocal", 22, "vocal2", sil_thr=-48
+            #)
 
-            # case "vocal3":
-            print("Downloading vocal3")
+            ## case "vocal3":
+            #print("Downloading vocal3")
 
-            vocal3 = load_dataset(
-                "ccmusic-database/acapella", split="song3", streaming=True
-            )
-            assert isinstance(vocal3, IterableDataset)
-            vocal3 = (
-                vocal3.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column(
-                    "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
-                )
-            )
-            process_dataset(
-                vocal3, msd, "music", "music_vocal", 22, "vocal3", sil_thr=-48
-            )
+            #vocal3 = load_dataset(
+            #    "ccmusic-database/acapella", split="song3", streaming=True
+            #)
+            #assert isinstance(vocal3, IterableDataset)
+            #vocal3 = (
+            #    vocal3.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column(
+            #        "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            #    )
+            #)
+            #process_dataset(
+            #    vocal3, msd, "music", "music_vocal", 22, "vocal3", sil_thr=-48
+            #)
 
-            # case "noise":
-            print("Downloading noise")
+            ## case "noise":
+            #print("Downloading noise")
 
-            noise = load_from_disk("musan_noise_dataset")
-            assert isinstance(noise, Dataset)
-            noise = noise.to_iterable_dataset()
-            assert isinstance(noise, IterableDataset)
-            noise = (
-                noise.shuffle(seed=RAND_SEED)
-                .select_columns("audio")
-                .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
-            )
-            process_dataset(noise, sil, "noise", "noise", 169, "noise")
+            #noise = load_from_disk("musan_noise_dataset")
+            #assert isinstance(noise, Dataset)
+            #noise = noise.to_iterable_dataset()
+            #assert isinstance(noise, IterableDataset)
+            #noise = (
+            #    noise.shuffle(seed=RAND_SEED)
+            #    .select_columns("audio")
+            #    .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+            #)
+            #process_dataset(noise, sil, "noise", "noise", 169, "noise")
 
         case "combine":
             combine_metas()

@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N DecisionTreeEval
 #PBS -l walltime=15:00:00
-#PBS -l select=1:ncpus=32:mem=150gb:scratch_local=150gb
+#PBS -l select=1:ncpus=32:mem=200gb:scratch_local=300gb
 
 PROJ_DIR=/storage/brno2/home/marek324/bp
 

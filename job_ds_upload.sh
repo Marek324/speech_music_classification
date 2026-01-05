@@ -12,4 +12,4 @@ source $PROJ_DIR/setup.sh
 LOGS="$PROJ_DIR/logs/ds_upload/$PBS_JOBID"
 mkdir -p "$LOGS"
 
-uvx hf upload-large-folder --repo-type dataset --no-bars Marek324/speech-music-classification $BASE_DIR/dataset
+uvx hf upload-large-folder --repo-type dataset --no-bars Marek324/speech-music-classification $BASE_DIR/dataset/data

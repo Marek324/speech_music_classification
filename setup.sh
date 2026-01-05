@@ -75,6 +75,6 @@ export HF_HUB_CACHE="$DATASET_DIR"
 
 export DATASET_NAME=Marek324/speech-music-classification
 
-uvx hf download $DATASET_NAME --repo-type dataset
+#uvx hf download $DATASET_NAME --repo-type dataset
 
 set +euo pipefail
