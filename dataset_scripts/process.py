@@ -19,6 +19,19 @@ MAX_FILES_PER_FOLDER = 9000
 SR = 16000
 
 
+def create_label(label_type: str, start: int, end: int):
+    """
+    Creates a label dictionary with all keys present (speech, music, inactive).
+    Unused keys are set to None. This prevents schema mismatch errors in HF datasets.
+    """
+    segment = {"start": start, "end": end}
+    
+    return {
+        "speech": segment if label_type == "speech" else None,
+        "music": segment if label_type == "music" else None,
+        "inactive": segment if label_type == "inactive" else None,
+    }
+
 class Silence:
     def __init__(self): ...
 
@@ -35,7 +48,7 @@ class Silence:
 
             siglen = len(seg)
 
-        return [{"inactive": {"start": 0, "end": siglen}}]
+        return [create_label("inactive", 0, siglen)]
 
 
 class VAD:
@@ -58,7 +71,7 @@ class VAD:
         stamps: list[dict[str, int]] = get_speech_timestamps(x.data, self.model)
 
         if not stamps:
-            return [{"inactive": {"start": 0, "end": len(x.data)}}]
+            return [create_label("inactive", 0, len(x.data))]
 
         labels: list[dict[str, dict[str, int]]] = []
         prev_end = 0
@@ -67,21 +80,16 @@ class VAD:
             if stamp["start"] > prev_end:
                 labels.append(
                     {
-                        "inactive": {
-                            "start": stoms(prev_end),
-                            "end": stoms(stamp["start"]),
-                        }
+                        create_label("inactive", stoms(prev_end), stoms(stamp["start"]))
                     }
                 )
 
-            labels.append(
-                {"speech": {"start": stoms(stamp["start"]), "end": stoms(stamp["end"])}}
-            )
+            labels.append(create_label("speech", stoms(stamp["start"]), stoms(stamp["end"])))
             prev_end = stamp["end"]
 
         if prev_end < len(x.data):
             labels.append(
-                {"inactive": {"start": stoms(prev_end), "end": stoms(len(x.data))}}
+                create_label("inactive", stoms(prev_end), stoms(len(x.data)))
             )
 
         return labels
@@ -106,26 +114,21 @@ class MusicSilenceDetector:
         )
 
         if not sil_stamps:
-            return [{"music": {"start": 0, "end": len(seg)}}]
+            return [create_label("music", 0, len(seg))]
 
         prev_end = 0
 
         for stamp in sil_stamps:
             if stamp[0] > prev_end:
                 labels.append(
-                    {
-                        "music": {
-                            "start": prev_end,
-                            "end": stamp[0],
-                        }
-                    }
+                    create_label("music", prev_end, stamp[0])
                 )
 
-            labels.append({"inactive": {"start": stamp[0], "end": stamp[1]}})
+            labels.append(create_label("inactive", stamp[0], stamp[1]))
             prev_end = stamp[1]
 
         if prev_end < len(seg):
-            labels.append({"music": {"start": prev_end, "end": len(seg)}})
+            labels.append(create_label("music", prev_end, len(seg)))
 
         return labels
 
