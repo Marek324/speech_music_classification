@@ -79,9 +79,7 @@ class VAD:
         for stamp in stamps:
             if stamp["start"] > prev_end:
                 labels.append(
-                    {
                         create_label("inactive", stoms(prev_end), stoms(stamp["start"]))
-                    }
                 )
 
             labels.append(create_label("speech", stoms(stamp["start"]), stoms(stamp["end"])))
