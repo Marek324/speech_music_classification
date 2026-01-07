@@ -41,7 +41,7 @@ class FrameDataStrLabel:
 
 
 def frame_label(
-    anns: List[Dict[str, Optional[Dict[str, int]]]], f_start: int, f_end: int
+    anns: List[Dict[str, Union[str, int]]], f_start: int, f_end: int
 ) -> int:
     lbl_val = {"speech": -1, "music": 1, "inactive": 2}
     overlap = {"speech": 0, "music": 0, "inactive": 0}
@@ -63,21 +63,23 @@ def frame_label(
 
 
 def frame_label_str(
-    anns: List[Dict[str, Optional[Dict[str, int]]]], f_start: int, f_end: int
+    anns: List[Dict[str, Union[str, int]]], f_start: int, f_end: int
 ) -> str:
     overlap = {"speech": 0, "music": 0, "inactive": 0}
 
     for ann in anns:
-        for lbl in ["speech", "music", "inactive"]:
-            ran = ann.get(lbl)
-            if ran is not None:
-                start = max(f_start, ran["start"])
-                end = min(f_end, ran["end"])
-                if start < end:
-                    overlap[lbl] += end - start
+        lbl = ann.get("label")
+        if lbl not in ["speech", "music", "inactive"]:
+            print("Unknown label:", lbl)
+            sys.exit(1)
 
-    if sum(overlap.values()) == 0:
-        return "inactive"
+        start = max(f_start, ann["start"])
+        end = min(f_end, ann["end"])
+        if start < end:
+            overlap[lbl] += end - start
+        
+        if sum(overlap.values()) == 0:
+            return "inactive"
 
     majority = max(overlap.items(), key=lambda x: x[1])[0]
     return majority
