@@ -276,7 +276,7 @@ def main():
         clean3.select_columns("audio")
         .skip(8000)
         .take(8000)
-        .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+        .cast_column("audio", Audio(sampling_rate=SR, num_channels=1))
     )
     process_dataset(clean3, vad, "speech", "speech_clean", 8000, "clean3")
 
@@ -288,7 +288,7 @@ def main():
     noisy = (
         noisy.shuffle(seed=RAND_SEED)
         .select_columns("audio")
-        .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+        .cast_column("audio", Audio(sampling_rate=SR, num_channels=1))
     )
     process_dataset(noisy, vad, "speech", "speech_noisy", 871, "noisy")
 
@@ -300,7 +300,7 @@ def main():
     noisy_env = (
         noisy_env.shuffle(seed=RAND_SEED)
         .select_columns("audio")
-        .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+        .cast_column("audio", Audio(sampling_rate=SR, num_channels=1))
     )
     process_dataset(
         noisy_env, vad, "speech", "speech_noisyenv", 630, "noisyenv"
@@ -318,7 +318,7 @@ def main():
         jazz.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -334,7 +334,7 @@ def main():
         country.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -350,7 +350,7 @@ def main():
        .filter(lambda row: row["genre"] == "Folk")
        .take(1000)
        .cast_column(
-           "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+           "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
        )
     )
     process_dataset(
@@ -366,7 +366,7 @@ def main():
        pop.shuffle(seed=RAND_SEED)
        .select_columns("audio")
        .cast_column(
-           "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+           "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
        )
     )
     process_dataset(
@@ -382,7 +382,7 @@ def main():
        .filter(lambda row: row["genre"] == "Rock")
        .take(2000)
        .cast_column(
-           "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+           "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
        )
     )
     process_dataset(
@@ -398,7 +398,7 @@ def main():
         electronic.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -420,7 +420,7 @@ def main():
         instrumental.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -442,7 +442,7 @@ def main():
         vocal1.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -458,7 +458,7 @@ def main():
         vocal2.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -474,7 +474,7 @@ def main():
         vocal3.shuffle(seed=RAND_SEED)
         .select_columns("audio")
         .cast_column(
-            "audio", Audio(sampling_rate=sr, num_channels=1, decode=False)
+            "audio", Audio(sampling_rate=SR, num_channels=1, decode=False)
         )
     )
     process_dataset(
@@ -489,7 +489,7 @@ def main():
     noise = (
         noise.shuffle(seed=RAND_SEED)
         .select_columns("audio")
-        .cast_column("audio", Audio(sampling_rate=sr, num_channels=1))
+        .cast_column("audio", Audio(sampling_rate=SR, num_channels=1))
     )
     process_dataset(noise, sil, "noise", "noise", 169, "noise")
 
