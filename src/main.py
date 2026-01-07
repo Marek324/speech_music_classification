@@ -20,7 +20,7 @@ def train(model):
     ih = InputHandler(
         mode="dataset",
         feat_extractor=fe,
-        ds_link="Marek324/speech-music-classification",
+        ds_link="Marek324/speech-music-classification-tmp",
         ds_split="train",
     )
 
@@ -72,7 +72,7 @@ def eval(model: ModelClass):
     ih = InputHandler(
         "dataset",
         fe,
-        ds_link="Marek324/speech-music-classification",
+        ds_link="Marek324/speech-music-classification-tmp",
         ds_split="test",
     )
 
@@ -98,7 +98,7 @@ def dataset_stats():
     ih = InputHandler(
         mode="dataset",
         feat_extractor=DummyFeatExtractor(),
-        ds_link="Marek324/speech-music-classification",
+        ds_link="Marek324/speech-music-classification-tmp",
         ds_split="train",
     )
 
