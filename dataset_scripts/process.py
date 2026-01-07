@@ -19,17 +19,13 @@ MAX_FILES_PER_FOLDER = 9000
 SR = 16000
 
 
-def create_label(label_type: str, start: int, end: int):
-    """
-    Creates a label dictionary with all keys present (speech, music, inactive).
-    Unused keys are set to None. This prevents schema mismatch errors in HF datasets.
-    """
+def create_label(label: str, start: int, end: int):
     segment = {"start": start, "end": end}
     
     return {
-        "speech": segment if label_type == "speech" else None,
-        "music": segment if label_type == "music" else None,
-        "inactive": segment if label_type == "inactive" else None,
+        "label": label,
+        "start": start,
+        "end": end,
     }
 
 class Silence:
