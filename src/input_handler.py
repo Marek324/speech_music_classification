@@ -36,6 +36,7 @@ class InputHandler:
         feat_extractor: FeatExtractor,
         ds_link: str = "",
         ds_split: str = "train",
+        ds_revision: str = "main",
     ):
         assert mode in ("dataset", "microphone")
         self.mode = mode
@@ -65,7 +66,7 @@ class InputHandler:
 
             assert ds_link != "", "Dataset mode requires ds_link"
 
-            self.dataset = load_dataset(ds_link, split=ds_split).cast_column(
+            self.dataset = load_dataset(ds_link, split=ds_split, revision=ds_revision).cast_column(
                 "audio",
                 Audio(sampling_rate=self.sr, num_channels=self.channels),
             )

@@ -1,7 +1,7 @@
 #!/bin/bash
 #PBS -N DatasetStatsJob
 #PBS -l walltime=12:00:00
-#PBS -l select=1:ncpus=32:mem=150gb:scratch_local=150gb
+#PBS -l select=1:ncpus=32:mem=150gb:scratch_local=250gb
 
 PROJ_DIR=/storage/brno2/home/marek324/bp
 

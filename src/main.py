@@ -16,7 +16,8 @@ from modelclass import ModelClass
 DATASET="Marek324/speech-music-classification-tmp"
 TRAIN_DATASET=DATASET
 EVAL_DATASET=DATASET
-STATS_DATASET="Marek324/speech-music-classification-test"
+#STATS_DATASET="Marek324/speech-music-classification-test"
+STATS_DATASET=DATASET
 
 
 def train(model):
@@ -25,7 +26,7 @@ def train(model):
     ih = InputHandler(
         mode="dataset",
         feat_extractor=fe,
-        ds_link=TRAIN_DATASET
+        ds_link=TRAIN_DATASET,
         ds_split="train",
     )
 
@@ -105,6 +106,7 @@ def dataset_stats():
         feat_extractor=DummyFeatExtractor(),
         ds_link=STATS_DATASET,
         ds_split="train",
+       # ds_revision="refs/convert/parquet",
     )
 
     ih.summary()

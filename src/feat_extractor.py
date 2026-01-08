@@ -59,6 +59,7 @@ class FeatExtractor:
                 feats.append(self._spectral_flux(frame))
 
             case "gmm" | "svm":
+                pass
                 
 
 
