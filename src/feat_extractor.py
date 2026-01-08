@@ -17,6 +17,7 @@ class FeatExtractor:
     def __init__(self):
         cfg = config.get_config()
         assert isinstance(cfg, config.Config)
+        self.model = cfg.model.name
         self.cfg = cfg.fext
         assert isinstance(self.cfg, config.FeatExtractorConfig)
         self.defaults = cfg.defaults
@@ -40,29 +41,26 @@ class FeatExtractor:
         feats = []
         mfccs = None
 
-        if self.cfg.mfcc.enable:
-            mfccs = self._mfcc(frame).flatten()
-            mfccs = np.nan_to_num(mfccs, nan=0.0, posinf=0.0, neginf=0.0)
-            feats.append(mfccs)
-            if self.cfg.mfcc_diff_norm.enable:
+        match self.model:
+            case "decision_tree":
+                mfccs = self._mfcc(frame).flatten()
+                mfccs = np.nan_to_num(mfccs, nan=0.0, posinf=0.0, neginf=0.0)
+                feats.append(mfccs)
                 feats.append(self._mfcc_diff_norm(mfccs))
+                self.last_mfcc = deepcopy(mfccs)
 
-            self.last_mfcc = deepcopy(mfccs)
+                feats.append(self._short_time_energy(frame))
+                feats.append(self._zero_crossing_rate(frame))
+                feats.append(self._band_energy_ratio(frame))
+                feats.append(self._autocorrelation_coefficient(frame))
+                feats.append(self._spectral_rolloff_point(frame))
+                feats.append(self._spectrum_centroid(frame))
+                feats.append(self._spectrum_spread(frame))
+                feats.append(self._spectral_flux(frame))
 
-        if self.cfg.short_time_energy.enable:
-            feats.append(self._short_time_energy(frame))
-        if self.cfg.zero_crossing_rate.enable:
-            feats.append(self._zero_crossing_rate(frame))
-        if self.cfg.band_energy_ratio.enable:
-            feats.append(self._band_energy_ratio(frame))
-        if self.cfg.autocorrelation_coefficient.enable:
-            feats.append(self._autocorrelation_coefficient(frame))
-        if self.cfg.spectral_rolloff_point.enable:
-            feats.append(self._spectral_rolloff_point(frame))
-        if self.cfg.spectrum_centroid.enable:
-            feats.append(self._spectrum_centroid(frame))
-        if self.cfg.spectral_flux.enable:
-            feats.append(self._spectral_flux(frame))
+            case "gmm" | "svm":
+                
+
 
         feat = np.hstack(feats)
         feat = np.nan_to_num(feat, nan=0.0, posinf=0.0, neginf=0.0)

@@ -33,6 +33,12 @@ class Evaluator:
     def eval(
         self, model: ModelClass, X: np.ndarray, y: np.ndarray, subclasses: np.ndarray
     ) -> EvalResults:
+
+        # DEBUG
+        print(f"DEBUG: Unique classes y: {np.unique(y)}")
+        print(f"DEBUG: Data type of   y: {y.dtype}")
+        print(f"DEBUG: def class_labels: {self.class_labels}")
+
         y_pred = model.predict_batch(X)
 
         f1_overall = f1_score(y, y_pred, average="macro", zero_division=0)

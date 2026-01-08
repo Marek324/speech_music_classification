@@ -20,8 +20,6 @@ SR = 16000
 
 
 def create_label(label: str, start: int, end: int):
-    segment = {"start": start, "end": end}
-    
     return {
         "label": label,
         "start": start,
