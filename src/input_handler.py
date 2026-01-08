@@ -172,11 +172,14 @@ class InputHandler:
                 f.feats = np.zeros_like(f.feats)
 
             feats.append(f.feats)
-            labels_list.append(f.metadata.label)
-            if f.metadata.label == "inactive":
-                subclasses.append("inactive")
-            else:
-                subclasses.append(f.metadata.subclass)
+            # labels_list.append(f.metadata.label)
+            labels_list.append(_class)
+
+            # if f.metadata.label == "inactive":
+            #     subclasses.append("inactive")
+            # else:
+            #     subclasses.append(f.metadata.subclass)
+            subclasses.append(f.metadata.subclass)
 
             frame_start += self.hop_len
 
