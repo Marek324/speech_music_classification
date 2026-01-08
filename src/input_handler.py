@@ -16,6 +16,7 @@ from common import (
 )
 from feat_extractor import FeatExtractor
 
+label_map = {"speech": -1, "music": 1, "inactive": 2}
 
 class RowStats(TypedDict):
     frames: int
@@ -86,7 +87,7 @@ class InputHandler:
 
             for row in tqdm(processed, desc="Aggregating"):
                 feats_all.extend(row["feats"])
-                labels_all.extend(row["labels"])
+                labels_all.extend([label_map[label] for label in row["labels"]])
                 subclasses_all.extend(row["subclasses"])
 
                 self.ds_stats["frames"] += len(row["labels"])
