@@ -4,7 +4,7 @@ defaults:
   hop_length_ms: 10
   max_buffer_ms: 300
   channels: 1
-  n_fft: 1024
+  n_fft: 512
 
 models:
   decision_tree:
