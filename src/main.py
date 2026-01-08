@@ -13,6 +13,11 @@ from gmm import GMM
 from input_handler import InputHandler
 from modelclass import ModelClass
 
+DATASET="Marek324/speech-music-classification-tmp"
+TRAIN_DATASET=DATASET
+EVAL_DATASET=DATASET
+STATS_DATASET="Marek324/speech-music-classification-test"
+
 
 def train(model):
     assert isinstance(model, ModelClass)
@@ -20,7 +25,7 @@ def train(model):
     ih = InputHandler(
         mode="dataset",
         feat_extractor=fe,
-        ds_link="Marek324/speech-music-classification-tmp",
+        ds_link=TRAIN_DATASET
         ds_split="train",
     )
 
@@ -72,7 +77,7 @@ def eval(model: ModelClass):
     ih = InputHandler(
         "dataset",
         fe,
-        ds_link="Marek324/speech-music-classification-tmp",
+        ds_link=EVAL_DATASET,
         ds_split="test",
     )
 
@@ -98,7 +103,7 @@ def dataset_stats():
     ih = InputHandler(
         mode="dataset",
         feat_extractor=DummyFeatExtractor(),
-        ds_link="Marek324/speech-music-classification-tmp",
+        ds_link=STATS_DATASET,
         ds_split="train",
     )
 
