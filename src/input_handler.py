@@ -16,7 +16,7 @@ from common import (
 )
 from feat_extractor import FeatExtractor
 
-label_map = {"speech": -1, "music": 1, "inactive": 2}
+label_map = {"speech": -1, "music": 1, "inactive": 2, "noise": 2}
 
 class RowStats(TypedDict):
     frames: int
