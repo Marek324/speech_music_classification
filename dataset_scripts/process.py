@@ -489,7 +489,7 @@ def main():
         .select_columns("audio")
         .cast_column("audio", Audio(sampling_rate=SR, num_channels=1))
     )
-    process_dataset(noise, sil, "noise", "noise", 169, "noise")
+    process_dataset(noise, sil, "inactive", "noise", 169, "noise")
 
 
 
