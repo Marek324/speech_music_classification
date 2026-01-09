@@ -113,10 +113,17 @@ class FeatExtractor:
         return out
 
     def _get_feat_buffer(self) -> np.ndarray:
+        if not self.feat_buffer:
+             return np.zeros((self.feat_buf_size, 0))
+
+        feat_dim = self.feat_buffer[-1].shape[0]
         buffer = self.feat_buffer
 
-        out = np.zeros(self.feat_buf_size, dtype=float)
-        out[-len(buffer) :] = np.fromiter(buffer, dtype=float)
+        out = np.zeros((self.feat_buf_size, feat_dim), dtype=float)
+        
+        valid_data = np.array(buffer) 
+
+        out[-len(buffer) :, :] = valid_data
 
         return out
 
