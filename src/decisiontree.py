@@ -7,6 +7,8 @@ import os
 import joblib
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
 
 from modelclass import ModelClass
 
@@ -15,7 +17,10 @@ class DecisionTree(ModelClass):
     name: str = "unnamed"
 
     def __init__(self, name: str):
-        self.tree = DecisionTreeClassifier()
+        self.tree = Pipeline([
+            ('scaler', StandardScaler()),
+            ('classifier', DecisionTreeClassifier())
+        ])
         self.name = name
 
     def fit(self, X: np.ndarray, y: np.ndarray):

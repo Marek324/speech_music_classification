@@ -60,12 +60,10 @@ class FeatExtractor:
 
             case "gmm" | "svm":
                 pass
-                
-
 
         feat = np.hstack(feats)
         feat = np.nan_to_num(feat, nan=0.0, posinf=0.0, neginf=0.0)
-        feat /= np.linalg.norm(feat) + 1e-10
+        # feat /= np.linalg.norm(feat) + 1e-10
 
         return feat
 
