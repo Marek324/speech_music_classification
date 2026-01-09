@@ -9,6 +9,7 @@ import numpy as np
 from librosa import feature as libfeat
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import correlate, lfilter
+from scipy.stats import skew
 
 import config
 
@@ -43,6 +44,7 @@ class FeatExtractor:
 
         match self.model:
             case "decision_tree":
+                # accumulate feats
                 mfccs = self._mfcc(frame).flatten()
                 mfccs = np.nan_to_num(mfccs, nan=0.0, posinf=0.0, neginf=0.0)
                 feats.append(mfccs)
@@ -58,11 +60,33 @@ class FeatExtractor:
                 feats.append(self._spectrum_spread(frame))
                 feats.append(self._spectral_flux(frame))
 
+                # update buffer
+                feats = np.array(feats)
+                self.feat_buffer.append(feats)
+
+                # calc stats
+                buf = self._get_feat_buffer()
+                energies = buf[:, 0]
+                zcrs = buf[:, 1]
+
+                diffs = np.abs(np.diff(buf, axis=0))
+                zcr_diffs = diffs[1]
+
+                feats = np.hstack([
+                    feats,
+                    self._stats_mean(buf),
+                    self._stats_std(buf),
+                    self._stats_mean(diffs),
+                    self._stats_std(diffs),
+                    np.nan_to_num(skew(zcrs), nan=0.0),
+                    np.nan_to_num(skew(zcr_diffs), nan=0.0),
+                    self._low_short_time_energy_ratio(energies),
+                ])
+
             case "gmm" | "svm":
                 pass
 
-        feat = np.hstack(feats)
-        feat = np.nan_to_num(feat, nan=0.0, posinf=0.0, neginf=0.0)
+        feat = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
         # feat /= np.linalg.norm(feat) + 1e-10
 
         return feat
@@ -186,7 +210,6 @@ class FeatExtractor:
             hop_length=self.defaults.hop_length,
             n_fft=self.defaults.n_fft,
         )
-        return np.array([])
 
     def _mfcc_diff_norm(self, mfccs: np.ndarray) -> float:
         last_mfccs = getattr(self, "last_mfcc", None)
@@ -194,6 +217,10 @@ class FeatExtractor:
             return 0
 
         return np.sqrt(np.sum(np.abs(mfccs - last_mfccs) ** 2))
+
+    def _low_short_time_energy_ratio(self, energies: np.ndarray) -> float:
+        thr = float(np.mean(energies) / 3)
+        return np.sum(energies < thr) / len(energies)
 
     def _naps_of_zffs(self, frame: np.ndarray) -> float:
         # Add frame to buffer
@@ -215,3 +242,16 @@ class FeatExtractor:
         zffs = zffs[-self.defaults.frame_length]
 
         return 0.0
+
+    # =============================
+    #           STATS
+    # =============================
+
+    def _stats_mean(self, feats: np.ndarray) -> np.ndarray:
+        return np.mean(feats, axis=0)
+
+    def _stats_std(self, feats: np.ndarray) -> np.ndarray:
+        return np.std(feats, axis=0)
+
+    def _stats_skew(self, feats: np.ndarray) -> np.ndarray:
+        return np.nan_to_num(skew(feats, axis=0), nan=0.0)
