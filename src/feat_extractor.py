@@ -35,6 +35,8 @@ class FeatExtractor:
         )
         self.feat_buffer: deque[np.ndarray] = deque(maxlen=self.feat_buf_size)
 
+        self.last_fft: Optional[np.ndarray] = None
+
         if self.cfg.mfcc.enable:
             self.last_mfcc: Optional[np.ndarray]
 
@@ -127,8 +129,6 @@ class FeatExtractor:
 
         return out
 
-    def _get_last_frame(self) -> Optional[np.ndarray]:
-        return self.feat_buffer[-1] if self.feat_buffer else None
 
     # =============================
     #           FEATURES
@@ -210,11 +210,15 @@ class FeatExtractor:
         )
 
     def _spectral_flux(self, frame: np.ndarray) -> float:
-        last_frame = self._get_last_frame()
-        if last_frame is None:
+        last_fft = self.last_fft
+        current_fft = np.fft.fft(frame)
+        if last_fft is None:
+            self.last_fft = current_fft
             return 0
 
-        return np.sum(np.abs(np.fft.fft(frame) - np.fft.fft(last_frame)) ** 2)
+        flux = np.sum(np.abs(current_fft - last_fft) ** 2)
+        self.last_fft = current_fft
+        return flux
 
     def _mfcc(self, frame: np.ndarray) -> np.ndarray:
         assert isinstance(self.cfg, config.FeatExtractorConfig)
