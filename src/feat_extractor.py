@@ -7,6 +7,7 @@ from typing import Optional
 
 import numpy as np
 from librosa import feature as libfeat
+from librosa.util import fix_length
 from scipy.ndimage import uniform_filter1d
 from scipy.signal import correlate, lfilter
 from scipy.stats import skew
@@ -42,24 +43,29 @@ class FeatExtractor:
         feats = []
         mfccs = None
 
+        if len(frame) < self.defaults.n_fft:
+            padd_frame = fix_length(frame, size=self.defaults.n_fft)
+
         match self.model:
             case "decision_tree":
                 # accumulate feats
-                mfccs = self._mfcc(frame).flatten()
+                # time domain features
+                feats.append(self._short_time_energy(frame))
+                feats.append(self._zero_crossing_rate(frame))
+                feats.append(self._autocorrelation_coefficient(frame))
+
+                # frequency domain features
+                mfccs = self._mfcc(padd_frame).flatten()
                 mfccs = np.nan_to_num(mfccs, nan=0.0, posinf=0.0, neginf=0.0)
-                feats.append(mfccs)
+                feats.extend(mfccs)
                 feats.append(self._mfcc_diff_norm(mfccs))
                 self.last_mfcc = deepcopy(mfccs)
 
-                feats.append(self._short_time_energy(frame))
-                feats.append(self._zero_crossing_rate(frame))
-                feats.append(self._band_energy_ratio(frame))
-                feats.append(self._autocorrelation_coefficient(frame))
-                feats.append(self._spectral_rolloff_point(frame))
-                feats.append(self._spectrum_centroid(frame))
-                feats.append(self._spectrum_spread(frame))
-                feats.append(self._spectral_flux(frame))
-
+                feats.append(self._band_energy_ratio(padd_frame))
+                feats.append(self._spectral_rolloff_point(padd_frame))
+                feats.append(self._spectrum_centroid(padd_frame))
+                feats.append(self._spectrum_spread(padd_frame))
+                feats.append(self._spectral_flux(padd_frame))
                 # update buffer
                 feats = np.array(feats)
                 self.feat_buffer.append(feats)
@@ -72,16 +78,18 @@ class FeatExtractor:
                 diffs = np.abs(np.diff(buf, axis=0))
                 zcr_diffs = diffs[1]
 
-                feats = np.hstack([
-                    feats,
-                    self._stats_mean(buf),
-                    self._stats_std(buf),
-                    self._stats_mean(diffs),
-                    self._stats_std(diffs),
-                    np.nan_to_num(skew(zcrs), nan=0.0),
-                    np.nan_to_num(skew(zcr_diffs), nan=0.0),
-                    self._low_short_time_energy_ratio(energies),
-                ])
+                feats = np.hstack(
+                    [
+                        feats,
+                        self._stats_mean(buf),
+                        self._stats_std(buf),
+                        self._stats_mean(diffs),
+                        self._stats_std(diffs),
+                        np.nan_to_num(skew(zcrs), nan=0.0),
+                        np.nan_to_num(skew(zcr_diffs), nan=0.0),
+                        self._low_short_time_energy_ratio(energies),
+                    ]
+                )
 
             case "gmm" | "svm":
                 pass
