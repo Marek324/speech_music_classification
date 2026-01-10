@@ -2,6 +2,7 @@ from collections import Counter
 from typing import Dict, List, Optional, Any, TypedDict
 
 import numpy as np
+import os
 from datasets import Audio, Dataset, load_dataset
 from tqdm import tqdm
 
@@ -77,7 +78,7 @@ class InputHandler:
             processed = self.dataset.map(
                 self._process_row,
                 desc="Extracting frames/features",
-                num_proc=30,
+                num_proc=os.cpu_count(),
                 load_from_cache_file=True,
             )
 
