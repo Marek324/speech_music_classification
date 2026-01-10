@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
+from sklearn.feature_selection import SequentialFeatureSelector
 
 from modelclass import ModelClass
 
@@ -17,10 +18,22 @@ class DecisionTree(ModelClass):
     name: str = "unnamed"
 
     def __init__(self, name: str):
-        self.tree = Pipeline([
-            ('scaler', StandardScaler()),
-            ('classifier', DecisionTreeClassifier())
-        ])
+        self.tree = Pipeline(
+            [
+                ("scaler", StandardScaler()),
+                (
+                    "selector",
+                    SequentialFeatureSelector(
+                        DecisionTreeClassifier(),
+                        n_features_to_select=10,
+                        direction="forward",
+                        cv=3,
+                        n_jobs=-1,
+                    ),
+                ),
+                ("classifier", DecisionTreeClassifier()),
+            ]
+        )
         self.name = name
 
     def fit(self, X: np.ndarray, y: np.ndarray):
