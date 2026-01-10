@@ -9,7 +9,7 @@ import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn.feature_selection import SelectKBest, mutual_info_classif
 
 from modelclass import ModelClass
 
@@ -23,13 +23,9 @@ class DecisionTree(ModelClass):
                 ("scaler", StandardScaler()),
                 (
                     "selector",
-                    SequentialFeatureSelector(
-                        DecisionTreeClassifier(),
-                        n_features_to_select=10,
-                        direction="forward",
-                        cv=3,
-                        n_jobs=-1,
-                    ),
+                    SelectKBest(
+                        score_func=mutual_info_classif, k=10
+                    )
                 ),
                 ("classifier", DecisionTreeClassifier()),
             ]
@@ -37,8 +33,14 @@ class DecisionTree(ModelClass):
         self.name = name
 
     def fit(self, X: np.ndarray, y: np.ndarray):
+        # select speech/music
+        mask = np.isin(y, [-1, 1])
+
+        X_train = X[mask]
+        y_train = y[mask]
+
         print("Training DecisionTree")
-        self.tree.fit(X, y)
+        self.tree.fit(X_train, y_train)
 
     def predict(self, frame: np.ndarray) -> int:
         return self.tree.predict(frame)
