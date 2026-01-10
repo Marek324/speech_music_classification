@@ -32,7 +32,17 @@ class DecisionTree(ModelClass):
         )
         self.name = name
 
+    def _get_weights_path(self) -> str:
+        path = f"{os.path.dirname(__file__)}/../weights/{self.name}"
+        return path
+
     def fit(self, X: np.ndarray, y: np.ndarray):
+        weights_path = self._get_weights_path()
+        if os.path.exists(weights_path):
+            print(f"Loading DecisionTree weights from {weights_path}")
+            self.tree = joblib.load(weights_path)
+            return
+
         # select speech/music
         mask = np.isin(y, [-1, 1])
 
@@ -55,13 +65,15 @@ class DecisionTree(ModelClass):
         return self.tree.predict_proba(X)
 
     def save(self):
-        modeldumppath = f"{os.path.dirname(__file__)}/../model_dump"
-        os.makedirs(f"{modeldumppath}", exist_ok=True)
-        fullpath = f"{modeldumppath}/{self.name}"
-        joblib.dump(self.tree, fullpath)
+        path = self._get_weights_path()
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if os.path.exists(path):
+            print(f"DecisionTree weights already exist at {path}, overwriting.")
+        joblib.dump(self.tree, path)
 
     def load(self):
-        modeldumppath = f"{os.path.dirname(__file__)}/../model_dump"
-        fullpath = f"{modeldumppath}/{self.name}"
-        os.path.exists(fullpath)
-        self.tree = joblib.load(fullpath)
+        path = self._get_weights_path()
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"DecisionTree weights not found at {path}")
+
+        self.tree = joblib.load(path)
