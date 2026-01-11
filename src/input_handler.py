@@ -82,24 +82,37 @@ class InputHandler:
                 load_from_cache_file=True,
             )
 
-            feats_all = []
-            labels_all = []
-            subclasses_all = []
+            print("Counting total frames...", flush=True)
+            row_lengths = [len(l) for l in processed['labels']]
+            total_frames = sum(row_lengths)
 
-            for row in tqdm(processed, desc="Aggregating"):
-                feats_all.extend(row["feats"])
-                labels_all.extend([label_map[label] for label in row["labels"]])
-                subclasses_all.extend(row["subclasses"])
+            first_row = processed[0]
+            feat_dim = len(first_row['feats'][0]) 
 
-                self.ds_stats["frames"] += len(row["labels"])
+            print(f"Allocating X: ({total_frames}, {feat_dim})", flush=True)
+
+            # 3. Pre-allocate arrays
+            self.X = np.empty((total_frames, feat_dim), dtype=np.float32)
+            self.y = np.empty(total_frames, dtype=int) # Assuming int labels
+            self.subclasses = np.empty(total_frames, dtype="U20") # Max string length 20
+
+            cursor = 0
+            for i, row in enumerate(tqdm(processed, desc="Filling Arrays")):
+                n_frames = row_lengths[i]
+                
+                # Efficiently assign chunk to the pre-allocated array
+                # Ensure row['feats'] is converted to a numpy array first if it's a list
+                self.X[cursor : cursor + n_frames] = np.array(row["feats"], dtype=np.float32)
+                self.y[cursor : cursor + n_frames] = [label_map[label] for label in row["labels"]]
+                self.subclasses[cursor : cursor + n_frames] = row["subclasses"]
+                
+                self.ds_stats["frames"] += n_frames
                 self.ds_stats["classes"].update(row["labels"])
                 self.ds_stats["subclasses"].update(row["subclasses"])
+                
+                cursor += n_frames
 
-            print("Aggregation done.")
-
-            self.X = np.asarray(feats_all, dtype=np.float32)
-            self.y = np.asarray(labels_all)
-            self.subclasses = np.asarray(subclasses_all, dtype="U20")
+            print("Aggregation done.", flush=True)
 
             # FINAL SAFETY CHECK
             self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
