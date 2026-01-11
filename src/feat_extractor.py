@@ -138,12 +138,8 @@ class FeatExtractor:
         return 10 * np.log10(1 / frame.shape[0] * np.sum(frame**2) + 1e-10)
 
     def _zero_crossing_rate(self, frame: np.ndarray) -> float:
-        count = 0
-        for i in range(1, frame.shape[0]):
-            if frame[i] * frame[i - 1] < 0:
-                count += 1
-        return count / 2
-
+        return float(np.sum(np.abs(np.diff(np.sign(frame)))) / 2)
+    
     def _band_energy_ratio(self, frame: np.ndarray) -> float:
         sr = self.defaults.sample_rate
         berconf = self.cfg.band_energy_ratio
