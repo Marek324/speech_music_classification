@@ -101,16 +101,16 @@ class DecisionTree(ModelClass):
         return self.tree.predict_proba(X)
 
     def save(self):
-        print("Saving DecisionTree weights")
         path = self._get_weights_path()
+        print(f"Saving DecisionTree weights to {path}")
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.exists(path):
             print(f"DecisionTree weights already exist at {path}, overwriting.")
         joblib.dump(self.tree, path)
 
     def load(self):
-        print("Loading DecisionTree weights")
         path = self._get_weights_path()
+        print(f"Loading DecisionTree weights from {path}")
         if not os.path.exists(path):
             raise FileNotFoundError(f"DecisionTree weights not found at {path}")
 
