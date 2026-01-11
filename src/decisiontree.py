@@ -53,6 +53,7 @@ class DecisionTree(ModelClass):
             self.tree = joblib.load(weights_path)
             return
 
+        print("Masking data for DecisionTree training")
         # select speech/music
         mask = np.isin(y, [-1, 1])
 
