@@ -27,35 +27,56 @@ class EvalResults:
 
 
 class Evaluator:
-    def __init__(self, class_labels: Optional[List[int]] = None):
-        self.class_labels = class_labels if class_labels is not None else [-1, 1, 2]
+    def __init__(self):
+        # We don't hardcode labels in init anymore, we decide per eval call
+        pass
 
     def eval(
-        self, model: ModelClass, X: np.ndarray, y: np.ndarray, subclasses: np.ndarray
+        self, 
+        model: ModelClass, 
+        X: np.ndarray, 
+        y: np.ndarray, 
+        subclasses: np.ndarray, 
+        n_classes: int = 3
     ) -> EvalResults:
+        
+        if n_classes not in [2, 3]:
+            raise ValueError("n_classes must be 2 or 3")
 
-        # DEBUG
-        print(f"DEBUG: Unique classes y: {np.unique(y)}")
-        print(f"DEBUG: Data type of   y: {y.dtype}")
-        print(f"DEBUG: def class_labels: {self.class_labels}")
+        if X.shape[0] != y.shape[0] or X.shape[0] != subclasses.shape[0]:
+            raise ValueError("X, y and subclasses must have the same number of samples")
 
-        y_pred = model.predict_batch(X)
+        y_pred_full = model.predict_batch(X)
 
-        f1_overall = f1_score(y, y_pred, average="macro", zero_division=0)
-        conf_overall = confusion_matrix(y, y_pred, labels=self.class_labels)
+        if n_classes == 2:
+            mask = np.isin(y, [-1, 1])
+            eval_labels = [-1, 1]
+            print(f"Evaluator: 2-Class Mode. Ignoring {np.sum(~mask)} inactive samples.")
+        else:
+            mask = np.ones(len(y), dtype=bool)
+            eval_labels = [-1, 1, 2]
+            print("Evaluator: 3-Class Mode. Evaluating Speech vs Music vs Inactive.")
+
+        y_true = y[mask]
+        y_pred = y_pred_full[mask]
+        y_sub = subclasses[mask]
+
+        f1_overall = f1_score(y_true, y_pred, average="macro", zero_division=0)
+        conf_overall = confusion_matrix(y_true, y_pred, labels=eval_labels)
         by_sub = {}
 
-        for sub in np.unique(subclasses):
-            mask = subclasses == sub
+        for sub in np.unique(y_sub):
+            sub_mask = y_sub == sub
+            
+            if np.sum(sub_mask) == 0:
+                continue
 
-            y_true_sub = y[mask]
-            y_pred_sub = y_pred[mask]
+            y_true_s = y_true[sub_mask]
+            y_pred_s = y_pred[sub_mask]
 
             by_sub[str(sub)] = SubClassEvalResults(
-                f1=f1_score(y_true_sub, y_pred_sub, average="macro", zero_division=0),
-                conf_mat=confusion_matrix(
-                    y_true_sub, y_pred_sub, labels=self.class_labels
-                ),
+                f1=f1_score(y_true_s, y_pred_s, average="macro", zero_division=0),
+                conf_mat=confusion_matrix(y_true_s, y_pred_s, labels=eval_labels),
             )
 
         return EvalResults(f1=f1_overall, conf_mat=conf_overall, by_subclass=by_sub)
