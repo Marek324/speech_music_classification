@@ -10,7 +10,7 @@ import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-from sklearn.feature_selection import SelectKBest, mutual_info_classif
+from sklearn.feature_selection import SelectKBest, f_classif
 
 from modelclass import ModelClass
 
@@ -29,7 +29,7 @@ class DecisionTree(ModelClass):
                 (
                     "selector",
                     SelectKBest(
-                        score_func=mutual_info_classif, k=10
+                        score_func=f_classif, k=10
                     )
                 ),
                 ("classifier", DecisionTreeClassifier()),
