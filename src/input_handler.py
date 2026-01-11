@@ -95,6 +95,8 @@ class InputHandler:
                 self.ds_stats["classes"].update(row["labels"])
                 self.ds_stats["subclasses"].update(row["subclasses"])
 
+            print("Aggregation done.")
+
             self.X = np.asarray(feats_all, dtype=np.float32)
             self.y = np.asarray(labels_all)
             self.subclasses = np.asarray(subclasses_all, dtype="U20")
