@@ -28,7 +28,6 @@ class EvalResults:
 
 class Evaluator:
     def __init__(self):
-        # We don't hardcode labels in init anymore, we decide per eval call
         pass
 
     def eval(
