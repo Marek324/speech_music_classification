@@ -95,13 +95,26 @@ class FeatExtractor:
                     ]
                 )
 
+                feat = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
+                return feat
+
             case "gmm" | "svm":
-                pass
+                feats.append(self._short_time_energy())
+                feats.append(self._spectral_flux())
+                feats.append(self._spectrum_centroid())
+                feats.append(self._spectral_rolloff_point())
+                feats.append(self._log_mel_spectrum_energy())
+                feats.append(self._modulation_spectrum_energy())
+                feats.append(self._psr_he_lp_residual())
+                feats.append(self._naps_of_zffs())
+                feats.append(self._zero_crossing_rate())
+                feats.append(self._low_short_time_energy_ratio(self._get_feat_buffer()[:,0]))
 
-        feat = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
-        # feat /= np.linalg.norm(feat) + 1e-10
+                feats = np.hstack(feats)
+                self.feat_buffer.append(feats)
 
-        return feat
+                feat = np.nan_to_num(feats, nan=0.0, posinf=0.0, neginf=0.0)
+                return feat[1:]
 
     # =============================
     #           HELPERS
