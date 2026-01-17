@@ -48,7 +48,7 @@ class FeatExtractor:
         mfccs = None
 
         # add frame to buffer
-        self.signal_buffer.extend(frame)
+        self.signal_buffer.extend(frame[-self.defaults.hop_length:])
 
         match self.model:
             case "decision_tree":
