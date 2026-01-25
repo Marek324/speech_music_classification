@@ -128,18 +128,13 @@ class FeatExtractor:
                 step = int(self.defaults.sample_rate * 0.001)
                 for offset in range(0, self.defaults.frame_length, step):
                     sec_buf_row = []
-                    f = self._get_frame()[
-                        -self.defaults.frame_length - offset - 1 : -offset
-                        if offset != 0
-                        else None  # check needed cause -0 would return empty list
-                    ]
                     pf = self._get_frame(padd=True)[
                         -self.defaults.frame_length - offset - 1 : -offset
                         if offset != 0
                         else None
                     ]
                     sec_buf_row.append(self._naps_of_zffs(offset))
-                    sec_buf_row.append(self._psr_he_lp_residual(f))
+                    sec_buf_row.append(self._psr_he_lp_residual(pf))
                     sec_buf_row.append(self._log_mel_spectrum_energy(pf))
                     sec_buf_row.append(self._modulation_spectrum_energy(offset))
 
