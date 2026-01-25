@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N DecisionTreeEval
+#PBS -N GMMEval
 #PBS -l walltime=11:00:00
 #PBS -l select=1:ncpus=64:mem=450gb:scratch_local=400gb
 
@@ -12,7 +12,7 @@ mkdir -p $HF_HOME
 source $PROJ_DIR/setup.sh
 
 # logs
-LOGS="$PROJ_DIR/logs/dt_eval/$PBS_JOBID"
+LOGS="$PROJ_DIR/logs/gmm_eval/$PBS_JOBID"
 mkdir -p "$LOGS"
 
 cd $PROJ_DIR
@@ -23,10 +23,8 @@ echo "HF_XET_CACHE: $HF_XET_CACHE"
 echo "HF_ASSETS_CACHE: $HF_ASSETS_CACHE"
 
 
-#uv run --active $PROJ_DIR/src/main.py train --config-file "$PROJ_DIR/config.yaml" > $LOGS/out_train.log 2> $LOGS/err_train.log
-
-
-uv run --active $PROJ_DIR/src/main.py eval --config-file "$PROJ_DIR/config.yaml" > $LOGS/out_eval.log 2> $LOGS/err_eval.log
+uv run --active $PROJ_DIR/src/main.py train gmm --config-file "$PROJ_DIR/config.yaml" > $LOGS/out_train.log 2> $LOGS/err_train.log
+uv run --active $PROJ_DIR/src/main.py eval gmm --config-file "$PROJ_DIR/config.yaml" > $LOGS/out_eval.log 2> $LOGS/err_eval.log
 
 quota -s
 du -sh $HF_HOME

@@ -18,7 +18,7 @@ import config
 
 
 class FeatExtractor:
-    def __init__(self, sec_buffer_scale: int = 20) -> None:
+    def __init__(self, sec_buffer_scale: int = 30) -> None:
         cfg = config.get_config()
         assert isinstance(cfg, config.Config)
         self.model = cfg.model.name

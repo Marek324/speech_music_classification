@@ -83,7 +83,7 @@ def eval(model: ModelClass):
     )
 
     evaluator = Evaluator()
-    res = evaluator.eval(model, ih.getX(), ih.getY(), ih.getSubclasses())
+    res = evaluator.eval(model, ih.getX(), ih.getY(), ih.getSubclasses(), n_classes=2)
     print(res)
 
 
@@ -151,7 +151,7 @@ if __name__ == "__main__":
         "model",
         nargs="?",
         default="decision_tree",
-        choices=["decision_tree"],
+        choices=["decision_tree", "gmm", "svm"],
         help="Model name to use (default: decision_tree)",
     )
 
