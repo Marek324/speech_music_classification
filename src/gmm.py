@@ -8,7 +8,7 @@ import joblib
 import numpy as np
 from scipy.special import logsumexp
 from sklearn.mixture import GaussianMixture
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import RobustScaler
 
 from modelclass import ModelClass
 
@@ -22,28 +22,29 @@ class GMM(ModelClass):
     ):
         self.name = name
 
-        self.scaler = StandardScaler()
+        self.scaler = RobustScaler()
 
         self.gmm_speech = GaussianMixture(
             n_components=8,
             covariance_type="diag",
-            reg_covar=1e-8,
+            reg_covar=1e-4,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
+            verbose=2,
         )
         self.gmm_music = GaussianMixture(
             n_components=8,
             covariance_type="diag",
-            reg_covar=1e-8,
+            reg_covar=1e-4,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
+            verbose=2,
         )
 
         # cca 300ms / 15ms hop
         self.delta_buf = deque(maxlen=20)
-
 
     def _get_weights_path(self) -> str:
         path = f"{os.path.dirname(__file__)}/../weights/{self.name}"
@@ -55,6 +56,8 @@ class GMM(ModelClass):
             print(f"Loading GMM weights from {weights_path}")
             self.tree = joblib.load(weights_path)
             return
+
+        X = X.astype(np.float64)
 
         Xn = self.scaler.fit_transform(X)
 
@@ -68,7 +71,8 @@ class GMM(ModelClass):
         self.gmm_music.fit(X_m)
 
     def predict(self, frame: np.ndarray) -> int:
-        x = np.atleast_2d(frame)
+        x = frame.astype(np.float64)
+        x = np.atleast_2d(x)
         x = self.scaler.transform(x)
 
         ll_s = self.gmm_speech.score_samples(x)[0]
@@ -81,7 +85,8 @@ class GMM(ModelClass):
         return -1 if smoothed > 0 else 1
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
-        x = np.atleast_2d(frame)
+        x = frame.astype(np.float64)
+        x = np.atleast_2d(x)
         x = self.scaler.transform(x)
 
         ll_s = self.gmm_speech.score_samples(x)
@@ -96,7 +101,8 @@ class GMM(ModelClass):
         return probs[0]
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
-        Xn = self.scaler.transform(X)
+        x = X.astype(np.float64)
+        Xn = self.scaler.transform(x)
 
         ll_s = self.gmm_speech.score_samples(Xn)
         ll_m = self.gmm_music.score_samples(Xn)
@@ -104,7 +110,8 @@ class GMM(ModelClass):
         return np.where(ll_s > ll_m, -1, 1)
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
-        Xn = self.scaler.transform(X)
+        x = X.astype(np.float64)
+        Xn = self.scaler.transform(x)
 
         ll_s = self.gmm_speech.score_samples(Xn)
         ll_m = self.gmm_music.score_samples(Xn)
@@ -121,10 +128,10 @@ class GMM(ModelClass):
         if os.path.exists(path):
             print(f"GMM weights already exist at {path}, overwriting.")
         state = {
-                "speech": self.gmm_speech,
-                "music": self.gmm_music,
-                "scaler": self.scaler,
-                }
+            "speech": self.gmm_speech,
+            "music": self.gmm_music,
+            "scaler": self.scaler,
+        }
         joblib.dump(state, path)
 
     def load(self):
@@ -137,4 +144,3 @@ class GMM(ModelClass):
         self.gmm_speech = state["speech"]
         self.gmm_music = state["music"]
         self.scaler = state["scaler"]
-
