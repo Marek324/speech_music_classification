@@ -27,6 +27,7 @@ class GMM(ModelClass):
         self.gmm_speech = GaussianMixture(
             n_components=8,
             covariance_type="diag",
+            reg_covar=1e-8,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
@@ -34,6 +35,7 @@ class GMM(ModelClass):
         self.gmm_music = GaussianMixture(
             n_components=8,
             covariance_type="diag",
+            reg_covar=1e-8,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
@@ -41,6 +43,7 @@ class GMM(ModelClass):
 
         # cca 300ms / 15ms hop
         self.delta_buf = deque(maxlen=20)
+
 
     def _get_weights_path(self) -> str:
         path = f"{os.path.dirname(__file__)}/../weights/{self.name}"
@@ -53,7 +56,6 @@ class GMM(ModelClass):
             self.tree = joblib.load(weights_path)
             return
 
-        # normalize globally (train set only)
         Xn = self.scaler.fit_transform(X)
 
         X_s = Xn[y == -1]
@@ -118,7 +120,12 @@ class GMM(ModelClass):
         os.makedirs(os.path.dirname(path), exist_ok=True)
         if os.path.exists(path):
             print(f"GMM weights already exist at {path}, overwriting.")
-        joblib.dump(self.tree, path)
+        state = {
+                "speech": self.gmm_speech,
+                "music": self.gmm_music,
+                "scaler": self.scaler,
+                }
+        joblib.dump(state, path)
 
     def load(self):
         path = self._get_weights_path()
@@ -126,4 +133,8 @@ class GMM(ModelClass):
         if not os.path.exists(path):
             raise FileNotFoundError(f"GMM weights not found at {path}")
 
-        self.tree = joblib.load(path)
+        state = joblib.load(path)
+        self.gmm_speech = state["speech"]
+        self.gmm_music = state["music"]
+        self.scaler = state["scaler"]
+
