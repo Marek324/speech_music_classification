@@ -10,13 +10,14 @@ from decisiontree import DecisionTree
 from evaluator import Evaluator
 from feat_extractor import FeatExtractor
 from gmm import GMM
+from svm import SVM
 from input_handler import InputHandler
 from modelclass import ModelClass
 
-DATASET="Marek324/speech-music-classification-tmp"
-TRAIN_DATASET=DATASET
-EVAL_DATASET=DATASET
-STATS_DATASET="Marek324/speech-music-classification-test"
+DATASET = "Marek324/speech-music-classification-tmp"
+TRAIN_DATASET = DATASET
+EVAL_DATASET = DATASET
+STATS_DATASET = "Marek324/speech-music-classification-test"
 # STATS_DATASET=DATASET
 
 
@@ -106,7 +107,7 @@ def dataset_stats():
         feat_extractor=DummyFeatExtractor(),
         ds_link=STATS_DATASET,
         ds_split="train",
-       ds_revision="refs/convert/parquet",
+        ds_revision="refs/convert/parquet",
     )
 
     ih.summary()
@@ -124,6 +125,8 @@ def main():
             model = DecisionTree("decision_tree_2")
         case "gmm":
             model = GMM("gmm")
+        case "svm":
+            model = SVM("svm")
         case _:
             raise ValueError("Model doesn't exist")
     assert isinstance(model, ModelClass)
