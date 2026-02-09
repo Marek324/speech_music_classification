@@ -1,81 +1,120 @@
 # evaluator.py
 # Marek Hric
 
-from typing import Dict, List, Optional
-from dataclasses import dataclass
-
 import numpy as np
+from typing import Dict
+from dataclasses import dataclass
 from sklearn.metrics import (
     f1_score,
     confusion_matrix,
+    precision_score,
+    recall_score,
+    accuracy_score,
 )
-
-from modelclass import ModelClass
 
 
 @dataclass
 class SubClassEvalResults:
     f1: float
+    accuracy: float
+    precision: float
+    recall: float
     conf_mat: np.ndarray
 
 
 @dataclass
 class EvalResults:
     f1: float
+    accuracy: float
+    precision: float
+    recall: float
     conf_mat: np.ndarray
     by_subclass: Dict[str, SubClassEvalResults]
+    labels: list
+
+    def __str__(self):
+        """Generates a readable text report of the results."""
+        report = [
+            "================================",
+            "      OVERALL EVALUATION        ",
+            "================================",
+            f"Accuracy:  {self.accuracy:.4f}",
+            f"F1 (Macro): {self.f1:.4f}",
+            f"Precision: {self.precision:.4f}",
+            f"Recall:    {self.recall:.4f}",
+            "\nConfusion Matrix:",
+            str(self.conf_mat),
+            "\n================================",
+            "      BY SUBCLASS RESULTS       ",
+            "================================",
+        ]
+
+        for sub, res in self.by_subclass.items():
+            report.append(f"\nSubclass: {sub}")
+            report.append(
+                f"  F1: {res.f1:.4f} | Acc: {res.accuracy:.4f} | P: {res.precision:.4f} | R: {res.recall:.4f}"
+            )
+
+        return "\n".join(report)
 
 
 class Evaluator:
-    def __init__(self):
-        pass
-
     def eval(
-        self, 
-        model: ModelClass, 
-        X: np.ndarray, 
-        y: np.ndarray, 
-        subclasses: np.ndarray, 
-        n_classes: int = 3
+        self,
+        model,
+        X: np.ndarray,
+        y: np.ndarray,
+        subclasses: np.ndarray,
+        n_classes: int = 3,
     ) -> EvalResults:
-        
+        # Input validation
         if n_classes not in [2, 3]:
             raise ValueError("n_classes must be 2 or 3")
-
         if X.shape[0] != y.shape[0] or X.shape[0] != subclasses.shape[0]:
-            raise ValueError("X, y and subclasses must have the same number of samples")
+            raise ValueError("X, y and subclasses must have the same size")
 
         y_pred_full = model.predict_batch(X)
 
         if n_classes == 2:
             mask = np.isin(y, [-1, 1])
             eval_labels = [-1, 1]
-            print(f"Evaluator: 2-Class Mode. Ignoring {np.sum(~mask)} inactive samples.")
         else:
             mask = np.ones(len(y), dtype=bool)
             eval_labels = [-1, 1, 2]
-            print("Evaluator: 3-Class Mode. Evaluating Speech vs Music vs Inactive.")
 
         y_true = y[mask]
         y_pred = y_pred_full[mask]
         y_sub = subclasses[mask]
 
+        # Calculate Overall Metrics
+        # Note: average='macro' is used for F1/Precision/Recall in multi-class settings
         f1_overall = f1_score(y_true, y_pred, average="macro", zero_division=0)
+        acc_overall = accuracy_score(y_true, y_pred)
+        prec_overall = precision_score(y_true, y_pred, average="macro", zero_division=0)
+        rec_overall = recall_score(y_true, y_pred, average="macro", zero_division=0)
         conf_overall = confusion_matrix(y_true, y_pred, labels=eval_labels)
+
         by_sub = {}
-
         for sub in np.unique(y_sub):
-            sub_mask = y_sub == sub
-            
-            if np.sum(sub_mask) == 0:
-                continue
-
-            y_true_s = y_true[sub_mask]
-            y_pred_s = y_pred[sub_mask]
+            s_mask = y_sub == sub
+            y_t_s, y_p_s = y_true[s_mask], y_pred[s_mask]
 
             by_sub[str(sub)] = SubClassEvalResults(
-                f1=f1_score(y_true_s, y_pred_s, average="macro", zero_division=0),
-                conf_mat=confusion_matrix(y_true_s, y_pred_s, labels=eval_labels),
+                f1=f1_score(y_t_s, y_p_s, average="macro", zero_division=0),
+                accuracy=accuracy_score(y_t_s, y_p_s),
+                precision=precision_score(
+                    y_t_s, y_p_s, average="macro", zero_division=0
+                ),
+                recall=recall_score(y_t_s, y_p_s, average="macro", zero_division=0),
+                conf_mat=confusion_matrix(y_t_s, y_p_s, labels=eval_labels),
             )
 
-        return EvalResults(f1=f1_overall, conf_mat=conf_overall, by_subclass=by_sub)
+        return EvalResults(
+            f1=f1_overall,
+            accuracy=acc_overall,
+            precision=prec_overall,
+            recall=rec_overall,
+            conf_mat=conf_overall,
+            by_subclass=by_sub,
+            labels=eval_labels,
+        )
