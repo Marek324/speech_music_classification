@@ -97,8 +97,6 @@ def main(mode: str):
             raise ValueError("Model doesn't exist")
     assert isinstance(model, ModelClass)
 
-    print(f"{mode} + {cfg['model']['name']}")
-    return
     match mode:
         case "train":
             train(model)
