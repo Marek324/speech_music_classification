@@ -48,7 +48,7 @@
 \iftwoside
   \ifx\pdfoutput\undefined % nejedeme pod pdftexem / we are not using pdftex
     \LoadClass[a4paper,twoside,onecolumn,11pt]{report}
-  \else
+ \else
     \LoadClass[pdftex,a4paper,twoside,onecolumn,11pt]{report}
   \fi
 \fi
