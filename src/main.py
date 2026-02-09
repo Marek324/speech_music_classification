@@ -86,6 +86,8 @@ def eval(model: ModelClass):
     evaluator = Evaluator()
     res = evaluator.eval(model, ih.getX(), ih.getY(), ih.getSubclasses(), n_classes=2)
     print(res)
+    res = evaluator.eval(model, ih.getX(), ih.getY(), ih.getSubclasses(), n_classes=3)
+    print(res)
 
 
 def mic(model):
