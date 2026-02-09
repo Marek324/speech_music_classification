@@ -112,6 +112,7 @@
 % Řešení problému, kdy klikací odkazy na obrázky vedou za obrázek
 % This solves the problems with links which leads after the picture
 \usepackage[all]{hypcap}
+\usepackage{cleveref}
 
 
 % Informace o práci/projektu / Information about the thesis
@@ -277,7 +278,7 @@ Při tvorbě odevzdaného programového kódu jsem využíval nástroj Github Co
   % Text prace / Thesis text
   % ----------------------------------------------
   \ifenglish
-    \input{projekt-01-kapitoly-chapters-en}
+    \input{docs/chapters}
   \else
     \input{projekt-01-kapitoly-chapters}
   \fi
@@ -310,7 +311,7 @@ Při tvorbě odevzdaného programového kódu jsem využíval nástroj Github Co
   \fi
 \fi
   \begin{flushleft}
-  \bibliography{projekt-20-literatura-bibliography}
+  \bibliography{bibliography}
   \end{flushleft}
 
   % vynechani stranky v oboustrannem rezimu
@@ -370,7 +371,7 @@ Při tvorbě odevzdaného programového kódu jsem využíval nástroj Github Co
   
   % Přílohy / Appendices
   \ifenglish
-    \input{projekt-30-prilohy-appendices-en}
+    \input{appendices}
   \else
     \input{projekt-30-prilohy-appendices}
   \fi
