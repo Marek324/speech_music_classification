@@ -1,0 +1,12 @@
+sample_rate = 16000
+channels = 1
+n_fft = 512
+
+[buffers]
+frame_length_ms = 20
+hop_length_ms = 10
+lt_len_ms = 300
+
+[model]
+name="decision_tree"
+

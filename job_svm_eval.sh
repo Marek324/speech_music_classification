@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -N SVMEval
+#PBS -NEval
 #PBS -l walltime=11:00:00
 #PBS -l select=1:ncpus=64:mem=450gb:scratch_local=400gb
 
@@ -17,14 +17,5 @@ mkdir -p "$LOGS"
 
 cd $PROJ_DIR
 
-echo "HF_HOME: $HF_HOME"
-echo "HF_HUB_CACHE: $HF_HUB_CACHE"
-echo "HF_XET_CACHE: $HF_XET_CACHE"
-echo "HF_ASSETS_CACHE: $HF_ASSETS_CACHE"
-
-
-uv run --active $PROJ_DIR/src/main.py train svm --config-file "$PROJ_DIR/config.yaml" > $LOGS/out_train.log 2> $LOGS/err_train.log
-uv run --active $PROJ_DIR/src/main.py eval svm --config-file "$PROJ_DIR/config.yaml" > $LOGS/out_eval.log 2> $LOGS/err_eval.log
-
-quota -s
-du -sh $HF_HOME
+uv run --active $PROJ_DIR/src/main.py train --config-file "$PROJ_DIR/config_svm.toml" > $LOGS/out_train.log 2> $LOGS/err_train.log
+uv run --active $PROJ_DIR/src/main.py eval --config-file "$PROJ_DIR/config_svm.toml" > $LOGS/out_eval.log 2> $LOGS/err_eval.log

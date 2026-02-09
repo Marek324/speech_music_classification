@@ -1,216 +1,36 @@
 # config.py
 # Marek Hric
 
-from __future__ import annotations
-from dataclasses import dataclass, fields, is_dataclass
-from typing import Optional, Any, Type, TypeVar, Dict, get_args, get_origin
-import sys
-import yaml
 
-T = TypeVar("T")
+import tomllib
+from pathlib import Path
+from typing import Any, Dict, Optional
 
-
-@dataclass
-class Defaults:
-    sample_rate: int
-    frame_length: int
-    hop_length: int
-    max_buffer: int
-    channels: int
-    n_fft: int
-
-
-@dataclass
-class FeatureConfig:
-    enable: bool
-
-
-@dataclass
-class MFCCConfig(FeatureConfig):
-    n_mfcc: int = 13
-
-
-@dataclass
-class BandConfig:
-    lower_bound: int
-    upper_bound: int
-
-
-@dataclass
-class BandEnergyRatioConfig(FeatureConfig):
-    lower_band: BandConfig
-    upper_band: BandConfig
-
-
-@dataclass
-class AutoCorrConfig(FeatureConfig):
-    min_lag_ms: int
-    max_lag_ms: int
-
-
-@dataclass
-class SpecRolloffPointConfig(FeatureConfig):
-    thr: float = 0.85
-
-
-@dataclass
-class FeatExtractorConfig:
-    verbose: bool
-    mfcc: MFCCConfig
-    mfcc_diff_norm: MFCCConfig
-    short_time_energy: FeatureConfig
-    zero_crossing_rate: FeatureConfig
-    band_energy_ratio: BandEnergyRatioConfig
-    autocorrelation_coefficient: AutoCorrConfig
-    spectral_rolloff_point: SpecRolloffPointConfig
-    spectrum_centroid: FeatureConfig
-    spectrum_spread: FeatureConfig
-    spectral_flux: FeatureConfig
-
-
-@dataclass
-class FeatSelectorConfig:
-    verbose: bool
-
-
-@dataclass
-class ModelConfig:
-    verbose: bool
-    name: str
-    aggregate: bool
-
-
-FEAT_FIELD_TYPES = {
-    "mfcc": MFCCConfig,
-    "mfcc_diff_norm": MFCCConfig,
-    "short_time_energy": FeatureConfig,
-    "zero_crossing_rate": FeatureConfig,
-    "band_energy_ratio": BandEnergyRatioConfig,
-    "autocorrelation_coefficient": AutoCorrConfig,
-    "spectral_rolloff_point": SpecRolloffPointConfig,
-    "spectrum_centroid": FeatureConfig,
-    "spectrum_spread": FeatureConfig,
-    "spectral_flux": FeatureConfig,
-    "lower_band": BandConfig,
-    "upper_band": BandConfig,
-}
-
-
-def from_dict(cls: Type[T], data: Any) -> T:
-    if not is_dataclass(cls):
-        return data
-
-    init_values = {}
-    for f in fields(cls):
-        name = f.name
-        if name not in data:
-            continue
-        value = data[name]
-
-        # Use concrete type if available (for FeatureConfig subclasses)
-        field_type = FEAT_FIELD_TYPES.get(name, f.type)
-
-        # handle Optional
-        origin = get_origin(field_type)
-        if origin is Optional:
-            field_type = get_args(field_type)[0]
-
-        # recurse
-        if is_dataclass(field_type):
-            value = from_dict(field_type, value)
-
-        init_values[name] = value
-
-    return cls(**init_values)
-
-
-#
-# def from_dict(cls: Type[T], data: Any) -> T:
-#     """
-#     Recursively load a nested dict into a dataclass.
-#     """
-#     if not is_dataclass(cls):
-#         return data  # base case
-#
-#     field_types = {f.name: f.type for f in fields(cls)}
-#     init_values = {}
-#     for name, typ in field_types.items():
-#         if name in data:
-#             value = data[name]
-#             init_values[name] = from_dict(typ, value)  # type: ignore error[invalid-argument-type]
-#     return cls(**init_values)
-#
-
-
-class Config:
-    """
-    mode: str (train, eval, run)
-    model: ModelConfig
-    fext: FeatExtractorConfig
-    fsel: Optional[FeatSelectorConfig]
-    defaults: Defaults
-    """
-
-    def __init__(self, args: Dict[str, str | bool]):
-        self.mode: str = args["mode"]
-        model_name = args["model"]
-        assert isinstance(model_name, str)
-        conf_file = args.get("config_file", "config.yaml")
-        assert isinstance(conf_file, str)
-        verbose = args["verbose"]
-        assert isinstance(verbose, bool)
-
-        try:
-            with open(conf_file) as f:
-                conf_dict = yaml.safe_load(f)
-        except FileNotFoundError as e:
-            print(f"Config file not found: {conf_file}", file=sys.stderr)
-            raise e
-
-        sr = conf_dict["defaults"]["sample_rate"]
-        self.defaults = Defaults(
-            sample_rate=sr,
-            frame_length=conf_dict["defaults"]["frame_length_ms"] * int(sr / 1000),
-            hop_length=conf_dict["defaults"]["hop_length_ms"] * int(sr / 1000),
-            max_buffer=conf_dict["defaults"]["max_buffer_ms"] * int(sr / 1000),
-            channels=conf_dict["defaults"]["channels"],
-            n_fft=conf_dict["defaults"]["n_fft"],
-        )
-
-        feat_dict = conf_dict["models"][model_name].get("features", {})
-        feat_dict = {"verbose": verbose, **feat_dict}
-        self.fext: FeatExtractorConfig = from_dict(FeatExtractorConfig, feat_dict)
-
-        selector_cfg = conf_dict["models"][model_name].get("selector", {})
-        self.fsel: Optional[FeatSelectorConfig] = None
-        if selector_cfg.get("enable", False):
-            self.fsel = FeatSelectorConfig(verbose=verbose)
-
-        self.model: ModelConfig = ModelConfig(
-            verbose=verbose,
-            name=model_name,
-            aggregate=conf_dict["models"][model_name]["aggregate"],
-        )
-
-        assert isinstance(self.mode, str)
-        assert isinstance(self.model, ModelConfig)
-        assert isinstance(self.fext, FeatExtractorConfig)
-        assert isinstance(self.fsel, Optional[FeatSelectorConfig])
-        assert isinstance(self.defaults, Defaults)
-
+type Config = Dict[str, Any]
 
 _cfg: Optional[Config] = None
 
 
-def init_config(args: Dict[str, str | bool]):
+def init_config(config_file_path: Path) -> Config:
     global _cfg
     if _cfg is not None:
-        return
-    _cfg = Config(args)
+        return _cfg
+
+    if config_file_path is None:
+        config_file_path = Path(__file__).parent.parent / "config.toml"
+
+    if not config_file_path.exists():
+        raise FileNotFoundError(f"Config file not found at: {config_file_path}")
+
+    with open(config_file_path, "rb") as f:
+        _cfg = tomllib.load(f)
+
+    return _cfg
 
 
 def get_config() -> Config:
+    global _cfg
     if _cfg is None:
-        raise RuntimeError("Config accessed before initialization")
+        raise RuntimeError("Config not initialized")
 
     return _cfg
