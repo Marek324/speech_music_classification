@@ -19,6 +19,7 @@ from feat_extractor import FeatExtractor
 
 label_map = {"speech": -1, "music": 1, "inactive": 2, "noise": 2}
 
+
 class RowStats(TypedDict):
     frames: int
     classes: Counter[str]
@@ -44,12 +45,14 @@ class InputHandler:
         self.mode = mode
         self.fextractor = feat_extractor
 
-        defaults = config.get_config().defaults
-        self.sr = defaults.sample_rate
-        self.channels = defaults.channels
+        cfg = config.get_config()
+        self.sr = cfg["sample_rate"]
+        self.channels = cfg["channels"]
 
-        self.frame_len = defaults.frame_length
-        self.hop_len = defaults.hop_length
+        flms = cfg["frame_length_ms"]
+        fhms = cfg["hop_len_ms"]
+        self.frame_len = flms * self.sr // 1000
+        self.hop_len = fhms * self.sr // 1000
 
         self.frame_start = 0
 
@@ -68,7 +71,9 @@ class InputHandler:
 
             assert ds_link != "", "Dataset mode requires ds_link"
 
-            self.dataset = load_dataset(ds_link, split=ds_split, revision=ds_revision).cast_column(
+            self.dataset = load_dataset(
+                ds_link, split=ds_split, revision=ds_revision
+            ).cast_column(
                 "audio",
                 Audio(sampling_rate=self.sr, num_channels=self.channels),
             )
@@ -83,33 +88,39 @@ class InputHandler:
             )
 
             print("Counting total frames...", flush=True)
-            row_lengths = [len(l) for l in processed['labels']]
+            row_lengths = [len(l) for l in processed["labels"]]
             total_frames = sum(row_lengths)
 
             first_row = processed[0]
-            feat_dim = len(first_row['feats'][0]) 
+            feat_dim = len(first_row["feats"][0])
 
             print(f"Allocating X: ({total_frames}, {feat_dim})", flush=True)
 
             # 3. Pre-allocate arrays
             self.X = np.empty((total_frames, feat_dim), dtype=np.float32)
-            self.y = np.empty(total_frames, dtype=int) # Assuming int labels
-            self.subclasses = np.empty(total_frames, dtype="U20") # Max string length 20
+            self.y = np.empty(total_frames, dtype=int)  # Assuming int labels
+            self.subclasses = np.empty(
+                total_frames, dtype="U20"
+            )  # Max string length 20
 
             cursor = 0
             for i, row in enumerate(tqdm(processed, desc="Filling Arrays")):
                 n_frames = row_lengths[i]
-                
+
                 # Efficiently assign chunk to the pre-allocated array
                 # Ensure row['feats'] is converted to a numpy array first if it's a list
-                self.X[cursor : cursor + n_frames] = np.array(row["feats"], dtype=np.float32)
-                self.y[cursor : cursor + n_frames] = [label_map[label] for label in row["labels"]]
+                self.X[cursor : cursor + n_frames] = np.array(
+                    row["feats"], dtype=np.float32
+                )
+                self.y[cursor : cursor + n_frames] = [
+                    label_map[label] for label in row["labels"]
+                ]
                 self.subclasses[cursor : cursor + n_frames] = row["subclasses"]
-                
+
                 self.ds_stats["frames"] += n_frames
                 self.ds_stats["classes"].update(row["labels"])
                 self.ds_stats["subclasses"].update(row["subclasses"])
-                
+
                 cursor += n_frames
 
             print("Aggregation done.", flush=True)

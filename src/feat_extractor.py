@@ -19,22 +19,19 @@ import config
 
 class FeatExtractor:
     def __init__(self, sec_buffer_scale: int = 30) -> None:
-        cfg = config.get_config()
-        assert isinstance(cfg, config.Config)
-        self.model = cfg.model.name
-        self.cfg = cfg.fext
-        assert isinstance(self.cfg, config.FeatExtractorConfig)
-        self.defaults = cfg.defaults
-        assert isinstance(self.defaults, config.Defaults)
+        self.cfg = config.get_config()
+        self.sr = self.cfg["sample_rate"]
+        self.fl = self.cfg["frame_length_ms"] * self.sr // 1000
+        self.fh = self.cfg["hop_length_ms"] * self.sr // 1000
 
         # buffers
         # signal buffer for raw signal, non-overlapping samples
-        self.signal_buffer: deque[float] = deque(maxlen=self.defaults.max_buffer)
+        self.signal_buffer: deque[float] = deque(
+            maxlen=int(self.cfg["lt_len_ms"] * self.sr // 1000)
+        )
 
         # feat buffer for previous features signal, overlapping feature vectors
-        self.feat_buf_size = int(
-            (self.defaults.max_buffer / self.defaults.hop_length) - 1
-        )
+        self.feat_buf_size = int((self.cfg["lt_len_ms"] / self.fh) - 1)
         self.feat_buffer: deque[np.ndarray] = deque(maxlen=self.feat_buf_size)
         # secondary buffer for speech-specific features for GMM/SVM
         # needed because they are calculated 30 times more frequently
@@ -42,19 +39,16 @@ class FeatExtractor:
         self.sec_feat_buffer: deque[np.ndarray] = deque(maxlen=self.sec_buf_size)
 
         self.last_fft: Optional[np.ndarray] = None
-
-        if self.cfg.mfcc.enable:
-            self.last_mfcc: Optional[np.ndarray]
+        self.last_mfcc: Optional[np.ndarray] = None
 
     def extract(self, frame: np.ndarray) -> np.ndarray:
-        assert isinstance(self.cfg, config.FeatExtractorConfig)
         feats = []
         mfccs = None
 
         # add frame to buffer
-        self.signal_buffer.extend(frame[-self.defaults.hop_length :])
+        self.signal_buffer.extend(frame[-self.fh :])
 
-        match self.model:
+        match self.cfg["model"]["name"]:
             case "decision_tree":
                 # accumulate feats
                 # time domain features
@@ -122,9 +116,9 @@ class FeatExtractor:
                 lster = self._low_short_time_energy_ratio(self._get_feat_buffer()[:, 0])
 
                 # speech-specific, 1ms shift
-                step = int(self.defaults.sample_rate * 0.001)
+                step = int(self.sr * 0.001)
                 sigbuf = self._get_sig_buffer()
-                L = self.defaults.frame_length
+                L = self.fl
                 for start in range(len(sigbuf) - 2 * L, len(sigbuf) - L, step):
                     f = sigbuf[start : start + L]
 
@@ -168,7 +162,7 @@ class FeatExtractor:
     def _get_sig_buffer(self) -> np.ndarray:
         buffer: deque[float] = self.signal_buffer
 
-        out = np.zeros(self.defaults.max_buffer, dtype=float)
+        out = np.zeros(int(self.cfg["lt_len_ms"] * self.sr // 1000), dtype=float)
         out[-len(buffer) :] = np.fromiter(buffer, dtype=float)
 
         return out
@@ -193,21 +187,14 @@ class FeatExtractor:
         return float(np.sum(np.abs(np.diff(np.sign(frame)))) / 2)
 
     def _band_energy_ratio(self, frame: np.ndarray) -> float:
-        frame = fix_length(
-            frame,
-            size=self.defaults.n_fft,
-        )
-        sr = self.defaults.sample_rate
-        berconf = self.cfg.band_energy_ratio
-        assert isinstance(berconf, config.BandEnergyRatioConfig)
+        frame = fix_length(frame, size=self.cfg["n_fft"])
+        berconf = self.cfg["features"]["band_energy_ratio"]
 
-        lowlow = berconf.lower_band.lower_bound
-        lowup = berconf.lower_band.upper_bound
-        uplow = berconf.upper_band.lower_bound
-        upup = berconf.upper_band.upper_bound
+        low = berconf["low"]  # upper bound of lower band
+        high = berconf["high"]  # lower bound of upper band
 
         def bin_num(f: float, K: int) -> int:
-            return int(np.floor((K * f) / sr))
+            return int(np.floor((K * f) / self.sr))
 
         def band_energy(dft: np.ndarray, lb: float, ub: float) -> float:
             K = dft.shape[0]
@@ -215,71 +202,74 @@ class FeatExtractor:
             b2 = bin_num(ub, K)
             return np.sum(np.abs(dft[b1:b2]) ** 2)
 
-        dft = np.fft.fft(frame, n=self.defaults.n_fft)
-        E1 = band_energy(dft, lowlow, lowup)
-        E2 = band_energy(dft, uplow, upup)
+        # FFT
+        dft = np.fft.fft(frame, n=self.cfg["n_fft"])
+        nyquist = self.sr / 2
+
+        E1 = band_energy(dft, 0.0, low)
+
+        E2 = band_energy(dft, high, nyquist)
+
         ratio = (E1 + 1e-10) / (E2 + 1e-10)
         ratio = np.clip(ratio, 1e-10, 1e10)
         result = 10 * np.log10(ratio)
 
-        return 0.0 if np.isinf(result) or np.isnan(result) else float(result)
+        return 0.0 if np.isnan(result) or np.isinf(result) else float(result)
 
     def _autocorrelation_coefficient(self, frame: np.ndarray) -> float:
+        acconf = self.cfg["features"]["autocorrelation_coefficient"]
         ac = correlate(frame, frame, mode="full")
         ac = ac[ac.shape[0] // 2 :]
-        min_lag = self.cfg.autocorrelation_coefficient.min_lag_ms * int(
-            self.defaults.sample_rate / 1000
-        )
-        max_lag = self.cfg.autocorrelation_coefficient.max_lag_ms * int(
-            self.defaults.sample_rate / 1000
-        )
+        min_lag = acconf["min_lag_ms"] * self.sr // 1000
+        max_lag = acconf["max_lag_ms"] * self.sr // 1000
+
         return np.max(ac[min_lag:max_lag])
 
     def _spectral_rolloff_point(self, frame: np.ndarray) -> float:
+        srpconf = self.cfg["features"]["spectral_rolloff_point"]
         frame = fix_length(
             frame,
-            size=self.defaults.n_fft,
+            size=self.cfg["n_fft"],
         )
-        assert isinstance(self.cfg, config.FeatExtractorConfig)
         return float(
             libfeat.spectral_rolloff(
                 y=frame,
-                sr=self.defaults.sample_rate,
-                roll_percent=self.cfg.spectral_rolloff_point.thr,
-                n_fft=self.defaults.n_fft,
+                sr=self.sr,
+                roll_percent=srpconf["threshold"],
+                n_fft=self.cfg["n_fft"],
             )[0, 0]
         )
 
     def _spectrum_centroid(self, frame: np.ndarray) -> float:
         frame = fix_length(
             frame,
-            size=self.defaults.n_fft,
+            size=self.cfg["n_fft"],
         )
         value = float(
-            libfeat.spectral_centroid(
-                y=frame, sr=self.defaults.sample_rate, n_fft=self.defaults.n_fft
-            )[0, 0]
+            libfeat.spectral_centroid(y=frame, sr=self.sr, n_fft=self.cfg["n_fft"])[
+                0, 0
+            ]
         )
         return 0.0 if np.isnan(value) or np.isinf(value) else value
 
     def _spectrum_spread(self, frame: np.ndarray) -> float:
         frame = fix_length(
             frame,
-            size=self.defaults.n_fft,
+            size=self.cfg["n_fft"],
         )
         return float(
-            libfeat.spectral_bandwidth(
-                y=frame, sr=self.defaults.sample_rate, n_fft=self.defaults.n_fft
-            )[0, 0]
+            libfeat.spectral_bandwidth(y=frame, sr=self.sr, n_fft=self.cfg["n_fft"])[
+                0, 0
+            ]
         )
 
     def _spectral_flux(self, frame: np.ndarray) -> float:
         frame = fix_length(
             frame,
-            size=self.defaults.n_fft,
+            size=self.cfg["n_fft"],
         )
         last_fft = self.last_fft
-        current_fft = np.fft.fft(frame, n=self.defaults.n_fft)
+        current_fft = np.fft.fft(frame, n=self.cfg["n_fft"])
         if last_fft is None:
             self.last_fft = current_fft
             return 0
@@ -291,15 +281,14 @@ class FeatExtractor:
     def _mfcc(self, frame: np.ndarray) -> np.ndarray:
         frame = fix_length(
             frame,
-            size=self.defaults.n_fft,
+            size=self.cfg["n_fft"],
         )
-        assert isinstance(self.cfg, config.FeatExtractorConfig)
         return libfeat.mfcc(
             y=frame,
-            sr=self.defaults.sample_rate,
+            sr=self.sr,
             n_mfcc=10,
-            hop_length=self.defaults.hop_length,
-            n_fft=self.defaults.n_fft,
+            hop_length=self.fh,
+            n_fft=self.cfg["n_fft"],
         )
 
     def _mfcc_diff_norm(self, mfccs: np.ndarray) -> float:
@@ -319,12 +308,12 @@ class FeatExtractor:
 
         y = lfilter([1], [1, -4, 6, -4, 1], diff)
 
-        N = int(self.defaults.sample_rate * 0.01)  # 10ms
+        N = int(self.sr * 0.01)  # 10ms
         y_1 = y - uniform_filter1d(y, size=N, mode="nearest")
         zffs = y_1 - uniform_filter1d(y_1, size=N, mode="nearest")
 
         # NAPS
-        zffs = zffs[-self.defaults.frame_length :]
+        zffs = zffs[-self.fl :]
 
         # autocorrelation
         r = correlate(zffs, zffs, mode="full")
@@ -335,7 +324,7 @@ class FeatExtractor:
 
         r /= r[0]
 
-        peaks, _ = find_peaks(r, distance=int(self.defaults.sample_rate * 0.002))
+        peaks, _ = find_peaks(r, distance=int(self.sr * 0.002))
         if len(peaks) == 0:
             return 0.0
 
@@ -350,7 +339,7 @@ class FeatExtractor:
         he = np.abs(hilbert(residual))
 
         # Peak detection
-        min_dist = int(self.defaults.sample_rate * 0.005)
+        min_dist = int(self.sr * 0.005)
         peaks, _ = find_peaks(he, distance=min_dist)
 
         if len(peaks) == 0:
@@ -360,7 +349,7 @@ class FeatExtractor:
         peak_val = he[peak_idx]
 
         # Sidelobe window (one pitch period)
-        pitch_period = int(self.defaults.sample_rate * 0.01)
+        pitch_period = int(self.sr * 0.01)
         half = pitch_period // 2
 
         left = he[max(0, peak_idx - half) : max(0, peak_idx - 4)]
@@ -376,12 +365,12 @@ class FeatExtractor:
     def _log_mel_spectrum_energy(self, frame: np.ndarray) -> float:
         frame = fix_length(
             frame,
-            size=self.defaults.n_fft,
+            size=self.cfg["n_fft"],
         )
         S = libfeat.melspectrogram(
             y=frame,
-            sr=self.defaults.sample_rate,
-            n_fft=self.defaults.n_fft,
+            sr=self.sr,
+            n_fft=self.cfg["n_fft"],
             n_mels=22,
             fmin=0,
             fmax=4000,
@@ -403,7 +392,7 @@ class FeatExtractor:
 
         fft_val = np.abs(fft(envelope))
 
-        df = self.defaults.sample_rate / N
+        df = self.sr / N
 
         # Sum energy in syllabic band (approx 2-6 Hz around 4 Hz center)
         lower_idx = int(2.0 / df)
