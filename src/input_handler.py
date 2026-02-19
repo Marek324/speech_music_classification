@@ -49,8 +49,8 @@ class InputHandler:
         self.sr = cfg["sample_rate"]
         self.channels = cfg["channels"]
 
-        flms = cfg["frame_length_ms"]
-        fhms = cfg["hop_len_ms"]
+        flms = cfg["buffers"]["frame_length_ms"]
+        fhms = cfg["buffers"]["hop_length_ms"]
         self.frame_len = flms * self.sr // 1000
         self.hop_len = fhms * self.sr // 1000
 

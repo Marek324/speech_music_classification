@@ -21,17 +21,17 @@ class FeatExtractor:
     def __init__(self, sec_buffer_scale: int = 30) -> None:
         self.cfg = config.get_config()
         self.sr = self.cfg["sample_rate"]
-        self.fl = self.cfg["frame_length_ms"] * self.sr // 1000
-        self.fh = self.cfg["hop_length_ms"] * self.sr // 1000
+        self.fl = self.cfg["buffers"]["frame_length_ms"] * self.sr // 1000
+        self.fh = self.cfg["buffers"]["hop_length_ms"] * self.sr // 1000
 
         # buffers
         # signal buffer for raw signal, non-overlapping samples
         self.signal_buffer: deque[float] = deque(
-            maxlen=int(self.cfg["lt_len_ms"] * self.sr // 1000)
+            maxlen=int(self.cfg["buffers"]["lt_len_ms"] * self.sr // 1000)
         )
 
         # feat buffer for previous features signal, overlapping feature vectors
-        self.feat_buf_size = int((self.cfg["lt_len_ms"] / self.fh) - 1)
+        self.feat_buf_size = int((self.cfg["buffers"]["lt_len_ms"] / self.fh) - 1)
         self.feat_buffer: deque[np.ndarray] = deque(maxlen=self.feat_buf_size)
         # secondary buffer for speech-specific features for GMM/SVM
         # needed because they are calculated 30 times more frequently
@@ -162,7 +162,7 @@ class FeatExtractor:
     def _get_sig_buffer(self) -> np.ndarray:
         buffer: deque[float] = self.signal_buffer
 
-        out = np.zeros(int(self.cfg["lt_len_ms"] * self.sr // 1000), dtype=float)
+        out = np.zeros(int(self.cfg["buffers"]["lt_len_ms"] * self.sr // 1000), dtype=float)
         out[-len(buffer) :] = np.fromiter(buffer, dtype=float)
 
         return out
