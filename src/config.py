@@ -2,11 +2,11 @@
 # Marek Hric
 
 
-import tomllib
+import tomli
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-type Config = Dict[str, Any]
+Config = Dict[str, Any]
 
 _cfg: Optional[Config] = None
 
@@ -23,7 +23,7 @@ def init_config(config_file_path: Path) -> Config:
         raise FileNotFoundError(f"Config file not found at: {config_file_path}")
 
     with open(config_file_path, "rb") as f:
-        _cfg = tomllib.load(f)
+        _cfg = tomli.load(f)
 
     return _cfg
 
