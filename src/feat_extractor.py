@@ -92,8 +92,8 @@ class FeatExtractor:
                         self._stats_std(buf),
                         self._stats_mean(diffs),
                         self._stats_std(diffs),
-                        np.nan_to_num(skew(zcrs), nan=0.0),
-                        np.nan_to_num(skew(zcr_diffs), nan=0.0),
+                        self._stats_skew(zcrs),
+                        self._stats_skew(zcr_diffs),
                         self._low_short_time_energy_ratio(energies),
                     ]
                 )
