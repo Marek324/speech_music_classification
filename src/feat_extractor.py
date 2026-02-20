@@ -31,7 +31,10 @@ class FeatExtractor:
         )
 
         # feat buffer for previous features signal, overlapping feature vectors
-        self.feat_buf_size = int((self.cfg["buffers"]["lt_len_ms"] / self.fh) - 1)
+        self.feat_buf_size = (
+            int(self.cfg["buffers"]["lt_len_ms"] / self.cfg["buffers"]["hop_length_ms"])
+            - 1
+        )
         self.feat_buffer: deque[np.ndarray] = deque(maxlen=self.feat_buf_size)
         # secondary buffer for speech-specific features for GMM/SVM
         # needed because they are calculated 30 times more frequently
@@ -162,7 +165,9 @@ class FeatExtractor:
     def _get_sig_buffer(self) -> np.ndarray:
         buffer: deque[float] = self.signal_buffer
 
-        out = np.zeros(int(self.cfg["buffers"]["lt_len_ms"] * self.sr // 1000), dtype=float)
+        out = np.zeros(
+            int(self.cfg["buffers"]["lt_len_ms"] * self.sr // 1000), dtype=float
+        )
         out[-len(buffer) :] = np.fromiter(buffer, dtype=float)
 
         return out
