@@ -438,10 +438,6 @@ class FeatExtractor:
         return np.var(feats, axis=0)
 
     def _stats_skew(self, feats: np.ndarray) -> np.ndarray:
-        if feats.size == 0:
-            return np.zeros(feats.shape[1] if feats.ndim > 1 else 1)
-
-        if feats.shape[0] < 3:
-            return np.zeros(feats.shape[1])
-
+        if feats.size == 0 or feats.shape[0] < 3:
+            return np.zeros(1 if feats.ndim == 1 else feats.shape[1])
         return np.nan_to_num(skew(feats, axis=0), nan=0.0)
