@@ -1,15 +1,17 @@
 # evaluator.py
 # Marek Hric
 
-import numpy as np
-from typing import Dict
+import time
 from dataclasses import dataclass
+from typing import Dict
+
+import numpy as np
 from sklearn.metrics import (
-    f1_score,
+    accuracy_score,
     confusion_matrix,
+    f1_score,
     precision_score,
     recall_score,
-    accuracy_score,
 )
 
 
@@ -24,6 +26,7 @@ class SubClassEvalResults:
 
 @dataclass
 class EvalResults:
+    time: float
     f1: float
     accuracy: float
     precision: float
@@ -38,6 +41,7 @@ class EvalResults:
             "================================",
             "      OVERALL EVALUATION        ",
             "================================",
+            f"Classification time: {(self.time / 1000):.4f}"
             f"Accuracy:  {self.accuracy:.4f}",
             f"F1 (Macro): {self.f1:.4f}",
             f"Precision: {self.precision:.4f}",
@@ -66,6 +70,7 @@ class Evaluator:
         y: np.ndarray,
         subclasses: np.ndarray,
         n_classes: int = 3,
+        save_to_file: bool = True,
     ) -> EvalResults:
         # Input validation
         if n_classes not in [2, 3]:
@@ -73,7 +78,10 @@ class Evaluator:
         if X.shape[0] != y.shape[0] or X.shape[0] != subclasses.shape[0]:
             raise ValueError("X, y and subclasses must have the same size")
 
+        start = time.perf_counter()
         y_pred_full = model.predict_batch(X)
+        diff = time.perf_counter() - start
+        avg_time = diff / len(X)
 
         if n_classes == 2:
             mask = np.isin(y, [-1, 1])
@@ -109,7 +117,8 @@ class Evaluator:
                 conf_mat=confusion_matrix(y_t_s, y_p_s, labels=eval_labels),
             )
 
-        return EvalResults(
+        res = EvalResults(
+            time=avg_time,
             f1=f1_overall,
             accuracy=acc_overall,
             precision=prec_overall,
@@ -118,3 +127,8 @@ class Evaluator:
             by_subclass=by_sub,
             labels=eval_labels,
         )
+
+        with open(f"{model.name}.eval", "w") as f:
+            f.write(str(res))
+
+        return res
