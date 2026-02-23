@@ -1,0 +1,83 @@
+================================
+      OVERALL EVALUATION        
+================================
+Classification time: 399.17077496ns
+Accuracy:  0.6931
+F1 (Macro): 0.6893
+Precision: 0.7105
+Recall:    0.7323
+
+Confusion Matrix:
+[[1014344  648825]
+ [ 124421  732343]]
+
+================================
+      BY SUBCLASS RESULTS       
+================================
+
+Subclass: music_acoustic
+  F1: 0.4781 | Acc: 0.9161 | P: 0.5000 | R: 0.4581
+
+Subclass: music_electronic
+  F1: 1.0000 | Acc: 1.0000 | P: 1.0000 | R: 1.0000
+
+Subclass: music_instrumental
+  F1: 0.3407 | Acc: 0.5168 | P: 0.5000 | R: 0.2584
+
+Subclass: music_mainstream
+  F1: 0.4884 | Acc: 0.9546 | P: 0.5000 | R: 0.4773
+
+Subclass: music_vocal
+  F1: 0.2377 | Acc: 0.3118 | P: 0.5000 | R: 0.1559
+
+Subclass: speech_clean
+  F1: 0.3819 | Acc: 0.6180 | P: 0.5000 | R: 0.3090
+
+Subclass: speech_noisy
+  F1: 0.0819 | Acc: 0.0892 | P: 0.5000 | R: 0.0446
+
+Subclass: speech_noisyenv
+  F1: 0.3439 | Acc: 0.5242 | P: 0.5000 | R: 0.2621================================
+      OVERALL EVALUATION        
+================================
+Classification time: 398.68508299ns
+Accuracy:  0.6793
+F1 (Macro): 0.4548
+Precision: 0.4641
+Recall:    0.4882
+
+Confusion Matrix:
+[[1014344  648825       0]
+ [ 124421  732343       0]
+ [  23709   27537       0]]
+
+================================
+      BY SUBCLASS RESULTS       
+================================
+
+Subclass: music_acoustic
+  F1: 0.4781 | Acc: 0.9161 | P: 0.5000 | R: 0.4581
+
+Subclass: music_electronic
+  F1: 1.0000 | Acc: 1.0000 | P: 1.0000 | R: 1.0000
+
+Subclass: music_instrumental
+  F1: 0.3407 | Acc: 0.5168 | P: 0.5000 | R: 0.2584
+
+Subclass: music_mainstream
+  F1: 0.4884 | Acc: 0.9546 | P: 0.5000 | R: 0.4773
+
+Subclass: music_vocal
+  F1: 0.2377 | Acc: 0.3118 | P: 0.5000 | R: 0.1559
+
+Subclass: noise
+  F1: 0.0000 | Acc: 0.0000 | P: 0.0000 | R: 0.0000
+
+Subclass: speech_clean
+  F1: 0.3819 | Acc: 0.6180 | P: 0.5000 | R: 0.3090
+
+Subclass: speech_noisy
+  F1: 0.0819 | Acc: 0.0892 | P: 0.5000 | R: 0.0446
+
+Subclass: speech_noisyenv
+  F1: 0.3439 | Acc: 0.5242 | P: 0.5000 | R: 0.2621
