@@ -1,0 +1,44 @@
+================================
+      OVERALL EVALUATION        
+================================
+Classification time: 797.14542102ns
+Accuracy:  0.8897
+F1 (Macro): 0.5910
+Precision: 0.5880
+Recall:    0.5943
+
+Confusion Matrix:
+[[2353411  143657       0]
+ [ 205097 1080289       0]
+ [  44597   32288       0]]
+
+================================
+      BY SUBCLASS RESULTS       
+================================
+
+Subclass: music_acoustic
+  F1: 0.4554 | Acc: 0.8363 | P: 0.5000 | R: 0.4182
+
+Subclass: music_electronic
+  F1: 0.4757 | Acc: 0.9074 | P: 0.5000 | R: 0.4537
+
+Subclass: music_instrumental
+  F1: 0.3913 | Acc: 0.6428 | P: 0.5000 | R: 0.3214
+
+Subclass: music_mainstream
+  F1: 0.4782 | Acc: 0.9165 | P: 0.5000 | R: 0.4582
+
+Subclass: music_vocal
+  F1: 0.3581 | Acc: 0.5580 | P: 0.5000 | R: 0.2790
+
+Subclass: noise
+  F1: 0.0000 | Acc: 0.0000 | P: 0.0000 | R: 0.0000
+
+Subclass: speech_clean
+  F1: 0.4866 | Acc: 0.9479 | P: 0.5000 | R: 0.4740
+
+Subclass: speech_noisy
+  F1: 0.3979 | Acc: 0.6609 | P: 0.5000 | R: 0.3305
+
+Subclass: speech_noisyenv
+  F1: 0.4241 | Acc: 0.7364 | P: 0.5000 | R: 0.3682

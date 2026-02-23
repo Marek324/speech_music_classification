@@ -41,7 +41,7 @@ class EvalResults:
             "================================",
             "      OVERALL EVALUATION        ",
             "================================",
-            f"Classification time: {(self.time / 1000):.4f}"
+            f"Classification time: {self.time:.8f}ns\n"
             f"Accuracy:  {self.accuracy:.4f}",
             f"F1 (Macro): {self.f1:.4f}",
             f"Precision: {self.precision:.4f}",
@@ -78,10 +78,10 @@ class Evaluator:
         if X.shape[0] != y.shape[0] or X.shape[0] != subclasses.shape[0]:
             raise ValueError("X, y and subclasses must have the same size")
 
-        start = time.perf_counter()
+        start = time.perf_counter_ns()
         y_pred_full = model.predict_batch(X)
-        diff = time.perf_counter() - start
-        avg_time = diff / len(X)
+        diff = time.perf_counter_ns() - start
+        avg_time = float(diff) / len(X)
 
         if n_classes == 2:
             mask = np.isin(y, [-1, 1])
