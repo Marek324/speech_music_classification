@@ -423,18 +423,18 @@ class FeatExtractor:
     # =============================
 
     def _stats_mean(self, feats: np.ndarray) -> np.ndarray:
-        if feats.shape[0] == 0:
-            return np.zeros(feats.shape[1])
+        if feats.size == 0 or feats.shape[0] < 1:
+            return np.zeros(1 if feats.ndim == 1 else feats.shape[1])
         return np.mean(feats, axis=0)
 
     def _stats_std(self, feats: np.ndarray) -> np.ndarray:
-        if feats.shape[0] <= 1:
-            return np.zeros(feats.shape[1])
+        if feats.size == 0 or feats.shape[0] < 1:
+            return np.zeros(1 if feats.ndim == 1 else feats.shape[1])
         return np.std(feats, axis=0)
 
     def _stats_var(self, feats: np.ndarray) -> np.ndarray:
-        if feats.shape[0] <= 1:
-            return np.zeros(feats.shape[1])
+        if feats.size == 0 or feats.shape[0] < 1:
+            return np.zeros(1 if feats.ndim == 1 else feats.shape[1])
         return np.var(feats, axis=0)
 
     def _stats_skew(self, feats: np.ndarray) -> np.ndarray:
