@@ -128,7 +128,7 @@ class Evaluator:
             labels=eval_labels,
         )
 
-        with open(f"{model.name}.eval", "w") as f:
+        with open(f"{model.name}.eval", "a") as f:
             f.write(str(res))
 
         return res
