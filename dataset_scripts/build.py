@@ -215,7 +215,7 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-27,
         split="train",
         audio_decode=False,
-        filter_col="label",
+        filter_col="genre",
         filter_val=4,
     ),
     DatasetSpec(
@@ -228,7 +228,7 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-22,
         split="train",
         audio_decode=False,
-        filter_col="label",
+        filter_col="genre",
         filter_val=6,
     ),
     DatasetSpec(
@@ -241,7 +241,7 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-30,
         split="train",
         audio_decode=False,
-        filter_col="label",
+        filter_col="genre",
         filter_val=7,
     ),
     DatasetSpec(
