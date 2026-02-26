@@ -153,7 +153,7 @@ SPEECH_SOURCES: list[DatasetSpec] = [
         detector="vad",
         split="train",
         audio_decode=True,
-        extra_load_kwargs={"name": "headset-single"},
+        extra_load_kwargs={"name": "ihm"},
     ),
 ]
 
