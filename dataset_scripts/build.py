@@ -74,6 +74,7 @@ class DatasetSpec:
     subclass: str  # e.g. "speech_clean", "music_jazz"
     total_rows: int
     detector: str  # "vad" | "music" | "silence"
+    audio_col: str = "col"
     sil_thr: int = -16
     split: str = "train"
     audio_decode: bool = True
@@ -134,6 +135,7 @@ SPEECH_SOURCES: list[DatasetSpec] = [
         cls="speech",
         subclass="speech_noisy",
         total_rows=1401,
+        audio_col="noisy",
         detector="vad",
         split="train",
         audio_decode=True,
