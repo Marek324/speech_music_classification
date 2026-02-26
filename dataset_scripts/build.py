@@ -79,7 +79,7 @@ class DatasetSpec:
     split: str = "train"
     audio_decode: bool = True
     filter_col: str | None = None
-    filter_val: str | None = None
+    filter_val: int | None = None
     skip: int = 0
     extra_load_kwargs: dict = field(default_factory=dict)
 
@@ -176,8 +176,8 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-25,
         split="train",
         audio_decode=False,
-        filter_col="label",
-        filter_val="Electronic",
+        filter_col="genre",
+        filter_val=0,
     ),
     DatasetSpec(
         name="music_folk",
@@ -189,8 +189,8 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-33,
         split="train",
         audio_decode=False,
-        filter_col="label",
-        filter_val="Folk",
+        filter_col="genre",
+        filter_val=2,
     ),
     DatasetSpec(
         name="music_hiphop",
@@ -202,8 +202,8 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-22,
         split="train",
         audio_decode=False,
-        filter_col="label",
-        filter_val="Hip-Hop",
+        filter_col="genre",
+        filter_val=3,
     ),
     DatasetSpec(
         name="music_instrumental",
@@ -216,7 +216,7 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         split="train",
         audio_decode=False,
         filter_col="label",
-        filter_val="Instrumental",
+        filter_val=4,
     ),
     DatasetSpec(
         name="music_pop",
@@ -229,7 +229,7 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         split="train",
         audio_decode=False,
         filter_col="label",
-        filter_val="Pop",
+        filter_val=6,
     ),
     DatasetSpec(
         name="music_rock",
@@ -242,7 +242,7 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         split="train",
         audio_decode=False,
         filter_col="label",
-        filter_val="Rock",
+        filter_val=7,
     ),
     DatasetSpec(
         name="music_jazz",
@@ -254,9 +254,6 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-20,
         split="train",
         audio_decode=False,
-        filter_col="genre",
-        filter_val="jazz",
-        extra_load_kwargs={"name": "all"},
     ),
     DatasetSpec(
         name="music_country",
@@ -268,9 +265,6 @@ MUSIC_SOURCES: list[DatasetSpec] = [
         sil_thr=-25,
         split="train",
         audio_decode=False,
-        filter_col="genre",
-        filter_val="country",
-        extra_load_kwargs={"name": "all"},
     ),
     # ── Vocal / acappella ────────────────────────────────────────────────
     # ccmusic-database/acapella  splits song1 / song2 / song3
