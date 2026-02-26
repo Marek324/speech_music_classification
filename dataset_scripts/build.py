@@ -140,22 +140,6 @@ SPEECH_SOURCES: list[DatasetSpec] = [
         split="train",
         audio_decode=True,
     ),
-    # ── Speech over music ────────────────────────────────────────────────
-    # cristian-rodriguez/ava_speech  class "speech_with_music"
-    # Real movie audio segments labelled by Google AVA-Speech
-    # https://huggingface.co/datasets/cristian-rodriguez/ava_speech
-    DatasetSpec(
-        name="speech_over_music_ava",
-        hf_id="cristian-rodriguez/ava_speech",
-        cls="speech",
-        subclass="speech_over_music",
-        total_rows=194,
-        detector="vad",
-        split="train",
-        audio_decode=True,
-        filter_col="label",
-        filter_val="speech_with_music",
-    ),
     # ── Multi-speaker ────────────────────────────────────────────────────
     # edinburghcstr/ami  config "headset-single" (IHM)
     # Real English meeting recordings, 3-5 speakers, pre-segmented utterances
@@ -170,23 +154,6 @@ SPEECH_SOURCES: list[DatasetSpec] = [
         split="train",
         audio_decode=True,
         extra_load_kwargs={"name": "headset-single"},
-    ),
-    # ── Multi-speaker over music ─────────────────────────────────────────
-    # edinburghcstr/ami  config "microphone-single" (SDM / far-field)
-    # Far-field mic captures natural speaker overlap and room bleed.
-    # NOTE: after writing, mix each output wav with a random FMA clip at ~-10 dB
-    #       (e.g. audiomentations.AddBackgroundNoise) to produce the final class.
-    # https://huggingface.co/datasets/edinburghcstr/ami
-    DatasetSpec(
-        name="multispeaker_over_music_ami_sdm",
-        hf_id="edinburghcstr/ami",
-        cls="speech",
-        subclass="speech_multispeaker_over_music",
-        total_rows=260,
-        detector="vad",
-        split="train",
-        audio_decode=True,
-        extra_load_kwargs={"name": "microphone-single"},
     ),
 ]
 
@@ -661,7 +628,12 @@ def process_source(spec: DatasetSpec):
                 continue
 
             writer.write(
-                row[spec.audio_col], labels, spec.name, local_idx, spec.cls, spec.subclass
+                row[spec.audio_col],
+                labels,
+                spec.name,
+                local_idx,
+                spec.cls,
+                spec.subclass,
             )
             local_idx += 1
 
