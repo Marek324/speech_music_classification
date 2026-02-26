@@ -74,7 +74,7 @@ class DatasetSpec:
     subclass: str  # e.g. "speech_clean", "music_jazz"
     total_rows: int
     detector: str  # "vad" | "music" | "silence"
-    audio_col: str = "col"
+    audio_col: str = "audio"
     sil_thr: int = -16
     split: str = "train"
     audio_decode: bool = True
@@ -615,9 +615,9 @@ def load_source(spec: DatasetSpec) -> IterableDataset:
         ds = ds.skip(spec.skip)
 
     ds = ds.take(spec.total_rows)
-    ds = ds.select_columns("audio")
+    ds = ds.select_columns(spec.audio_col)
     ds = ds.cast_column(
-        "audio",
+        spec.audio_col,
         Audio(sampling_rate=SR, num_channels=1, decode=spec.audio_decode),
     )
     return ds
@@ -651,7 +651,7 @@ def process_source(spec: DatasetSpec):
         local_idx = 0
 
         for row in tqdm(split_data, desc=f"    {split_name}"):
-            labels = labeler.label(row["audio"], spec.sil_thr)
+            labels = labeler.label(row[spec.audio_col], spec.sil_thr)
 
             if labels is None:
                 print(
@@ -661,7 +661,7 @@ def process_source(spec: DatasetSpec):
                 continue
 
             writer.write(
-                row["audio"], labels, spec.name, local_idx, spec.cls, spec.subclass
+                row[spec.audio_col], labels, spec.name, local_idx, spec.cls, spec.subclass
             )
             local_idx += 1
 
