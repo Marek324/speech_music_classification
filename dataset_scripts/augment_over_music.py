@@ -29,7 +29,6 @@ import soundfile as sf
 from datasets import Audio, IterableDataset, load_dataset
 from pydub import AudioSegment
 from silero_vad import get_speech_timestamps, load_silero_vad
-from torchcodec.decoders import AudioDecoder
 from tqdm import tqdm
 
 
@@ -37,10 +36,10 @@ from tqdm import tqdm
 # Config
 # ─────────────────────────────────────────────────────────────────────────────
 
-RAND_SEED = 381
-DATA_DIR = Path("data")
+RAND_SEED            = 381
+DATA_DIR             = Path("data")
 MAX_FILES_PER_FOLDER = 9000
-SR = 16000
+SR                   = 16000
 
 # How many dB quieter the music should be relative to the speech RMS.
 # -10 dB = clearly audible background; -15 dB = subtle background.
@@ -68,14 +67,13 @@ FMA_GENRES = ["Electronic", "Folk", "Hip-Hop", "Instrumental", "Pop", "Rock"]
 # Helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def make_label(label: str, start: int, end: int) -> dict:
     return {"label": label, "start": start, "end": end}
 
 
 def rms(audio: np.ndarray) -> float:
     """Root-mean-square amplitude of a float32 array."""
-    return float(np.sqrt(np.mean(audio**2)) + 1e-9)
+    return float(np.sqrt(np.mean(audio ** 2)) + 1e-9)
 
 
 def adjust_to_rms(audio: np.ndarray, target_rms: float) -> np.ndarray:
@@ -87,7 +85,7 @@ def loop_or_trim(music: np.ndarray, target_len: int) -> np.ndarray:
     """Repeat music until it covers target_len samples, then trim."""
     if len(music) == 0:
         return np.zeros(target_len, dtype=np.float32)
-    repeats = -(-target_len // len(music))  # ceiling division
+    repeats = -(-target_len // len(music))   # ceiling division
     return np.tile(music, repeats)[:target_len]
 
 
@@ -99,9 +97,9 @@ def mix(speech: np.ndarray, music: np.ndarray, music_relative_db: float) -> np.n
     Output is peak-normalised to [-1, 1] to avoid clipping.
     """
     music_target_rms = rms(speech) * (10 ** (music_relative_db / 20))
-    music_adjusted = adjust_to_rms(loop_or_trim(music, len(speech)), music_target_rms)
-    mixed = speech + music_adjusted
-    peak = np.max(np.abs(mixed))
+    music_adjusted   = adjust_to_rms(loop_or_trim(music, len(speech)), music_target_rms)
+    mixed            = speech + music_adjusted
+    peak             = np.max(np.abs(mixed))
     if peak > 1.0:
         mixed /= peak
     return mixed.astype(np.float32)
@@ -110,7 +108,6 @@ def mix(speech: np.ndarray, music: np.ndarray, music_relative_db: float) -> np.n
 # ─────────────────────────────────────────────────────────────────────────────
 # VAD labeler (same as build.py)
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 def ms(samples: int) -> int:
     return int(samples * 1000 / SR)
@@ -123,14 +120,13 @@ class VADLabeler:
     def label(self, audio: np.ndarray) -> list[dict]:
         """Run VAD on a float32 numpy array, return speech/inactive labels."""
         import torch
-
         tensor = torch.from_numpy(audio).unsqueeze(0)
         timestamps = get_speech_timestamps(tensor, self.model)
 
         if not timestamps:
             return [make_label("inactive", 0, ms(len(audio)))]
 
-        labels = []
+        labels   = []
         prev_end = 0
         for ts in timestamps:
             if ts["start"] > prev_end:
@@ -148,7 +144,6 @@ class VADLabeler:
 # SplitWriter (identical to build.py)
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 class SplitWriter:
     """Writes .wav + metadata.jsonl, rotates subfolders, resumes on restart."""
 
@@ -164,30 +159,22 @@ class SplitWriter:
         )
         if not existing:
             self.folder_idx = 0
-            self.folder = self.base / "000"
+            self.folder     = self.base / "000"
             self.folder.mkdir()
             self.file_count = 0
         else:
-            self.folder = existing[-1]
+            self.folder     = existing[-1]
             self.folder_idx = int(self.folder.name)
             self.file_count = len(list(self.folder.glob("*.wav")))
 
     def _rotate_if_full(self):
         if self.file_count >= MAX_FILES_PER_FOLDER:
             self.folder_idx += 1
-            self.folder = self.base / f"{self.folder_idx:03d}"
+            self.folder      = self.base / f"{self.folder_idx:03d}"
             self.folder.mkdir(exist_ok=True)
-            self.file_count = 0
+            self.file_count  = 0
 
-    def write(
-        self,
-        audio: np.ndarray,
-        labels: list[dict],
-        name: str,
-        idx: int,
-        cls: str,
-        subclass: str,
-    ):
+    def write(self, audio: np.ndarray, labels: list[dict], name: str, idx: int, cls: str, subclass: str):
         self._rotate_if_full()
 
         file_name = f"{name}_{idx:05d}.wav"
@@ -199,14 +186,7 @@ class SplitWriter:
         sf.write(file_path, audio, samplerate=SR)
 
         with jsonlines.open(self.folder / "metadata.jsonl", mode="a") as f:
-            f.write(
-                {
-                    "file_name": file_name,
-                    "class": cls,
-                    "subclass": subclass,
-                    "labels": labels,
-                }
-            )
+            f.write({"file_name": file_name, "class": cls, "subclass": subclass, "labels": labels})
 
         self.file_count += 1
 
@@ -215,15 +195,12 @@ class SplitWriter:
 # Music pool — pre-fetch FMA clips into memory
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def build_music_pool(pool_size: int) -> list[np.ndarray]:
     """
     Stream FMA clips round-robin across all 6 genres, decode to float32 arrays,
     and return a shuffled pool of music clips ready for mixing.
     """
-    print(
-        f"Building music pool ({pool_size} clips from FMA, {len(FMA_GENRES)} genres)..."
-    )
+    print(f"Building music pool ({pool_size} clips from FMA, {len(FMA_GENRES)} genres)...")
     per_genre = pool_size // len(FMA_GENRES)
     pool: list[np.ndarray] = []
 
@@ -234,27 +211,32 @@ def build_music_pool(pool_size: int) -> list[np.ndarray]:
             streaming=True,
         )
         assert isinstance(ds, IterableDataset)
+        genre_capture = genre  # capture loop variable for lambda
         ds = (
             ds.shuffle(seed=RAND_SEED)
-            .filter(lambda row: row["label"] == genre)
+            .filter(lambda row: row["label"] == genre_capture)
             .take(per_genre)
             .select_columns("audio")
-            .cast_column("audio", Audio(sampling_rate=SR, num_channels=1, decode=True))
+            # decode=False → raw bytes dict; avoids torchcodec choking on MP3s
+            .cast_column("audio", Audio(sampling_rate=SR, num_channels=1, decode=False))
         )
 
         for row in tqdm(ds, desc=f"  FMA {genre}", total=per_genre):
             audio_data = row["audio"]
-            if isinstance(audio_data, AudioDecoder):
-                samples = audio_data.get_all_samples().data
-                if hasattr(samples, "cpu"):
-                    samples = samples.cpu()
-                arr = samples.numpy().squeeze().astype(np.float32)
-            else:
-                # decoded Audio dict: {"array": np.ndarray, "sampling_rate": int}
-                arr = np.array(audio_data["array"], dtype=np.float32)
-
-            if arr.ndim > 1:
-                arr = arr.mean(axis=0)
+            # pydub handles MP3/FLAC/OGG reliably, same as MusicLabeler in build.py
+            try:
+                seg = (
+                    AudioSegment.from_file(io.BytesIO(audio_data["bytes"]))
+                    if audio_data["bytes"] is not None
+                    else AudioSegment.from_file(audio_data["path"])
+                )
+            except Exception as e:
+                print(f"  [SKIP] FMA {genre} — decode failed: {e}")
+                continue
+            seg = seg.set_frame_rate(SR).set_channels(1)
+            arr = np.array(seg.get_array_of_samples(), dtype=np.float32)
+            # pydub returns integer samples — normalise to [-1, 1]
+            arr /= float(2 ** (8 * seg.sample_width - 1))
             pool.append(arr)
 
     random.seed(RAND_SEED)
@@ -266,7 +248,6 @@ def build_music_pool(pool_size: int) -> list[np.ndarray]:
 # ─────────────────────────────────────────────────────────────────────────────
 # Speech source collector — read from already-written data/ files
 # ─────────────────────────────────────────────────────────────────────────────
-
 
 def collect_speech_files(subclass: str) -> dict[str, list[Path]]:
     """
@@ -302,7 +283,6 @@ def collect_speech_files(subclass: str) -> dict[str, list[Path]]:
 # Synthetic mixer
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def generate_synthetic(
     subclass_out: str,
     speech_files: dict[str, list[Path]],
@@ -315,8 +295,8 @@ def generate_synthetic(
     Writes results as subclass_out into the same data/ tree.
     """
     train_n = int(0.8 * total_rows)
-    val_n = int(0.9 * total_rows) - train_n
-    test_n = total_rows - train_n - val_n
+    val_n   = int(0.9 * total_rows) - train_n
+    test_n  = total_rows - train_n - val_n
 
     split_counts = {"train": train_n, "val": val_n, "test": test_n}
     rng = random.Random(RAND_SEED)
@@ -335,14 +315,12 @@ def generate_synthetic(
 
         # Sample with replacement if we need more than what's available
         if n_needed > len(available):
-            print(
-                f"  [WARN] Need {n_needed} but only {len(available)} {split} files — sampling with replacement"
-            )
+            print(f"  [WARN] Need {n_needed} but only {len(available)} {split} files — sampling with replacement")
             chosen = rng.choices(available, k=n_needed)
         else:
             chosen = rng.sample(available, k=n_needed)
 
-        writer = SplitWriter(split)
+        writer    = SplitWriter(split)
         local_idx = 0
 
         for speech_path in tqdm(chosen, desc=f"    {split}"):
@@ -370,7 +348,6 @@ def generate_synthetic(
 # Entry point
 # ─────────────────────────────────────────────────────────────────────────────
 
-
 def main():
     print("=" * 60)
     print("Synthetic data generation")
@@ -388,17 +365,15 @@ def main():
 
     # Generate each synthetic subclass
     for subclass_out, cfg in TARGETS.items():
-        print(
-            f"\nCollecting source files for {subclass_out} (from {cfg['speech_subclass']})..."
-        )
+        print(f"\nCollecting source files for {subclass_out} (from {cfg['speech_subclass']})...")
         speech_files = collect_speech_files(cfg["speech_subclass"])
 
         generate_synthetic(
-            subclass_out=subclass_out,
-            speech_files=speech_files,
-            music_pool=music_pool,
-            total_rows=cfg["total"],
-            vad=vad,
+            subclass_out = subclass_out,
+            speech_files = speech_files,
+            music_pool   = music_pool,
+            total_rows   = cfg["total"],
+            vad          = vad,
         )
 
     print("\n" + "=" * 60)
