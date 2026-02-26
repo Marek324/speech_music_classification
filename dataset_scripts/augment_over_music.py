@@ -217,7 +217,7 @@ def build_music_pool(pool_size: int) -> list[np.ndarray]:
         genre_capture = genre  # avoid closure over loop variable
         ds = (
             ds.shuffle(seed=RAND_SEED)
-            .filter(lambda row: row["label"] == genre_capture)
+            .filter(lambda row: row["genre"] == genre_capture)
             .take(per_genre)
             # deliberately NO cast_column — keep raw {"bytes": ..., "path": ...}
             # so the HF audio decoder (torchcodec) is never invoked
