@@ -15,11 +15,11 @@ from input_handler import InputHandler
 from modelclass import ModelClass
 from svm import SVM
 
-DATASET = "Marek324/speech-music-classification-tmp"
+DATASET = "Marek324/speech-music-classification"
 TRAIN_DATASET = DATASET
 EVAL_DATASET = DATASET
-STATS_DATASET = "Marek324/speech-music-classification-test"
-# STATS_DATASET=DATASET
+#STATS_DATASET = "Marek324/speech-music-classification-test"
+STATS_DATASET=DATASET
 
 
 def train(model):
