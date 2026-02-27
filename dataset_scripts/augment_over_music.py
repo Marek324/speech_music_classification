@@ -27,7 +27,7 @@ from pathlib import Path
 import jsonlines
 import numpy as np
 import soundfile as sf
-from datasets import IterableDataset, load_dataset
+from datasets import IterableDataset, load_dataset, Audio
 from pydub import AudioSegment
 from silero_vad import get_speech_timestamps, load_silero_vad
 from tqdm import tqdm
@@ -62,6 +62,8 @@ TARGETS: dict[str, dict] = {
 }
 
 FMA_GENRES = ["Electronic", "Folk", "Hip-Hop", "Instrumental", "Pop", "Rock"]
+genre_map = {"Electronic": 0, "Folk": 2, "Hip-Hop": 3, "Instrumental": 4, "Pop": 6, "Rock": 7}
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -235,12 +237,10 @@ def build_music_pool(pool_size: int) -> list[np.ndarray]:
             "rpmon/fma-genre-classification",
             split="train",
             streaming=True,
-            trust_remote_code=True,
-        )
-        ds = ds.cast_column("audio", ds.features["audio"].__class__(decode=False))
+        ).cast_column('audio', Audio(decode=False))
         assert isinstance(ds, IterableDataset)
 
-        genre_capture = genre  # avoid closure over loop variable
+        genre_capture = genre_map[genre]
         ds = (
             ds.shuffle(seed=RAND_SEED)
             .filter(lambda row: row["genre"] == genre_capture)
