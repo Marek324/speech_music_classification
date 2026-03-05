@@ -15,7 +15,7 @@ from scipy.signal import correlate, lfilter, find_peaks, hilbert
 from scipy.stats import skew
 from scipy.fft import fft
 
-from . import config
+from .. import config
 
 FeatureSet = Literal["decision_tree", "gmm_svm"]
 

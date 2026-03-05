@@ -18,7 +18,7 @@ from .common import (
     LABEL_MAP,
     frame_label_str,
 )
-from .feat_extractor import FeatExtractor
+from .classic.feat_extractor import FeatExtractor
 
 log = logging.getLogger(__name__)
 

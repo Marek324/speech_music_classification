@@ -2,30 +2,24 @@
 # Marek Hric
 
 import logging
-from pathlib import Path
 
 import click
 import numpy as np
 
 from . import config
-from .decisiontree import DecisionTree
+from .classic import MODELS, FeatExtractor
 from .evaluator import Evaluator
-from .feat_extractor import FeatExtractor
-from .gmm import GMM
 from .input_handler import InputHandler, SUBCLASS_DTYPE
 from .logging_config import setup_logging
-from .modelclass import ModelClass
-from .svm import SVM
 
 log = logging.getLogger(__name__)
 
-
-MODELS = {"decision_tree": DecisionTree, "gmm": GMM, "svm": SVM}
-
 DEFAULT_DATASET = "Marek324/speech-music-classification"
+CLASSIC_MODELS = ("decision_tree", "gmm", "svm")
 
 
-def train(model: ModelClass):
+def _train_classic(model_name: str):
+    config.init_config(None, model_name=model_name)
     cfg = config.get_config()
     ds_link = cfg.get("dataset", {}).get("train", DEFAULT_DATASET)
     fe = FeatExtractor()
@@ -39,11 +33,14 @@ def train(model: ModelClass):
     X = ih.getX()
     y = ih.getY()
 
+    model = MODELS[model_name](model_name)
     model.fit(X, y)
     model.save()
 
 
-def eval_model(model: ModelClass):
+def _eval_classic(model_name: str):
+    config.init_config(None, model_name=model_name)
+    model = MODELS[model_name](model_name)
     model.load()
 
     cfg = config.get_config()
@@ -67,24 +64,20 @@ def eval_model(model: ModelClass):
     log.info("\n%s", res)
 
 
-def mic(model: ModelClass):
+def _mic_classic(model_name: str):
+    config.init_config(None, model_name=model_name)
     fe = FeatExtractor()
-    ih = InputHandler(mode="microphone", feat_extractor=fe)
-    # while True
-    # wait for frame
-    # model predict
+    _ih = InputHandler(mode="microphone", feat_extractor=fe)
+    # placeholder - real-time mic not implemented
 
 
-def smoke_test():
+def _smoke_test_classic(model_name: str):
+    config.init_config(None, model_name=model_name)
     np.random.seed(42)
-    cfg = config.get_config()
-    model_name = cfg["model"]["name"]
-
     fe = FeatExtractor()
     frame_len = fe.fl
     n_frames = 200
 
-    # Generate synthetic audio frames and extract features
     frames = np.random.randn(n_frames, frame_len).astype(np.float32) * 0.1
     X_list = []
     for i in range(n_frames):
@@ -107,7 +100,8 @@ def smoke_test():
     )
 
 
-def dataset_stats():
+def _dataset_stats_classic():
+    config.init_config(None, model_name="decision_tree")
     class DummyFeatExtractor(FeatExtractor):
         def extract(self, frame):
             return np.zeros(1, dtype=np.float32)
@@ -125,53 +119,46 @@ def dataset_stats():
     ih.summary()
 
 
+def _add_model_commands(group: click.Group, model_name: str):
+    """Add train, eval, smoke-test to a model group."""
+    @group.command("train")
+    def train():
+        _train_classic(model_name)
+
+    @group.command("eval")
+    def eval_cmd():
+        _eval_classic(model_name)
+
+    @group.command("smoke-test")
+    def smoke_test():
+        _smoke_test_classic(model_name)
+
+    @group.command("mic")
+    def mic_cmd():
+        _mic_classic(model_name)
+
+
 @click.group()
-@click.argument("model", type=click.Choice(["decision_tree", "gmm", "svm"]))
 @click.option("-v", "--verbose", is_flag=True, help="Enable debug logging")
-@click.pass_context
-def cli(ctx: click.Context, model: str, verbose: bool):
-    """Speech/music classifier. Usage: smclassifier <model> <command>"""
+def cli(verbose: bool):
+    """Speech/music classifier. Usage: smclassifier <approach> <model> <command>"""
     setup_logging(level=logging.DEBUG if verbose else logging.INFO)
-    config.init_config(None, model_name=model)
-    ctx.ensure_object(dict)
-    ctx.obj["model"] = model
 
 
-@cli.command("train")
-@click.pass_context
-def train_cmd(ctx):
-    """Train the model."""
-    m = MODELS[ctx.obj["model"]](ctx.obj["model"])
-    train(m)
+@cli.group()
+def classic():
+    """Classic hand-crafted feature models (DT, GMM, SVM)."""
+    pass
 
 
-@cli.command("eval")
-@click.pass_context
-def eval_cmd(ctx):
-    """Evaluate the model."""
-    m = MODELS[ctx.obj["model"]](ctx.obj["model"])
-    eval_model(m)
+# Model groups under classic
+for _model in CLASSIC_MODELS:
+    model_grp = click.Group(_model)
+    _add_model_commands(model_grp, _model)
+    classic.add_command(model_grp, _model)
 
 
-@cli.command("mic")
-@click.pass_context
-def mic_cmd(ctx):
-    """Microphone mode (placeholder)."""
-    m = MODELS[ctx.obj["model"]](ctx.obj["model"])
-    mic(m)
-
-
-@cli.command("smoke-test")
-def smoke_test_cmd():
-    """Run smoke test with synthetic data (no dataset download)."""
-    smoke_test()
-
-
-@cli.command("dataset-stats")
+@classic.command("dataset-stats")
 def dataset_stats_cmd():
-    """Print dataset statistics."""
-    dataset_stats()
-
-
-if __name__ == "__main__":
-    cli()
+    """Print dataset statistics (uses decision_tree config for buffers)."""
+    _dataset_stats_classic()

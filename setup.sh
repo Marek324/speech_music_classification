@@ -1,6 +1,8 @@
 curl -LsSf https://astral.sh/uv/install.sh | sh
-apt install -y ffmpeg
+apt install -y ffmpeg git-lfs
 uv sync
-apt intall git-lfs -y
 git lfs install
-echo "don't forget to add HF_TOKEN and set up git config"
+git config pull.rebase true
+git config pull.ff only
+git config user.name "Marek324"
+echo 'Don\'t forget to add HF token and user.email'

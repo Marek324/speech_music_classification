@@ -2,7 +2,6 @@
 # Marek Hric
 
 import logging
-import os
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -19,7 +18,7 @@ class ModelClass(ABC):
     name: str
 
     def _get_weights_path(self) -> Path:
-        return Path(__file__).resolve().parent.parent / "weights" / self.name
+        return Path(__file__).resolve().parent.parent.parent / "weights" / self.name
 
     def _weights_exist(self) -> bool:
         return self._get_weights_path().exists()

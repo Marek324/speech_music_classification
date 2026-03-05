@@ -1,4 +1,5 @@
-"""Logging configuration for the project."""
+# logging_config.py
+# Marek Hric
 
 import logging
 import sys

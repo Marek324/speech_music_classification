@@ -5,7 +5,6 @@ import logging
 import warnings
 from collections import deque
 
-import joblib
 import numpy as np
 from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
@@ -19,10 +18,7 @@ log = logging.getLogger(__name__)
 class SVM(ModelClass):
     name: str = "unnamed"
 
-    def __init__(
-        self,
-        name: str,
-    ):
+    def __init__(self, name: str):
         self.name = name
 
         self.svm = Pipeline(
@@ -42,7 +38,6 @@ class SVM(ModelClass):
                 ),
             ]
         )
-        # cca 300ms / 15ms hop
         self.dec_buf = deque(maxlen=20)
 
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
