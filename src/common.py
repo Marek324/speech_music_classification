@@ -6,6 +6,9 @@ from typing import Dict, List, Optional, Union
 
 import numpy as np
 
+# Unified label mapping used across input_handler, evaluator, frame_label
+LABEL_MAP = {"speech": -1, "music": 1, "inactive": 2, "noise": 2}
+
 
 class EndOfDatasetException(Exception):
     def __init__(self):
@@ -43,7 +46,6 @@ class FrameDataStrLabel:
 def frame_label(
     anns: List[Dict[str, Union[str, int]]], f_start: int, f_end: int
 ) -> int:
-    lbl_val = {"speech": -1, "music": 1, "inactive": 2}
     overlap = {"speech": 0, "music": 0, "inactive": 0}
 
     for ann in anns:
@@ -56,10 +58,10 @@ def frame_label(
                     overlap[lbl] += end - start
 
     if sum(overlap.values()) == 0:
-        return lbl_val["inactive"]
+        return LABEL_MAP["inactive"]
 
     majority = max(overlap.items(), key=lambda x: x[1])[0]
-    return lbl_val[majority]
+    return LABEL_MAP[majority]
 
 
 def frame_label_str(
@@ -70,16 +72,15 @@ def frame_label_str(
     for ann in anns:
         lbl = ann.get("label")
         if lbl not in ["speech", "music", "inactive"]:
-            print("Unknown label:", lbl)
-            sys.exit(1)
+            raise ValueError(f"Unknown label: {lbl}")
 
         start = max(f_start, ann["start"])
         end = min(f_end, ann["end"])
         if start < end:
             overlap[lbl] += end - start
-        
-        if sum(overlap.values()) == 0:
-            return "inactive"
+
+    if sum(overlap.values()) == 0:
+        return "inactive"
 
     majority = max(overlap.items(), key=lambda x: x[1])[0]
     return majority

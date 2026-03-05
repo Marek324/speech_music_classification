@@ -1,7 +1,7 @@
 # gmm.py
 # Marek Hric
 
-import os
+import logging
 from collections import deque
 
 import joblib
@@ -10,7 +10,9 @@ from scipy.special import logsumexp
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import RobustScaler
 
-from modelclass import ModelClass
+from .modelclass import ModelClass
+
+log = logging.getLogger(__name__)
 
 
 class GMM(ModelClass):
@@ -46,17 +48,7 @@ class GMM(ModelClass):
         # cca 300ms / 15ms hop
         self.delta_buf = deque(maxlen=20)
 
-    def _get_weights_path(self) -> str:
-        path = f"{os.path.dirname(__file__)}/../weights/{self.name}"
-        return path
-
-    def fit(self, X: np.ndarray, y: np.ndarray):
-        weights_path = self._get_weights_path()
-        if os.path.exists(weights_path):
-            print(f"Loading GMM weights from {weights_path}")
-            self.tree = joblib.load(weights_path)
-            return
-
+    def _train(self, X: np.ndarray, y: np.ndarray) -> None:
         X = X.astype(np.float64)
 
         Xn = self.scaler.fit_transform(X)
@@ -69,6 +61,14 @@ class GMM(ModelClass):
 
         self.gmm_speech.fit(X_s)
         self.gmm_music.fit(X_m)
+
+    def _state_to_save(self):
+        return {"speech": self.gmm_speech, "music": self.gmm_music, "scaler": self.scaler}
+
+    def _restore_state(self, state) -> None:
+        self.gmm_speech = state["speech"]
+        self.gmm_music = state["music"]
+        self.scaler = state["scaler"]
 
     def predict(self, frame: np.ndarray) -> int:
         x = frame.astype(np.float64)
@@ -120,27 +120,3 @@ class GMM(ModelClass):
         ll_norm = logsumexp(ll, axis=1, keepdims=True)
 
         return np.exp(ll - ll_norm)
-
-    def save(self):
-        path = self._get_weights_path()
-        print(f"Saving GMM weights to {path}")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        if os.path.exists(path):
-            print(f"GMM weights already exist at {path}, overwriting.")
-        state = {
-            "speech": self.gmm_speech,
-            "music": self.gmm_music,
-            "scaler": self.scaler,
-        }
-        joblib.dump(state, path)
-
-    def load(self):
-        path = self._get_weights_path()
-        print(f"Loading GMM weights from {path}")
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"GMM weights not found at {path}")
-
-        state = joblib.load(path)
-        self.gmm_speech = state["speech"]
-        self.gmm_music = state["music"]
-        self.scaler = state["scaler"]

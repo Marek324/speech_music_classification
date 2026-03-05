@@ -1,7 +1,7 @@
 # svm.py
 # Marek Hric
 
-import os
+import logging
 import warnings
 from collections import deque
 
@@ -11,7 +11,9 @@ from sklearn.linear_model import SGDClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 
-from modelclass import ModelClass
+from .modelclass import ModelClass
+
+log = logging.getLogger(__name__)
 
 
 class SVM(ModelClass):
@@ -43,19 +45,15 @@ class SVM(ModelClass):
         # cca 300ms / 15ms hop
         self.dec_buf = deque(maxlen=20)
 
-    def _get_weights_path(self) -> str:
-        path = f"{os.path.dirname(__file__)}/../weights/{self.name}"
-        return path
-
-    def fit(self, X: np.ndarray, y: np.ndarray):
-        weights_path = self._get_weights_path()
-        if os.path.exists(weights_path):
-            print(f"Loading SVM weights from {weights_path}")
-            self.svm = joblib.load(weights_path)
-            return
-
+    def _train(self, X: np.ndarray, y: np.ndarray) -> None:
         X = X.astype(np.float64)
         self.svm.fit(X, y)
+
+    def _state_to_save(self):
+        return {"svm_pipeline": self.svm}
+
+    def _restore_state(self, state) -> None:
+        self.svm = state["svm_pipeline"]
 
     def predict(self, frame: np.ndarray) -> int:
         x = np.atleast_2d(frame.astype(np.float64))
@@ -71,30 +69,9 @@ class SVM(ModelClass):
         return self.svm.predict(X)
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
-        warnings.warn("proba on SVM won't work")
-        return np.array([])
+        warnings.warn("SVM does not provide probabilities; returning placeholder")
+        return np.array([0.5, 0.5])
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
-        warnings.warn("proba on SVM won't work")
-        return np.array([])
-
-    def save(self):
-        path = self._get_weights_path()
-        print(f"Saving SVM weights to {path}")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-
-        state = {
-            "svm_pipeline": self.svm,
-            "name": self.name,
-        }
-        joblib.dump(state, path)
-
-    def load(self):
-        path = self._get_weights_path()
-        print(f"Loading SVM weights from {path}")
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"SVM weights not found at {path}")
-
-        state = joblib.load(path)
-        self.svm = state["svm_pipeline"]
-        self.name = state.get("name", "unnamed")
+        warnings.warn("SVM does not provide probabilities; returning placeholder")
+        return np.full((len(X), 2), 0.5)

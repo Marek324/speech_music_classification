@@ -1,18 +1,18 @@
 # decisiontree.py
 # Marek Hric
 
-
-import os
+import logging
 from collections import deque
 
-import joblib
 import numpy as np
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest, f_classif
 
-from modelclass import ModelClass
+from .modelclass import ModelClass
+
+log = logging.getLogger(__name__)
 
 
 class DecisionTree(ModelClass):
@@ -40,28 +40,35 @@ class DecisionTree(ModelClass):
         self.decision_forget_factor: float = decision_forget_factor
         _indices = np.arange(n_last_decisions)
         _weights = np.exp(-_indices / self.decision_forget_factor)
-        self.smoothing_weigths = _weights / np.sum(_weights)
+        self.smoothing_weights = _weights / np.sum(_weights)
 
-    def _get_weights_path(self) -> str:
-        path = f"{os.path.dirname(__file__)}/../weights/{self.name}"
-        return path
-
-    def fit(self, X: np.ndarray, y: np.ndarray):
-        weights_path = self._get_weights_path()
-        if os.path.exists(weights_path):
-            print(f"Loading DecisionTree weights from {weights_path}")
-            self.tree = joblib.load(weights_path)
-            return
-
-        print("Masking data for DecisionTree training")
+    def _train(self, X: np.ndarray, y: np.ndarray) -> None:
+        log.info("Masking data for DecisionTree training")
         # select speech/music
         mask = np.isin(y, [-1, 1])
 
         X_train = X[mask]
         y_train = y[mask]
 
-        print("Training DecisionTree")
+        log.info("Training DecisionTree")
         self.tree.fit(X_train, y_train)
+
+    def _state_to_save(self):
+        return {
+            "tree": self.tree,
+            "n_last_decisions": self.last_decisions.maxlen,
+            "decision_forget_factor": self.decision_forget_factor,
+        }
+
+    def _restore_state(self, state) -> None:
+        self.tree = state["tree"]
+        # last_decisions deque is rebuilt per-frame; smoothing_weights recomputed
+        n = state.get("n_last_decisions", 30)
+        f = state.get("decision_forget_factor", 0.9)
+        self.last_decisions = deque(maxlen=n)
+        _indices = np.arange(n)
+        _weights = np.exp(-_indices / f)
+        self.smoothing_weights = _weights / np.sum(_weights)
 
     def predict(self, frame: np.ndarray) -> int:
         pred = self.tree.predict_proba(frame.reshape(1, -1))[0]
@@ -73,7 +80,7 @@ class DecisionTree(ModelClass):
         last_decisions = np.array(self.last_decisions)[::-1]
 
         # pick and normalize less weights if not enough decisions yet
-        curr_weights = self.smoothing_weigths[: len(last_decisions)]
+        curr_weights = self.smoothing_weights[: len(last_decisions)]
         curr_weights = curr_weights / np.sum(curr_weights)
 
         smoothed_decision = np.dot(last_decisions, curr_weights)
@@ -86,32 +93,17 @@ class DecisionTree(ModelClass):
 
         grades = probs[:, 1] - probs[:, 0]
 
-        raw_sums = np.convolve(grades, self.smoothing_weigths, mode='full')[:len(grades)]
+        raw_sums = np.convolve(grades, self.smoothing_weights, mode='full')[:len(grades)]
 
-        norm_factors = np.convolve(np.ones(len(grades)), self.smoothing_weigths, mode='full')[:len(grades)]
+        norm_factors = np.convolve(np.ones(len(grades)), self.smoothing_weights, mode='full')[:len(grades)]
 
         smoothed_grades = raw_sums / norm_factors
 
         return np.where(smoothed_grades > 0, 1, -1)
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
-        return self.tree.predict_proba(frame)
+        return self.tree.predict_proba(frame.reshape(1, -1))[0]
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
         return self.tree.predict_proba(X)
 
-    def save(self):
-        path = self._get_weights_path()
-        print(f"Saving DecisionTree weights to {path}")
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        if os.path.exists(path):
-            print(f"DecisionTree weights already exist at {path}, overwriting.")
-        joblib.dump(self.tree, path)
-
-    def load(self):
-        path = self._get_weights_path()
-        print(f"Loading DecisionTree weights from {path}")
-        if not os.path.exists(path):
-            raise FileNotFoundError(f"DecisionTree weights not found at {path}")
-
-        self.tree = joblib.load(path)

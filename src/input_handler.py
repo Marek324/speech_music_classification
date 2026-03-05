@@ -1,36 +1,49 @@
+# input_handler.py
+# Marek Hric
+
+import logging
+import os
+import time
 from collections import Counter
-from typing import Dict, List, Optional, Any, TypedDict
+from typing import Any, Dict, List, Optional
 
 import numpy as np
-import os
 from datasets import Audio, Dataset, load_dataset
 from tqdm import tqdm
 
-import config
-from common import (
-    FrameData,
+from . import config
+from .common import (
     FrameDataStrLabel,
-    FrameMetadata,
     FrameMetadataStrLabel,
-    frame_label,
+    LABEL_MAP,
     frame_label_str,
 )
-from feat_extractor import FeatExtractor
+from .feat_extractor import FeatExtractor
 
-label_map = {"speech": -1, "music": 1, "inactive": 2, "noise": 2}
+log = logging.getLogger(__name__)
+
+SUBCLASS_DTYPE = "U40"
 
 
-class RowStats(TypedDict):
-    frames: int
-    classes: Counter[str]
-    subclasses: Counter[str]
+def _pad_frame(frame: np.ndarray, target_len: int, dtype=np.float32) -> np.ndarray:
+    """Pad or truncate frame to target length."""
+    out = np.zeros(target_len, dtype=dtype)
+    out[: len(frame)] = frame[:target_len]
+    return out
+
+
+def _safe_feats(feats: np.ndarray) -> np.ndarray:
+    """Replace NaN/Inf with zeros."""
+    if np.any(np.isnan(feats)) or np.any(np.isinf(feats)):
+        return np.zeros_like(feats)
+    return feats
 
 
 class InputHandler:
     """
-    InputHandler can operate in two modes:
-        - "dataset"     → stream HF dataset
-        - "microphone"  → real-time mic stream (not implemented, placeholder)
+    InputHandler operates in two modes:
+        - "dataset"     → load HF dataset, extract features, aggregate to X, y
+        - "microphone"  → real-time mic stream (placeholder, not implemented)
     """
 
     def __init__(
@@ -41,341 +54,172 @@ class InputHandler:
         ds_split: str = "train",
         ds_revision: str = "main",
     ):
-        assert mode in ("dataset", "microphone")
+        if mode not in ("dataset", "microphone"):
+            raise ValueError(f"Invalid mode: {mode}")
+
         self.mode = mode
         self.fextractor = feat_extractor
 
         cfg = config.get_config()
         self.sr = cfg["sample_rate"]
         self.channels = cfg["channels"]
-
-        flms = cfg["buffers"]["frame_length_ms"]
-        fhms = cfg["buffers"]["hop_length_ms"]
-        self.frame_len = flms * self.sr // 1000
-        self.hop_len = fhms * self.sr // 1000
-
-        self.frame_start = 0
+        buf = cfg["buffers"]
+        self.frame_len = buf["frame_length_ms"] * self.sr // 1000
+        self.hop_len = buf["hop_length_ms"] * self.sr // 1000
 
         self.st_buffer: Optional[np.ndarray] = None
+        self.extract_duration_ns: int = 0
 
-        # self.ds_item_class: str = ""
-        # self.ds_item_subclass: str = ""
-        # self.ds_item_labels: List[Dict[str, Optional[Dict[str, int]]]] = []
-        #
-        if self.mode == "dataset":
-            self.ds_stats = {
-                "frames": 0,
-                "classes": Counter(),
-                "subclasses": Counter(),
-            }
+        if mode == "dataset":
+            self._init_dataset_mode(ds_link, ds_split, ds_revision)
+        else:
+            self._init_microphone_mode()
 
-            assert ds_link != "", "Dataset mode requires ds_link"
+    def _init_dataset_mode(
+        self, ds_link: str, ds_split: str, ds_revision: str
+    ) -> None:
+        if not ds_link:
+            raise ValueError("Dataset mode requires ds_link")
 
-            self.dataset = load_dataset(
-                ds_link, split=ds_split, revision=ds_revision
-            ).cast_column(
-                "audio",
-                Audio(sampling_rate=self.sr, num_channels=self.channels),
+        self.ds_stats: Dict[str, Any] = {
+            "frames": 0,
+            "classes": Counter(),
+            "subclasses": Counter(),
+        }
+
+        dataset = load_dataset(
+            ds_link, split=ds_split, revision=ds_revision
+        ).cast_column(
+            "audio",
+            Audio(sampling_rate=self.sr, num_channels=self.channels),
+        )
+        assert isinstance(dataset, Dataset)
+
+        t0 = time.perf_counter_ns()
+        processed = dataset.map(
+            self._process_row,
+            desc="Extracting frames/features",
+            num_proc=os.cpu_count(),
+            load_from_cache_file=True,
+        )
+        self.extract_duration_ns = time.perf_counter_ns() - t0
+
+        row_lengths = [len(lst) for lst in processed["labels"]]
+        total_frames = sum(row_lengths)
+        feat_dim = len(processed[0]["feats"][0])
+
+        log.info("Allocating X: (%s, %s)", total_frames, feat_dim)
+
+        self.X = np.empty((total_frames, feat_dim), dtype=np.float32)
+        self.y = np.empty(total_frames, dtype=int)
+        self.subclasses = np.empty(total_frames, dtype=SUBCLASS_DTYPE)
+
+        cursor = 0
+        for i, row in enumerate(tqdm(processed, desc="Filling Arrays")):
+            n = row_lengths[i]
+            self.X[cursor : cursor + n] = np.array(row["feats"], dtype=np.float32)
+            self.y[cursor : cursor + n] = [LABEL_MAP[label] for label in row["labels"]]
+            self.subclasses[cursor : cursor + n] = row["subclasses"]
+
+            self.ds_stats["frames"] += n
+            self.ds_stats["classes"].update(row["labels"])
+            self.ds_stats["subclasses"].update(row["subclasses"])
+            cursor += n
+
+        self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
+        log.info("Aggregation done.")
+
+    def _init_microphone_mode(self) -> None:
+        self.st_buffer = np.zeros(0, dtype=np.float32)
+
+    def get_extract_time_per_frame_ns(self) -> float:
+        """Extraction time per frame (ns), or 0 if not applicable."""
+        x = getattr(self, "X", None)
+        if x is None or len(x) == 0 or self.extract_duration_ns == 0:
+            return 0.0
+        return float(self.extract_duration_ns) / len(x)
+
+    def _process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        audio = row["audio"].get_all_samples().data
+        if hasattr(audio, "cpu"):
+            audio = audio.cpu()
+        audio = np.asarray(audio).squeeze()
+
+        cls_name = row["class"]
+        subclass = row["subclass"]
+        labels = row["labels"]
+
+        feats, labels_out, subclasses_out = [], [], []
+        frame_start = 0
+        n_samples = len(audio)
+
+        while frame_start + self.frame_len <= n_samples:
+            frame = _pad_frame(
+                audio[frame_start : frame_start + self.frame_len],
+                self.frame_len,
             )
+            fd = self._process_frame(frame, frame_start, labels, cls_name, subclass)
 
-            assert isinstance(self.dataset, Dataset)
+            feats.append(_safe_feats(fd.feats))
+            labels_out.append(cls_name)
+            assert fd.metadata is not None
+            subclasses_out.append(fd.metadata.subclass)
+            frame_start += self.hop_len
 
-            processed = self.dataset.map(
-                self._process_row,
-                desc="Extracting frames/features",
-                num_proc=os.cpu_count(),
-                load_from_cache_file=True,
-            )
-
-            print("Counting total frames...", flush=True)
-            row_lengths = [len(l) for l in processed["labels"]]
-            total_frames = sum(row_lengths)
-
-            first_row = processed[0]
-            feat_dim = len(first_row["feats"][0])
-
-            print(f"Allocating X: ({total_frames}, {feat_dim})", flush=True)
-
-            # 3. Pre-allocate arrays
-            self.X = np.empty((total_frames, feat_dim), dtype=np.float32)
-            self.y = np.empty(total_frames, dtype=int)  # Assuming int labels
-            self.subclasses = np.empty(
-                total_frames, dtype="U20"
-            )  # Max string length 20
-
-            cursor = 0
-            for i, row in enumerate(tqdm(processed, desc="Filling Arrays")):
-                n_frames = row_lengths[i]
-
-                # Efficiently assign chunk to the pre-allocated array
-                # Ensure row['feats'] is converted to a numpy array first if it's a list
-                self.X[cursor : cursor + n_frames] = np.array(
-                    row["feats"], dtype=np.float32
-                )
-                self.y[cursor : cursor + n_frames] = [
-                    label_map[label] for label in row["labels"]
-                ]
-                self.subclasses[cursor : cursor + n_frames] = row["subclasses"]
-
-                self.ds_stats["frames"] += n_frames
-                self.ds_stats["classes"].update(row["labels"])
-                self.ds_stats["subclasses"].update(row["subclasses"])
-
-                cursor += n_frames
-
-            print("Aggregation done.", flush=True)
-
-            # FINAL SAFETY CHECK
-            self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
-            print(f"Final X - Contains Inf: {np.any(np.isinf(self.X))}")
-            print(self.X.shape)
-            print(self.y.shape)
-
-        else:  # microphone mode
-            self.iterator = None
-            # TODO: Initialize microphone stream here
-            # self.mic = pyaudio.PyAudio().open(...)
-            self.st_buffer = np.zeros(0, dtype=np.float32)
+        return {"feats": feats, "labels": labels_out, "subclasses": subclasses_out}
 
     def _process_frame(
         self,
         frame: np.ndarray,
         frame_start: int,
-        labels: List[Dict[str, Dict[str, int] | None]],
-        _class: str,
+        labels: List[Dict],
+        cls_name: str,
         subclass: str,
     ) -> FrameDataStrLabel:
-        padd = np.zeros(self.frame_len, dtype=np.float32)
-        padd[: len(frame)] = frame
-        frame = padd
         feats = self.fextractor.extract(frame)
-        meta = FrameMetadataStrLabel(
-            label=frame_label_str(
-                labels,
-                frame_start,
-                frame_start + self.frame_len,
-            ),
-            rec_class=_class,
-            subclass=subclass,
+        label = frame_label_str(
+            labels, frame_start, frame_start + self.frame_len
         )
-
+        meta = FrameMetadataStrLabel(label=label, rec_class=cls_name, subclass=subclass)
         return FrameDataStrLabel(frame, feats, meta)
 
-    def _process_row(self, row) -> Dict[str, Any]:
-        audio = row["audio"].get_all_samples().data
-        if hasattr(audio, "cpu"):
-            audio.cpu()
-        audio = audio.numpy().squeeze()
-
-        _class = row["class"]
-        subclass = row["subclass"]
-        labels = row["labels"]
-
-        feats = []
-        labels_list = []
-        subclasses = []
-        #
-        # row_stats: RowStats = {
-        #     "frames": 0,
-        #     "classes": Counter(),
-        #     "subclasses": Counter(),
-        # }
-
-        frame_start = 0
-        n_samples = len(audio)
-
-        while frame_start + self.frame_len <= n_samples:
-            frame = audio[frame_start : frame_start + self.frame_len]
-
-            f = self._process_frame(
-                frame,
-                frame_start,
-                labels,
-                _class,
-                subclass,
-            )
-
-            if np.any(np.isnan(f.feats)) or np.any(np.isinf(f.feats)):
-                f.feats = np.zeros_like(f.feats)
-
-            feats.append(f.feats)
-            # labels_list.append(f.metadata.label)
-            labels_list.append(_class)
-
-            # if f.metadata.label == "inactive":
-            #     subclasses.append("inactive")
-            # else:
-            #     subclasses.append(f.metadata.subclass)
-            subclasses.append(f.metadata.subclass)
-
-            frame_start += self.hop_len
-
-        return {
-            "feats": feats,
-            "labels": labels_list,
-            "subclasses": subclasses,
-        }
-
-    def getX(self):
+    def getX(self) -> np.ndarray:
         return self.X
 
-    def getY(self):
+    def getY(self) -> np.ndarray:
         return self.y
 
-    def getSubclasses(self):
+    def getSubclasses(self) -> np.ndarray:
         return self.subclasses
 
-    def summary(self):
-        print("Input Handler summary:")
-        if self.mode == "microphone":
-            print("mic mode, nothing to sum")
+    def summary(self) -> None:
+        if self.mode != "dataset":
+            log.info("Input Handler summary: %s mode, nothing to sum", self.mode)
             return
 
-        sr = self.sr
-        hop = self.hop_len
-
         total_frames = self.ds_stats["frames"]
-        assert isinstance(total_frames, int)
-        total_seconds = (total_frames * hop) / sr
+        total_seconds = (total_frames * self.hop_len) / self.sr
         total_minutes = total_seconds / 60
 
-        print(f"Total Frames:   {total_frames:,}")
-        print(f"Total Duration: {total_minutes:.2f} min  ({total_seconds:.2f} sec)")
-        print("-" * 60)
-
-        label_names = {-1: "Speech", 1: "Music", 2: "Inactive"}
-
-        print(f"{'CLASS':<25} | {'FRAMES':<10} | {'MINUTES':<10} | {'%':<5}")
-        print("-" * 60)
-
+        lines = [
+            "Input Handler summary:",
+            f"Total Frames:   {total_frames:,}",
+            f"Total Duration: {total_minutes:.2f} min  ({total_seconds:.2f} sec)",
+            "-" * 60,
+            f"{'CLASS':<25} | {'FRAMES':<10} | {'MINUTES':<10} | {'%':<5}",
+            "-" * 60,
+        ]
         for lbl, count in self.ds_stats["classes"].items():
-            assert isinstance(count, int)
-            # name = label_names.get(lbl, str(lbl))
-            name = lbl
-            minutes = (count * hop) / sr / 60
+            minutes = (count * self.hop_len) / self.sr / 60
             perc = (count / total_frames) * 100
-            print(f"{name:<25} | {count:<10,} | {minutes:<10.2f} | {perc:>5.1f}%")
-
-        print("-" * 60)
-
-        print(f"{'SUBCLASS':<30} | {'FRAMES':<10} | {'MINUTES':<10}")
-        print("-" * 60)
-
+            lines.append(f"{lbl:<25} | {count:<10,} | {minutes:<10.2f} | {perc:>5.1f}%")
+        lines.extend([
+            "-" * 72,
+            f"{'SUBCLASS':<42} | {'FRAMES':<10} | {'MINUTES':<10}",
+            "-" * 72,
+        ])
         for sub, count in self.ds_stats["subclasses"].most_common():
-            minutes = (count * hop) / sr / 60
-            print(f"{sub:<30} | {count:<10,} | {minutes:<10.2f}")  #
+            minutes = (count * self.hop_len) / self.sr / 60
+            lines.append(f"{sub:<42} | {count:<10,} | {minutes:<10.2f}")
 
-    # def _extract_frame(self) -> np.ndarray:
-    #     # load next item on empty buffer
-    #     if self.st_buffer is None:
-    #         if self.mode == "dataset":
-    #             self._load_next_dataset_item()  # throws EndOfDatasetException
-    #         else:
-    #             self._load_next_mic_buffer()  # TODO: should wait or throw(on end of receiving/error)
-    #
-    #     assert self.st_buffer is not None
-    #     available = len(self.st_buffer)
-    #
-    #     frame = []
-    #
-    #     if self.mode == "dataset":
-    #         if available >= self.frame_len:
-    #             frame = self.st_buffer[: self.frame_len]
-    #             self.st_buffer = self.st_buffer[self.hop_len :]
-    #         else:
-    #             # zero padd the end of dataset item
-    #             frame = np.zeros(self.frame_len, dtype=np.float32)
-    #             frame[:available] = self.st_buffer
-    #
-    #             # empty the buffer
-    #             self.st_buffer = None
-    #     else:  # microphone mode
-    #         assert available >= self.frame_len
-    #         frame = self.st_buffer[: self.frame_len]
-    #         self.st_buffer = self.st_buffer[self.hop_len :]
-    #
-    #     return frame
-    #
-    # def _load_next_dataset_item(self) -> bool:
-    #     assert self.st_buffer is None
-    #     assert self.iterator is not None
-    #
-    #     try:
-    #         item = next(self.iterator)
-    #     except StopIteration:
-    #         raise EndOfDatasetException
-    #
-    #     audio = item["audio"].get_all_samples().data
-    #     if hasattr(audio, "cpu"):
-    #         audio.cpu()
-    #     audio = audio.numpy().squeeze()
-    #
-    #     self.st_buffer = audio
-    #
-    #     # metadata
-    #     self.ds_item_class = item["class"]
-    #     self.ds_item_subclass = item["subclass"]
-    #     self.ds_item_labels = item["labels"]
-    #     self.frame_start = 0
-    #
-    #     return True
-    #
-    # def _load_next_mic_buffer(self) -> bool:
-    #     """
-    #     Capture new microphone audio and append to st_buffer.
-    #     Always returns True because microphone is continuous.
-    #     """
-    #     # TODO: Implement microphone reading here
-    #     # raw = self.mic.read(self.hop_len)
-    #     # audio_np = np.frombuffer(raw, dtype=np.float32)
-    #     # self.st_buffer = np.concatenate([self.st_buffer, audio_np])
-    #     return True
-    #
-    # def get_frame(self) -> Optional[FrameData]:
-    #     try:
-    #         audio = self._extract_frame()
-    #     except EndOfDatasetException:
-    #         return None
-    #     # maybe except mic error
-    #
-    #     assert audio is not None
-    #
-    #     meta = None
-    #     if self.mode == "dataset":
-    #         meta = FrameMetadata(
-    #             label=frame_label(
-    #                 self.ds_item_labels,
-    #                 self.frame_start,
-    #                 self.frame_start + self.frame_len,
-    #             ),
-    #             rec_class=self.ds_item_class,
-    #             subclass=self.ds_item_subclass,
-    #         )
-    #
-    #     frame = FrameData(
-    #         audio=audio, feats=self.fextractor.extract(audio), metadata=meta
-    #     )
-    #     self.frame_start += self.frame_len
-    #
-    #     return frame
-    #
-    # def __iter__(self):
-    #     return self
-    #
-    # def __next__(self) -> FrameData:
-    #     frame = self.get_frame()
-    #     if frame is None:
-    #         raise StopIteration
-    #     return frame
-    #
-    # def getX(self) -> np.ndarray:
-    #     X = []
-    #
-    #     # parallelize rows
-    #
-    #     return np.array(X)
-    #
-    # def getY(self) -> np.ndarray:
-    #     y = []
-    #
-    #     return np.array(y)
+        log.info("\n%s", "\n".join(lines))

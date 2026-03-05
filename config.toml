@@ -2,14 +2,6 @@ sample_rate = 16000
 channels = 1
 n_fft = 512
 
-[buffers]
-frame_length_ms = 30
-hop_length_ms = 15
-lt_len_ms = 600
-
-[model]
-name="gmm"
-
 [features]
 [features.band_energy_ratio]
 low = 70
@@ -21,3 +13,18 @@ max_lag_ms = 16
 
 [features.spectral_rolloff_point]
 threshold = 0.85
+
+[buffers.decision_tree]
+frame_length_ms = 20
+hop_length_ms = 10
+lt_len_ms = 300
+
+[buffers.gmm]
+frame_length_ms = 30
+hop_length_ms = 15
+lt_len_ms = 600
+
+[buffers.svm]
+frame_length_ms = 30
+hop_length_ms = 15
+lt_len_ms = 600

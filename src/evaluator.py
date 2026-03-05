@@ -1,8 +1,11 @@
 # evaluator.py
 # Marek Hric
 
+import logging
 import time
+from datetime import datetime, timezone
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Dict
 
 import numpy as np
@@ -13,6 +16,8 @@ from sklearn.metrics import (
     precision_score,
     recall_score,
 )
+
+log = logging.getLogger(__name__)
 
 
 @dataclass
@@ -26,7 +31,8 @@ class SubClassEvalResults:
 
 @dataclass
 class EvalResults:
-    time: float
+    n_classes: int
+    time_per_frame_ns: float  # extract + classify per frame (ns)
     f1: float
     accuracy: float
     precision: float
@@ -39,9 +45,9 @@ class EvalResults:
         """Generates a readable text report of the results."""
         report = [
             "================================",
-            "      OVERALL EVALUATION        ",
+            f"      OVERALL EVALUATION ({self.n_classes}-class)  ",
             "================================",
-            f"Classification time: {self.time:.8f}ns\n"
+            f"Time per frame: {self.time_per_frame_ns * 1e-6:.4f} ms\n"
             f"Accuracy:  {self.accuracy:.4f}",
             f"F1 (Macro): {self.f1:.4f}",
             f"Precision: {self.precision:.4f}",
@@ -59,7 +65,59 @@ class EvalResults:
                 f"  F1: {res.f1:.4f} | Acc: {res.accuracy:.4f} | P: {res.precision:.4f} | R: {res.recall:.4f}"
             )
 
+        report.append("\n\n")
+
         return "\n".join(report)
+
+
+@dataclass
+class EvalResultsBoth:
+    """Results of 2-class and 3-class evaluation."""
+
+    two_class: EvalResults
+    three_class: EvalResults
+
+    def __str__(self):
+        ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+        return f"Evaluation report — {ts}\n{'=' * 40}\n{self.two_class}\n{self.three_class}"
+
+
+def _compute_metrics(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    y_sub: np.ndarray,
+    eval_labels: list,
+    time_per_frame_ns: float,
+) -> EvalResults:
+    f1_overall = f1_score(y_true, y_pred, average="macro", zero_division=0)
+    acc_overall = accuracy_score(y_true, y_pred)
+    prec_overall = precision_score(y_true, y_pred, average="macro", zero_division=0)
+    rec_overall = recall_score(y_true, y_pred, average="macro", zero_division=0)
+    conf_overall = confusion_matrix(y_true, y_pred, labels=eval_labels)
+
+    by_sub = {}
+    for sub in np.unique(y_sub):
+        s_mask = y_sub == sub
+        y_t_s, y_p_s = y_true[s_mask], y_pred[s_mask]
+        by_sub[str(sub)] = SubClassEvalResults(
+            f1=f1_score(y_t_s, y_p_s, average="macro", zero_division=0),
+            accuracy=accuracy_score(y_t_s, y_p_s),
+            precision=precision_score(y_t_s, y_p_s, average="macro", zero_division=0),
+            recall=recall_score(y_t_s, y_p_s, average="macro", zero_division=0),
+            conf_mat=confusion_matrix(y_t_s, y_p_s, labels=eval_labels),
+        )
+
+    return EvalResults(
+        n_classes=len(eval_labels),
+        time_per_frame_ns=time_per_frame_ns,
+        f1=f1_overall,
+        accuracy=acc_overall,
+        precision=prec_overall,
+        recall=rec_overall,
+        conf_mat=conf_overall,
+        by_subclass=by_sub,
+        labels=eval_labels,
+    )
 
 
 class Evaluator:
@@ -69,66 +127,37 @@ class Evaluator:
         X: np.ndarray,
         y: np.ndarray,
         subclasses: np.ndarray,
-        n_classes: int = 3,
         save_to_file: bool = True,
-    ) -> EvalResults:
-        # Input validation
-        if n_classes not in [2, 3]:
-            raise ValueError("n_classes must be 2 or 3")
+        extract_time_per_frame_ns: float = 0.0,
+    ) -> EvalResultsBoth:
+        """Run 2-class and 3-class evaluation."""
         if X.shape[0] != y.shape[0] or X.shape[0] != subclasses.shape[0]:
             raise ValueError("X, y and subclasses must have the same size")
 
         start = time.perf_counter_ns()
         y_pred_full = model.predict_batch(X)
-        diff = time.perf_counter_ns() - start
-        avg_time = float(diff) / len(X)
+        classify_ns = time.perf_counter_ns() - start
+        time_per_frame_ns = (classify_ns / len(X)) + extract_time_per_frame_ns
 
-        if n_classes == 2:
-            mask = np.isin(y, [-1, 1])
-            eval_labels = [-1, 1]
-        else:
-            mask = np.ones(len(y), dtype=bool)
-            eval_labels = [-1, 1, 2]
-
-        y_true = y[mask]
-        y_pred = y_pred_full[mask]
-        y_sub = subclasses[mask]
-
-        # Calculate Overall Metrics
-        # Note: average='macro' is used for F1/Precision/Recall in multi-class settings
-        f1_overall = f1_score(y_true, y_pred, average="macro", zero_division=0)
-        acc_overall = accuracy_score(y_true, y_pred)
-        prec_overall = precision_score(y_true, y_pred, average="macro", zero_division=0)
-        rec_overall = recall_score(y_true, y_pred, average="macro", zero_division=0)
-        conf_overall = confusion_matrix(y_true, y_pred, labels=eval_labels)
-
-        by_sub = {}
-        for sub in np.unique(y_sub):
-            s_mask = y_sub == sub
-            y_t_s, y_p_s = y_true[s_mask], y_pred[s_mask]
-
-            by_sub[str(sub)] = SubClassEvalResults(
-                f1=f1_score(y_t_s, y_p_s, average="macro", zero_division=0),
-                accuracy=accuracy_score(y_t_s, y_p_s),
-                precision=precision_score(
-                    y_t_s, y_p_s, average="macro", zero_division=0
-                ),
-                recall=recall_score(y_t_s, y_p_s, average="macro", zero_division=0),
-                conf_mat=confusion_matrix(y_t_s, y_p_s, labels=eval_labels),
-            )
-
-        res = EvalResults(
-            time=avg_time,
-            f1=f1_overall,
-            accuracy=acc_overall,
-            precision=prec_overall,
-            recall=rec_overall,
-            conf_mat=conf_overall,
-            by_subclass=by_sub,
-            labels=eval_labels,
+        # 2-class: speech vs music only
+        mask_2 = np.isin(y, [-1, 1])
+        res_2 = _compute_metrics(
+            y[mask_2], y_pred_full[mask_2], subclasses[mask_2], [-1, 1], time_per_frame_ns
         )
 
-        with open(f"{model.name}.eval", "a") as f:
-            f.write(str(res))
+        # 3-class: speech, music, inactive
+        res_3 = _compute_metrics(
+            y, y_pred_full, subclasses, [-1, 1, 2], time_per_frame_ns
+        )
 
-        return res
+        both = EvalResultsBoth(two_class=res_2, three_class=res_3)
+
+        if save_to_file:
+            results_dir = Path(__file__).resolve().parent.parent / "results"
+            results_dir.mkdir(parents=True, exist_ok=True)
+            path = results_dir / f"{model.name}.eval"
+            with open(path, "w") as f:
+                f.write(str(both))
+            log.info("Saved evaluation results to %s", path)
+
+        return both
