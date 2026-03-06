@@ -18,3 +18,4 @@ def setup_logging(level: int = logging.INFO) -> None:
     logging.getLogger("urllib3").setLevel(logging.WARNING)
     logging.getLogger("httpx").setLevel(logging.WARNING)
     logging.getLogger("datasets").setLevel(logging.WARNING)
+    logging.getLogger("wandb").setLevel(logging.INFO)

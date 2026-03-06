@@ -8,20 +8,20 @@ import numpy as np
 
 from . import config
 from .classic import MODELS, FeatExtractor
+from .tcn.cli import eval_tcn, smoke_test_tcn, train_tcn
 from .evaluator import Evaluator
 from .input_handler import InputHandler, SUBCLASS_DTYPE
 from .logging_config import setup_logging
 
 log = logging.getLogger(__name__)
 
-DEFAULT_DATASET = "Marek324/speech-music-classification"
 CLASSIC_MODELS = ("decision_tree", "gmm", "svm")
 
 
 def _train_classic(model_name: str):
     config.init_config(None, model_name=model_name)
     cfg = config.get_config()
-    ds_link = cfg.get("dataset", {}).get("train", DEFAULT_DATASET)
+    ds_link = cfg["dataset"]["train"]
     fe = FeatExtractor()
     ih = InputHandler(
         mode="dataset",
@@ -44,7 +44,7 @@ def _eval_classic(model_name: str):
     model.load()
 
     cfg = config.get_config()
-    ds_link = cfg.get("dataset", {}).get("eval", DEFAULT_DATASET)
+    ds_link = cfg["dataset"]["eval"]
     fe = FeatExtractor()
     ih = InputHandler(
         "dataset",
@@ -107,7 +107,7 @@ def _dataset_stats_classic():
             return np.zeros(1, dtype=np.float32)
 
     cfg = config.get_config()
-    ds_link = cfg.get("dataset", {}).get("stats", DEFAULT_DATASET)
+    ds_link = cfg["dataset"]["stats"]
     ih = InputHandler(
         mode="dataset",
         feat_extractor=DummyFeatExtractor(),
@@ -121,6 +121,7 @@ def _dataset_stats_classic():
 
 def _add_model_commands(group: click.Group, model_name: str):
     """Add train, eval, smoke-test to a model group."""
+
     @group.command("train")
     def train():
         _train_classic(model_name)
@@ -162,3 +163,30 @@ for _model in CLASSIC_MODELS:
 def dataset_stats_cmd():
     """Print dataset statistics (uses decision_tree config for buffers)."""
     _dataset_stats_classic()
+
+
+@cli.group()
+def tcn():
+    """Causal TCN for online speech/music classification (Lemaire & Holzapfel, ISMIR 2019)."""
+    pass
+
+
+@tcn.command("train")
+@click.option("--epochs", "-e", default=3, help="Training epochs")
+@click.option("--max-rows", default=None, type=int, help="Limit train rows (for quick tests)")
+def tcn_train(epochs, max_rows):
+    """Train the TCN model."""
+    train_tcn(epochs=epochs, max_train_rows=max_rows)
+
+
+@tcn.command("eval")
+@click.option("--max-rows", default=100, type=int, help="Max test rows to evaluate")
+def tcn_eval(max_rows):
+    """Evaluate the TCN model."""
+    eval_tcn(max_rows=max_rows)
+
+
+@tcn.command("smoke-test")
+def tcn_smoke_test():
+    """Run TCN smoke test (forward pass with synthetic audio)."""
+    smoke_test_tcn()

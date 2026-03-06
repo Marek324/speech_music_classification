@@ -2,6 +2,15 @@ sample_rate = 16000
 channels = 1
 n_fft = 512
 
+[dataset]
+train = "Marek324/speech-music-classification"
+eval = "Marek324/speech-music-classification"
+stats = "Marek324/speech-music-classification"
+
+[wandb]
+project = "Speech Music Classification"
+entity = "marek3k-brno-university-of-technology"
+
 [features]
 [features.band_energy_ratio]
 low = 70
@@ -28,3 +37,19 @@ lt_len_ms = 600
 frame_length_ms = 30
 hop_length_ms = 15
 lt_len_ms = 600
+
+[tcn]
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+f_min = 27.5
+f_max = 8000.0
+
+[tcn.model]
+n_filters = 32
+kernel_size = 5
+n_layers = 6
+n_stacks = 2
+dropout = 0.2
+n_classes = 2
