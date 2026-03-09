@@ -87,7 +87,7 @@ def _compute_metrics(
     y_pred: np.ndarray,
     y_sub: np.ndarray,
     eval_labels: list,
-    time_per_frame_ns: float,
+    time_per_sample_ns: float,
 ) -> EvalResults:
     f1_overall = f1_score(y_true, y_pred, average="macro", zero_division=0)
     acc_overall = accuracy_score(y_true, y_pred)
@@ -109,7 +109,7 @@ def _compute_metrics(
 
     return EvalResults(
         n_classes=len(eval_labels),
-        time_per_frame_ns=time_per_frame_ns,
+        time_per_frame_ns=time_per_sample_ns,
         f1=f1_overall,
         accuracy=acc_overall,
         precision=prec_overall,
@@ -120,7 +120,50 @@ def _compute_metrics(
     )
 
 
+def run_evaluation(
+    y_true: np.ndarray,
+    y_pred: np.ndarray,
+    subclasses: np.ndarray,
+    time_per_sample_ns: float,
+    output_name: str,
+    save_to_file: bool = True,
+) -> EvalResultsBoth:
+    """
+    Main evaluation entry point. Computes metrics and optionally saves report.
+
+    Labels: -1=speech, 1=music, 2=inactive (classic format).
+    """
+    if len(y_true) != len(y_pred) or len(y_true) != len(subclasses):
+        raise ValueError("y_true, y_pred and subclasses must have the same length")
+
+    # 2-class: speech vs music only
+    mask_2 = np.isin(y_true, [-1, 1])
+    res_2 = _compute_metrics(
+        y_true[mask_2], y_pred[mask_2], subclasses[mask_2], [-1, 1], time_per_sample_ns
+    )
+
+    # 3-class: speech, music, inactive
+    res_3 = _compute_metrics(
+        y_true, y_pred, subclasses, [-1, 1, 2], time_per_sample_ns
+    )
+
+    both = EvalResultsBoth(two_class=res_2, three_class=res_3)
+
+    if save_to_file:
+        results_dir = Path(__file__).resolve().parent.parent / "results"
+        results_dir.mkdir(parents=True, exist_ok=True)
+        out_path = results_dir / f"{output_name}.eval"
+        with open(out_path, "w") as f:
+            f.write(str(both))
+        log.info("Saved evaluation results to %s", out_path)
+
+    log.info("\n%s", both)
+    return both
+
+
 class Evaluator:
+    """Adapter for models with predict_batch(X). Used by classic smoke-test."""
+
     def eval(
         self,
         model,
@@ -130,34 +173,20 @@ class Evaluator:
         save_to_file: bool = True,
         extract_time_per_frame_ns: float = 0.0,
     ) -> EvalResultsBoth:
-        """Run 2-class and 3-class evaluation."""
+        """Run evaluation via model.predict_batch(X)."""
         if X.shape[0] != y.shape[0] or X.shape[0] != subclasses.shape[0]:
             raise ValueError("X, y and subclasses must have the same size")
 
         start = time.perf_counter_ns()
-        y_pred_full = model.predict_batch(X)
+        y_pred = model.predict_batch(X)
         classify_ns = time.perf_counter_ns() - start
-        time_per_frame_ns = (classify_ns / len(X)) + extract_time_per_frame_ns
+        time_per_sample_ns = (classify_ns / len(X)) + extract_time_per_frame_ns
 
-        # 2-class: speech vs music only
-        mask_2 = np.isin(y, [-1, 1])
-        res_2 = _compute_metrics(
-            y[mask_2], y_pred_full[mask_2], subclasses[mask_2], [-1, 1], time_per_frame_ns
+        return run_evaluation(
+            y,
+            y_pred,
+            subclasses,
+            time_per_sample_ns,
+            output_name=model.name,
+            save_to_file=save_to_file,
         )
-
-        # 3-class: speech, music, inactive
-        res_3 = _compute_metrics(
-            y, y_pred_full, subclasses, [-1, 1, 2], time_per_frame_ns
-        )
-
-        both = EvalResultsBoth(two_class=res_2, three_class=res_3)
-
-        if save_to_file:
-            results_dir = Path(__file__).resolve().parent.parent / "results"
-            results_dir.mkdir(parents=True, exist_ok=True)
-            path = results_dir / f"{model.name}.eval"
-            with open(path, "w") as f:
-                f.write(str(both))
-            log.info("Saved evaluation results to %s", path)
-
-        return both

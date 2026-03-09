@@ -3,6 +3,7 @@
 # Optional Weights & Biases logging.
 
 import logging
+import os
 from pathlib import Path
 from typing import Any
 
@@ -35,7 +36,11 @@ def _load_wandb_config() -> dict:
 
 
 def init(config: dict | None = None) -> bool:
-    """Initialize wandb run. project/entity from config.toml [wandb]."""
+    """Initialize wandb run. project/entity from config.toml [wandb].
+    Skips init if WANDB_MODE=disabled. Gracefully degrades on network/permission errors."""
+    if os.environ.get("WANDB_MODE") == "disabled":
+        log.info("wandb disabled via WANDB_MODE=disabled")
+        return False
     wb = _lazy_import()
     if wb is False:
         log.warning("wandb not installed; run pip install wandb")
@@ -46,8 +51,12 @@ def init(config: dict | None = None) -> bool:
     kwargs = {"project": wb_cfg.get("project", "smclassifier"), "config": config or {}}
     if wb_cfg.get("entity"):
         kwargs["entity"] = wb_cfg["entity"]
-    wb.init(**kwargs)
-    return True
+    try:
+        wb.init(**kwargs)
+        return True
+    except Exception as e:
+        log.warning("wandb init failed (%s); continuing without wandb logging", e)
+        return False
 
 
 def log_metrics(metrics: dict[str, Any], step: int | None = None, commit: bool = True):

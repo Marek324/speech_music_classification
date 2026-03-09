@@ -23,6 +23,11 @@ _DEFAULT: Dict[str, Any] = {
 }
 
 
+def get_weights_path() -> Path:
+    """Path to saved TCN weights (safetensors format)."""
+    return Path(__file__).resolve().parent.parent.parent / "weights" / "tcn.safetensors"
+
+
 def get_config(config_path: Path | None = None) -> Dict[str, Any]:
     """Load TCN config from config.toml [tcn] and [dataset] sections."""
     if config_path is None:

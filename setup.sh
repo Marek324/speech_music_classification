@@ -5,4 +5,4 @@ git lfs install
 git config pull.rebase true
 git config pull.ff only
 git config user.name "Marek324"
-echo 'Don\'t forget to add HF token and user.email'
+echo "Don\'t forget to add HF token, git user.email and wandb API key"

@@ -12,6 +12,7 @@ uv.lock
 *.log
 job.sh.*
 
-model_dump/
-
 etc/
+.cache/
+wandb/
+weights/*.smoke*
