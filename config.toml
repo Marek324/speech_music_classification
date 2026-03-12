@@ -54,5 +54,5 @@ n_filters = 16
 kernel_size = 5
 n_layers = 4
 n_stacks = 3
-dropout = 0.3
+dropout = 0.5
 n_classes = 2

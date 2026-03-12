@@ -3,8 +3,11 @@
 
 import logging
 
+import random
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 from ..wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
@@ -55,35 +58,49 @@ def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=BATCH_SIZE, seq_len
 
     chunk_samples = (seq_len - 1) * hop + n_fft  →  exactly seq_len target frames.
     Stride = seq_len * hop  →  non-overlapping target windows, contiguous coverage.
-    Partial batches at end of dataset are yielded as-is.
+    Short clips are zero-padded to yield at least one chunk (prevents silent data loss).
+    When training, all chunks are collected and shuffled to interleave classes across batches.
     """
     hop = cfg["hop_length"]
     n_fft = cfg["n_fft"]
     chunk_samples = (seq_len - 1) * hop + n_fft
     stride_samples = seq_len * hop
 
-    wav_chunks, tgt_chunks = [], []
+    all_wav_chunks, all_tgt_chunks = [], []
 
     for wav, targets in iter_tcn_rows(ds, max_rows, desc):
         N = wav.shape[-1]
         M = targets.shape[-1]
+
+        # Pad short clips so every clip yields at least one chunk
+        if N < chunk_samples:
+            wav = F.pad(wav, (0, chunk_samples - N))
+            N = wav.shape[-1]
+        if M < seq_len:
+            targets = F.pad(targets, (0, seq_len - M))  # pad with 0 = inactive
+            M = targets.shape[-1]
+
         s = 0
         while s + chunk_samples <= N:
             f_start = s // hop
             f_end = f_start + seq_len
             if f_end > M:
                 break
-            wav_chunks.append(wav[:, s:s + chunk_samples])   # (1, chunk_samples)
-            tgt_chunks.append(targets[:, f_start:f_end])     # (2, seq_len)
-            if len(wav_chunks) == batch_size:
-                wav_batch = torch.cat(wav_chunks, dim=0)
-                if training:
-                    wav_batch = augment(wav_batch)
-                yield wav_batch, torch.stack(tgt_chunks, dim=0)
-                wav_chunks, tgt_chunks = [], []
+            all_wav_chunks.append(wav[:, s:s + chunk_samples])   # (1, chunk_samples)
+            all_tgt_chunks.append(targets[:, f_start:f_end])     # (2, seq_len)
             s += stride_samples
 
-    if wav_chunks:
+    # Shuffle chunks to interleave classes across batches (critical for convergence)
+    if training:
+        indices = list(range(len(all_wav_chunks)))
+        random.shuffle(indices)
+        all_wav_chunks = [all_wav_chunks[i] for i in indices]
+        all_tgt_chunks = [all_tgt_chunks[i] for i in indices]
+
+    # Yield mini-batches
+    for i in range(0, len(all_wav_chunks), batch_size):
+        wav_chunks = all_wav_chunks[i:i + batch_size]
+        tgt_chunks = all_tgt_chunks[i:i + batch_size]
         wav_batch = torch.cat(wav_chunks, dim=0)
         if training:
             wav_batch = augment(wav_batch)
@@ -158,7 +175,7 @@ def train_tcn(
     if torch.cuda.is_available():
         model = model.cuda()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.1, patience=3
     )

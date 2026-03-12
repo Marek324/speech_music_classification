@@ -1,7 +1,7 @@
 # Project: butfit-bp — Speech/Music Classifier
 
 ## Goal
-Beat the existing DT/GMM/SVM baselines (≥ **0.88 macro F1**) with a causal TCN that can run online (streaming). Currently overfitting; training is ongoing.
+Beat the existing DT/GMM/SVM baselines (≥ **0.88 macro F1 on 2-class evaluation**) and achieve >= **.85 F1 macro on 3-class evaluation** with a causal TCN that can run online (streaming). Currently overfitting; training is ongoing.
 
 ## CLI
 ```
@@ -42,6 +42,9 @@ HuggingFace: `Marek324/speech-music-classification`
 - Frame-level labels (`start`/`end` keys in ms, not `start_ms`/`end_ms`)
 
 ## Critical Known Issues
+
+### 2 output labels
+TCN only outputs speech(-1)/music(1) labels and is supposed to output 'inactive' (2) label as well.
 
 ### Chunk-length mismatch (fixed)
 `SEQ_LEN=270` (6.3s) silently dropped 61% of speech clips — they were too short to yield a single chunk. Training became almost exclusively music → model predicted music for everything. **Fixed by reducing `SEQ_LEN` to 128 (3s)**.

@@ -29,7 +29,15 @@ Train a causal TCN (Lemaire & Holzapfel, ISMIR 2019) for online speech/music det
 
 ### 6. SEQ_LEN=270 silently discarded 61% of speech clips
 **Problem:** The training chunk iterator uses `SEQ_LEN=270` frames ≈ 6.3 seconds. Speech clips have a **median length of ~165 frames** (≈ 3.8s). 1696 of 2795 speech clips (61%) were shorter than one chunk and contributed **zero training data**. Music clips are all ~1290 frames so all contributed. Training became almost exclusively music → model either always predicted speech (no weighting) or always predicted music (with 4.5× music weighting).
-**Fix:** Reduced `SEQ_LEN` to **128 frames** (≈ 3 seconds). Most speech clips now yield at least one chunk.
+**Fix:** Reduced `SEQ_LEN` to **128 frames** (≈ 3 seconds). Short clips are now zero-padded to always yield at least one chunk.
+
+### 7. Training chunks not shuffled — homogeneous batches
+**Problem:** `_iter_batched_chunks` yielded chunks in dataset iteration order. If HF dataset groups clips by class, entire batches were homogeneous (all speech or all music). Music clips (~1290 frames) produce ~10 chunks each, so a few consecutive music clips fill entire batches. This caused the model to overfit to the most recently seen class instead of learning a balanced decision boundary.
+**Fix:** Collect all chunks first, shuffle them (training only), then yield interleaved mini-batches.
+
+### 8. Weak regularization for small dataset (16h vs paper's 125h)
+**Problem:** dropout=0.3 and no weight decay — insufficient for a dataset 8× smaller than the paper's.
+**Fix:** Increased dropout from 0.3 to 0.5 (upper end of paper range). Added weight_decay=1e-4 to Adam.
 
 ---
 
@@ -75,14 +83,14 @@ Motivated by 4:1 speech:music clip ratio. Caused catastrophic overcorrection: mo
 - Augmentation active during training
 - Best val-loss checkpoint saved (not final-epoch weights)
 
-### Last eval result (2026-03-12 18:48 UTC)
-This was produced by a model trained with the **buggy SEQ_LEN=270 + WeightedBCELoss(4.5)** — worst result of the session. It's not representative of the current code.
+### Last eval result (2026-03-12 22:00 UTC)
+Produced after SEQ_LEN=128 fix but **before** chunk shuffling fix. Model predicted speech for 99.7% of frames.
 
 ```
-2-class F1:  0.209   (target: ≥ 0.88)
-Accuracy:    0.242
-Confusion:   [[ 3458 78018]   ← model predicted music for 95% of speech frames
-              [63994 41796]]
+2-class F1:  0.306   (target: ≥ 0.88)
+Accuracy:    0.436
+Confusion:   [[ 81235    241]   ← model almost never predicts music
+              [105430    360]]
 ```
 
 ### Current training config
@@ -98,7 +106,7 @@ n_filters = 16
 kernel_size = 5
 n_layers = 4
 n_stacks = 3
-dropout = 0.3
+dropout = 0.5          # increased from 0.3 to fight overfitting
 n_classes = 2
 ```
 
@@ -106,10 +114,12 @@ n_classes = 2
 # training.py
 SEQ_LEN   = 128        # frames per chunk (~3s) — fits median speech clip
 BATCH_SIZE = 32
-optimizer = Adam(lr=1e-3)
+optimizer = Adam(lr=1e-3, weight_decay=1e-4)  # added L2 regularization
 scheduler = ReduceLROnPlateau(patience=3, factor=0.1)
 loss      = BCELoss()  # unweighted
 augment   = random_gain(±6dB) + gaussian_noise  # p=0.5 each
+# Chunks are shuffled before batching (critical fix)
+# Short clips are zero-padded to yield at least one chunk
 ```
 
 ---
@@ -132,17 +142,16 @@ augment   = random_gain(±6dB) + gaussian_noise  # p=0.5 each
 
 ## Next Steps (Priority Order)
 
-### 1. Run a full `tcn train` with the current config
-The SEQ_LEN fix is the most important change. A clean training run will show whether the model now learns both speech and music. Check wandb for stable, converging train and val loss on both classes.
+### 1. Evaluate current training run (chunk shuffling + dropout 0.5 + weight_decay)
+Training is running. This is the first run with properly shuffled chunks and stronger regularization. Check:
+- Val loss should converge (not diverge) — indicates overfitting is controlled
+- Confusion matrix should show predictions in both classes — indicates model learned discriminative features
 
-### 2. If still overfitting: increase dropout or add weight decay
-Current dropout=0.3 is mid-range for the paper. Try 0.4 or 0.5. Adam weight_decay=1e-4 is another low-cost knob.
+### 2. If underfitting: increase model capacity
+n_filters=16 is conservative. Try n_filters=32 (still within paper bounds). Also consider n_stacks=5-7.
 
-### 3. If model capacity is a bottleneck: try n_filters=32
-We reduced from 32→16 to fight overfitting. If the SEQ_LEN fix resolves training stability and the model is underfitting, move n_filters back to 32 (still within paper bounds).
+### 3. If still stuck: implement SpecAugment
+The paper (§3.4) uses time stretching, pitch shifting, Gaussian filtering on spectrograms. Currently only waveform-level gain + noise. SpecAugment (frequency/time masking) on mel spectrograms would be the next augmentation.
 
-### 4. If still stuck below 0.88: implement spec augmentation
-The paper (§3.4) uses time stretching, pitch shifting, Gaussian filtering on spectrograms, loudness, and block mixing. Currently only gain + noise are implemented. SpecAugment-style frequency/time masking would be the next augmentation to add.
-
-### 5. Longer-term: pre-training on low-quality clip-level data (paper Strategy 4)
-The paper's best result (val loss 0.070 vs 0.096 without) came from pre-training on low-quality (clip-level labelled) data then fine-tuning on frame-level HQ data. If the dataset has clip-level labelled data available, this is the single highest-impact remaining lever.
+### 4. Longer-term: pre-training on clip-level data (paper Strategy 4)
+Paper's best result came from pre-training on low-quality clip-level data then fine-tuning on frame-level data.
