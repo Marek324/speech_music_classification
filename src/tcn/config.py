@@ -28,6 +28,11 @@ def get_weights_path() -> Path:
     return Path(__file__).resolve().parent.parent.parent / "weights" / "tcn.safetensors"
 
 
+def get_preprocess_stats_path() -> Path:
+    """Path to precomputed normalization stats (mean, std) for log-mel spectrograms."""
+    return Path(__file__).resolve().parent.parent.parent / "weights" / "tcn_preprocess_stats.pt"
+
+
 def get_config(config_path: Path | None = None) -> Dict[str, Any]:
     """Load TCN config from config.toml [tcn] and [dataset] sections."""
     if config_path is None:

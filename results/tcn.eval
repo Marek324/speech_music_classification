@@ -1,0 +1,127 @@
+Evaluation report — 2026-03-12 18:48:53 UTC
+========================================
+================================
+      OVERALL EVALUATION (2-class)  
+================================
+Time per frame: 0.0706 ms
+Accuracy:  0.2417
+F1 (Macro): 0.2085
+Precision: 0.2001
+Recall:    0.2188
+
+Confusion Matrix:
+[[ 3458 78018]
+ [63994 41796]]
+
+================================
+      BY SUBCLASS RESULTS       
+================================
+
+Subclass: music_country
+  F1: 0.1123 | Acc: 0.1265 | P: 0.5000 | R: 0.0633
+
+Subclass: music_electronic
+  F1: 0.2896 | Acc: 0.4077 | P: 0.5000 | R: 0.2039
+
+Subclass: music_folk
+  F1: 0.2604 | Acc: 0.3521 | P: 0.5000 | R: 0.1761
+
+Subclass: music_hiphop
+  F1: 0.1600 | Acc: 0.1904 | P: 0.5000 | R: 0.0952
+
+Subclass: music_instrumental
+  F1: 0.3569 | Acc: 0.5549 | P: 0.5000 | R: 0.2775
+
+Subclass: music_pop
+  F1: 0.1848 | Acc: 0.2266 | P: 0.5000 | R: 0.1133
+
+Subclass: music_rock
+  F1: 0.1607 | Acc: 0.1915 | P: 0.5000 | R: 0.0957
+
+Subclass: music_vocal
+  F1: 0.4983 | Acc: 0.9934 | P: 0.5000 | R: 0.4967
+
+Subclass: speech_clean
+  F1: 0.0350 | Acc: 0.0363 | P: 0.5000 | R: 0.0181
+
+Subclass: speech_corrupted
+  F1: 0.0450 | Acc: 0.0471 | P: 0.5000 | R: 0.0236
+
+Subclass: speech_multispeaker
+  F1: 0.2160 | Acc: 0.2755 | P: 0.5000 | R: 0.1377
+
+Subclass: speech_multispeaker_over_music
+  F1: 0.0499 | Acc: 0.0526 | P: 0.5000 | R: 0.0263
+
+Subclass: speech_noisy
+  F1: 0.0016 | Acc: 0.0016 | P: 0.5000 | R: 0.0008
+
+Subclass: speech_over_music
+  F1: 0.0268 | Acc: 0.0275 | P: 0.5000 | R: 0.0138
+
+
+
+================================
+      OVERALL EVALUATION (3-class)  
+================================
+Time per frame: 0.0706 ms
+Accuracy:  0.2034
+F1 (Macro): 0.1273
+Precision: 0.1134
+Recall:    0.1458
+
+Confusion Matrix:
+[[ 3458 78018     0]
+ [63994 41796     0]
+ [14816 20421     0]]
+
+================================
+      BY SUBCLASS RESULTS       
+================================
+
+Subclass: music_country
+  F1: 0.0639 | Acc: 0.1052 | P: 0.1317 | R: 0.0422
+
+Subclass: music_electronic
+  F1: 0.1831 | Acc: 0.3673 | P: 0.2803 | R: 0.1359
+
+Subclass: music_folk
+  F1: 0.1680 | Acc: 0.3369 | P: 0.2953 | R: 0.1174
+
+Subclass: music_hiphop
+  F1: 0.1055 | Acc: 0.1835 | P: 0.3129 | R: 0.0635
+
+Subclass: music_instrumental
+  F1: 0.2314 | Acc: 0.5274 | P: 0.3090 | R: 0.1850
+
+Subclass: music_pop
+  F1: 0.1133 | Acc: 0.2030 | P: 0.2265 | R: 0.0755
+
+Subclass: music_rock
+  F1: 0.1055 | Acc: 0.1881 | P: 0.3048 | R: 0.0638
+
+Subclass: music_vocal
+  F1: 0.3126 | Acc: 0.6567 | P: 0.2960 | R: 0.3311
+
+Subclass: noise
+  F1: 0.0000 | Acc: 0.0000 | P: 0.0000 | R: 0.0000
+
+Subclass: speech_clean
+  F1: 0.0212 | Acc: 0.0307 | P: 0.0872 | R: 0.0121
+
+Subclass: speech_corrupted
+  F1: 0.0268 | Acc: 0.0397 | P: 0.0903 | R: 0.0157
+
+Subclass: speech_multispeaker
+  F1: 0.1208 | Acc: 0.2139 | P: 0.1764 | R: 0.0918
+
+Subclass: speech_multispeaker_over_music
+  F1: 0.0317 | Acc: 0.0441 | P: 0.1667 | R: 0.0175
+
+Subclass: speech_noisy
+  F1: 0.0011 | Acc: 0.0012 | P: 0.0272 | R: 0.0005
+
+Subclass: speech_over_music
+  F1: 0.0177 | Acc: 0.0242 | P: 0.2529 | R: 0.0092
+
+

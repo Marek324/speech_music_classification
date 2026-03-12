@@ -5,7 +5,7 @@ import torch
 import torch.nn as nn
 
 from .blocks import TCNResidualBlock
-from .config import get_config
+from .config import get_config, get_preprocess_stats_path
 from .preprocess import LogMelSpectrogram
 
 
@@ -78,7 +78,16 @@ class SpeechMusicDetector(nn.Module):
         super().__init__()
         cfg = get_config()
         sr = sample_rate or cfg["sample_rate"]
-        self.fe = LogMelSpectrogram(sample_rate=sr)
+        stats_path = get_preprocess_stats_path()
+        self.fe = LogMelSpectrogram(
+            sample_rate=sr,
+            n_fft=cfg["n_fft"],
+            hop_length=cfg["hop_length"],
+            n_mels=cfg["n_mels"],
+            f_min=cfg["f_min"],
+            f_max=cfg["f_max"],
+            stats_path=stats_path,
+        )
         self.model = CausalTCN(**tcn_kwargs)
 
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:

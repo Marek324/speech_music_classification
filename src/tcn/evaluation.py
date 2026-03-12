@@ -13,6 +13,7 @@ from ..wandb_logger import finish as wandb_finish, init as wandb_init, log_metri
 from .config import get_config, get_weights_path
 from .dataset import load_tcn_dataset
 from .model import SpeechMusicDetector
+from .preprocess import validate_preprocess_stats
 
 log = logging.getLogger(__name__)
 
@@ -29,6 +30,8 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     if not path.exists():
         raise FileNotFoundError(f"TCN weights not found at {path}. Run train first.")
 
+    validate_preprocess_stats()
+
     ds_link = cfg["dataset"]["eval"]
 
     model = SpeechMusicDetector(sample_rate=sr)
@@ -37,6 +40,8 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     state = load_file(path, device="cpu")
     model.load_state_dict(state)
     model.eval()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     y_true_list: list[int] = []
     y_pred_list: list[int] = []
@@ -48,16 +53,25 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
         ds_link, "test", yield_subclass=True
     ):
         with torch.no_grad():
+            wav = wav.to(device)
             probs = model(wav)  # (1, 2, T)
-        pred = (probs[0, 1, :] > 0.5).float()  # (T,) music prob per frame
-        target_class = int(targets[1, 0].item())  # 0 or 1 (same for all frames)
-        y_true_frame = -1 if target_class == 0 else 1
-        pred_frame = pred.cpu().numpy()
-        T = pred_frame.shape[0]
-        y_true_list.extend([y_true_frame] * T)
-        y_pred_list.extend([-1 if p <= 0.5 else 1 for p in pred_frame])
-        subclasses_list.extend([subclass] * T)
-        total_frames += T
+        T = probs.shape[-1]
+        tgt = targets[:, :T]  # align to model output length
+        T_actual = tgt.shape[-1]  # may be less than T due to center-padding in STFT
+
+        # Per-frame y_true: -1=speech, 1=music, 2=inactive
+        speech_mask = tgt[0, :] == 1.0
+        music_mask = tgt[1, :] == 1.0
+        y_true_frames = torch.where(music_mask, 1, torch.where(speech_mask, -1, 2)).cpu().numpy()
+
+        # Per-frame y_pred: model has no inactive output; music_prob>0.5→1 else -1
+        pred_music = probs[0, 1, :T_actual] > 0.5
+        y_pred_frames = torch.where(pred_music, 1, -1).cpu().numpy()
+
+        y_true_list.extend(y_true_frames.tolist())
+        y_pred_list.extend(y_pred_frames.tolist())
+        subclasses_list.extend([subclass] * T_actual)
+        total_frames += T_actual
     classify_ns = time.perf_counter_ns() - t0
 
     time_per_sample_ns = classify_ns / total_frames if total_frames else 0.0

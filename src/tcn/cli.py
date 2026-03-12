@@ -21,7 +21,7 @@ def tcn_group():
 
 
 @tcn_group.command("train")
-@click.option("--epochs", "-e", default=30, help="Max training epochs")
+@click.option("--epochs", "-e", default=50, help="Max training epochs")
 @click.option("--patience", "-p", default=3, help="Early stopping patience (validation checks without improvement, every 5th epoch)")
 def train_cmd(epochs, patience):
     """Train the TCN model with early stopping."""
@@ -82,6 +82,7 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
 
     from .dataset import load_tcn_dataset
     from .config import get_config, get_weights_path
+    from .preprocess import validate_preprocess_stats
     from ..evaluator import run_evaluation
 
     path = Path(weights_path) if weights_path is not None else get_weights_path()
@@ -89,12 +90,16 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
     if not path.exists():
         raise FileNotFoundError(f"TCN weights not found at {path}")
 
+    validate_preprocess_stats()
+
     model = SpeechMusicDetector(sample_rate=cfg["sample_rate"])
     from safetensors.torch import load_file
 
     state = load_file(path, device="cpu")
     model.load_state_dict(state)
     model.eval()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     import time
     y_true_list, y_pred_list, subclasses_list = [], [], []
@@ -104,16 +109,19 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
         cfg["dataset"]["eval"], "test", max_rows=max_rows, yield_subclass=True
     ):
         with torch.no_grad():
+            wav = wav.to(device)
             probs = model(wav)
-        pred = (probs[0, 1, :] > 0.5).float()
-        target_class = int(targets[1, 0].item())
-        y_true_frame = -1 if target_class == 0 else 1
-        pred_frame = pred.cpu().numpy()
-        T = pred_frame.shape[0]
-        y_true_list.extend([y_true_frame] * T)
-        y_pred_list.extend([-1 if p <= 0.5 else 1 for p in pred_frame])
-        subclasses_list.extend([subclass] * T)
-        total_frames += T
+        T = probs.shape[-1]
+        tgt = targets[:, :T]
+        T_actual = tgt.shape[-1]
+        speech_mask = tgt[0, :] == 1.0
+        music_mask = tgt[1, :] == 1.0
+        y_true_frames = torch.where(music_mask, 1, torch.where(speech_mask, -1, 2)).cpu().numpy()
+        y_pred_frames = torch.where(probs[0, 1, :T_actual] > 0.5, 1, -1).cpu().numpy()
+        y_true_list.extend(y_true_frames.tolist())
+        y_pred_list.extend(y_pred_frames.tolist())
+        subclasses_list.extend([subclass] * T_actual)
+        total_frames += T_actual
     time_per_sample_ns = (time.perf_counter_ns() - t0) / max(total_frames, 1)
 
     import numpy as np
