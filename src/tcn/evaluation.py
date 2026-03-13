@@ -64,9 +64,11 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
         music_mask = tgt[1, :] == 1.0
         y_true_frames = torch.where(music_mask, 1, torch.where(speech_mask, -1, 2)).cpu().numpy()
 
-        # Per-frame y_pred: model has no inactive output; music_prob>0.5→1 else -1
-        pred_music = probs[0, 1, :T_actual] > 0.5
-        y_pred_frames = torch.where(pred_music, 1, -1).cpu().numpy()
+        # Per-frame y_pred: argmax across (speech, music, inactive) channels
+        class_probs = probs[0, :, :T_actual]          # (3, T)
+        pred_idx = class_probs.argmax(dim=0)           # 0=speech, 1=music, 2=inactive
+        label_map = torch.tensor([-1, 1, 2], device=pred_idx.device)
+        y_pred_frames = label_map[pred_idx].cpu().numpy()
 
         y_true_list.extend(y_true_frames.tolist())
         y_pred_list.extend(y_pred_frames.tolist())

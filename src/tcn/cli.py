@@ -54,7 +54,7 @@ def _smoke_test_tcn():
     dummy = torch.randn(2, sr * 3)  # 2 batch, 3 seconds
     probs = model(dummy)
 
-    assert probs.shape[0] == 2 and probs.shape[1] == 2
+    assert probs.shape[0] == 2 and probs.shape[1] == 3
     assert 0 <= probs.min().item() <= 1 and 0 <= probs.max().item() <= 1
     log.info("TCN smoke-test passed. Output shape: %s", tuple(probs.shape))
 
@@ -117,7 +117,10 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
         speech_mask = tgt[0, :] == 1.0
         music_mask = tgt[1, :] == 1.0
         y_true_frames = torch.where(music_mask, 1, torch.where(speech_mask, -1, 2)).cpu().numpy()
-        y_pred_frames = torch.where(probs[0, 1, :T_actual] > 0.5, 1, -1).cpu().numpy()
+        class_probs = probs[0, :, :T_actual]
+        pred_idx = class_probs.argmax(dim=0)
+        label_map = torch.tensor([-1, 1, 2], device=pred_idx.device)
+        y_pred_frames = label_map[pred_idx].cpu().numpy()
         y_true_list.extend(y_true_frames.tolist())
         y_pred_list.extend(y_pred_frames.tolist())
         subclasses_list.extend([subclass] * T_actual)

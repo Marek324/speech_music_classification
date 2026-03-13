@@ -35,12 +35,13 @@ class StreamingInference:
 
         min_samples = self.hop_length * 4
         if self.buffer.shape[-1] < min_samples:
-            return 0.0, 0.0
+            return 0.0, 0.0, 0.0
 
         probs = self.model(self.buffer)
-        speech_prob = probs[0, 0, -1].item()
-        music_prob = probs[0, 1, -1].item()
+        speech_prob   = probs[0, 0, -1].item()
+        music_prob    = probs[0, 1, -1].item()
+        inactive_prob = probs[0, 2, -1].item()
 
         self.buffer = self.buffer[:, -self.left_rf_samples:]
 
-        return speech_prob, music_prob
+        return speech_prob, music_prob, inactive_prob

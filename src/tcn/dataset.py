@@ -8,15 +8,13 @@ from tqdm import tqdm
 
 from .config import get_config
 
-LABEL_MAP = {"speech": 0, "music": 1, "noise": -1, "inactive": -1}  # -1 = inactive
+LABEL_MAP = {"speech": 0, "music": 1, "noise": 2, "inactive": 2}
 
 
-def _class_to_target(cls: str) -> torch.Tensor | None:
-    """Convert class string to (2,) target tensor [speech, music]. Returns None for inactive/noise."""
-    idx = LABEL_MAP.get(cls, -1)
-    if idx < 0:
-        return None
-    t = torch.zeros(2, dtype=torch.float32)
+def _class_to_target(cls: str) -> torch.Tensor:
+    """Convert class string to (3,) target tensor [speech, music, inactive]."""
+    idx = LABEL_MAP.get(cls, 2)  # unknown classes → inactive
+    t = torch.zeros(3, dtype=torch.float32)
     t[idx] = 1.0
     return t
 
@@ -84,17 +82,14 @@ def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = Fa
         labels_list = row.get("labels") or []
         if labels_list:
             frame_labels = _timestamps_to_frame_labels(labels_list, n_frames, sr, hop)
-            targets = torch.zeros(2, n_frames, dtype=torch.float32)
-            targets[0, frame_labels == 0] = 1.0  # speech frames
-            targets[1, frame_labels == 1] = 1.0  # music frames
+            targets = torch.zeros(3, n_frames, dtype=torch.float32)
+            targets[0, frame_labels == 0] = 1.0   # speech frames
+            targets[1, frame_labels == 1] = 1.0   # music frames
+            targets[2, frame_labels == -1] = 1.0  # inactive: frames not covered by any annotation
         else:
             cls_name = row["class"]
             target = _class_to_target(cls_name)
-            if target is None:
-                # noise/inactive: all frames inactive → [0,0]
-                targets = torch.zeros(2, n_frames, dtype=torch.float32)
-            else:
-                targets = target.unsqueeze(1).expand(2, n_frames)
+            targets = target.unsqueeze(1).expand(-1, n_frames)
 
         cls_name = row["class"]
         if yield_subclass:

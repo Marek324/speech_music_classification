@@ -18,7 +18,7 @@ _DEFAULT: Dict[str, Any] = {
         "n_layers": 6,
         "n_stacks": 2,
         "dropout": 0.2,
-        "n_classes": 2,
+        "n_classes": 3,
     },
 }
 
