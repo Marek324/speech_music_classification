@@ -89,10 +89,10 @@ def _compute_metrics(
     eval_labels: list,
     time_per_sample_ns: float,
 ) -> EvalResults:
-    f1_overall = f1_score(y_true, y_pred, average="macro", zero_division=0)
+    f1_overall = f1_score(y_true, y_pred, labels=eval_labels, average="macro", zero_division=0)
     acc_overall = accuracy_score(y_true, y_pred)
-    prec_overall = precision_score(y_true, y_pred, average="macro", zero_division=0)
-    rec_overall = recall_score(y_true, y_pred, average="macro", zero_division=0)
+    prec_overall = precision_score(y_true, y_pred, labels=eval_labels, average="macro", zero_division=0)
+    rec_overall = recall_score(y_true, y_pred, labels=eval_labels, average="macro", zero_division=0)
     conf_overall = confusion_matrix(y_true, y_pred, labels=eval_labels)
 
     by_sub = {}
@@ -100,10 +100,10 @@ def _compute_metrics(
         s_mask = y_sub == sub
         y_t_s, y_p_s = y_true[s_mask], y_pred[s_mask]
         by_sub[str(sub)] = SubClassEvalResults(
-            f1=f1_score(y_t_s, y_p_s, average="macro", zero_division=0),
+            f1=f1_score(y_t_s, y_p_s, labels=eval_labels, average="macro", zero_division=0),
             accuracy=accuracy_score(y_t_s, y_p_s),
-            precision=precision_score(y_t_s, y_p_s, average="macro", zero_division=0),
-            recall=recall_score(y_t_s, y_p_s, average="macro", zero_division=0),
+            precision=precision_score(y_t_s, y_p_s, labels=eval_labels, average="macro", zero_division=0),
+            recall=recall_score(y_t_s, y_p_s, labels=eval_labels, average="macro", zero_division=0),
             conf_mat=confusion_matrix(y_t_s, y_p_s, labels=eval_labels),
         )
 
