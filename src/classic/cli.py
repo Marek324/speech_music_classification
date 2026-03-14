@@ -2,12 +2,13 @@
 # CLI commands for classic hand-crafted feature models.
 
 import logging
+import time
 
 import click
 import numpy as np
 
 from .. import config
-from ..evaluator import Evaluator
+from ..evaluator import run_evaluation
 from ..input_handler import InputHandler, SUBCLASS_DTYPE
 from . import MODELS, FeatExtractor
 from .evaluation import eval_classic
@@ -67,13 +68,17 @@ def _smoke_test_classic(model_name: str):
 
     model = MODELS[model_name](f"smoke_{model_name}")
     model.fit(X, y)
-    evaluator = Evaluator()
-    res = evaluator.eval(model, X, y, subclasses, save_to_file=False)
+
+    t0 = time.perf_counter_ns()
+    y_pred = model.predict_batch(X)
+    time_per_sample_ns = (time.perf_counter_ns() - t0) / len(X)
+
+    res = run_evaluation(y, y_pred, subclasses, time_per_sample_ns, output_name=model.name, save_to_file=False)
     log.info(
-        "Smoke test passed. Model: %s, FeatExtractor OK | 2-class Acc: %.4f | 3-class Acc: %.4f",
+        "Smoke test passed. Model: %s, FeatExtractor OK | 2-class F1: %.4f | 3-class F1: %.4f",
         model_name,
-        res.two_class.accuracy,
-        res.three_class.accuracy,
+        res.two_class.f1,
+        res.three_class.f1,
     )
 
 

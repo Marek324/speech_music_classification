@@ -5,9 +5,11 @@ Beat the existing DT/GMM/SVM baselines (≥ **0.88 macro F1 on 2-class evaluatio
 
 ## CLI
 ```
-uv run smclassifier tcn <command>
+uv run smclassifier tcn <command>          # TCN model
+uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
 ```
-Commands: `train`, `eval`, `smoke-test-online`
+TCN commands: `train`, `eval`, `smoke-test-online`
+Classic commands: `train`, `eval`, `smoke-test`, `mic` (placeholder)
 
 ## Architecture
 Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible** (`src_papers/tcn.pdf`).
@@ -53,22 +55,55 @@ HuggingFace: `Marek324/speech-music-classification`
 Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `dataset.py`.
 
 ## File Map
+
+### Shared
 | File | Purpose |
 |------|---------|
-| `src/tcn/blocks.py` | `CausalConv1d` + `TCNResidualBlock` — causal dilated conv building blocks |
-| `src/tcn/training.py` | Training loop, chunk iterator, optimizer |
-| `src/tcn/evaluation.py` | Inference + metrics for full test split |
-| `src/tcn/cli.py` | Click CLI: train, eval, smoke-test-online |
-| `src/tcn/model.py` | `SpeechMusicDetector` (waveform → probs) + `CausalTCN` |
-| `src/tcn/dataset.py` | HF dataset loader, frame-label builder |
-| `src/tcn/preprocess.py` | `LogMelSpectrogram` — 22050Hz, 1024/512 STFT, 80-mel, z-norm |
-| `src/tcn/streaming.py` | `StreamingInference` — online chunk-by-chunk inference |
-| `src/tcn/augmentation.py` | `augment()` — random gain ±6dB + Gaussian noise |
-| `src/tcn/config.py` | Config loader; reads `[tcn]` section of `config.toml` |
-| `config.toml` | All hyperparameters — `[tcn]` and `[tcn.model]` sections |
+| `src/evaluator.py` | `run_evaluation()`, `format_report()`, metrics dataclasses — shared by all models |
+| `src/input_handler.py` | HF dataset loader → frame extraction → `X, y, subclasses` arrays (classic models) |
+| `src/common.py` | Label mapping: speech=−1, music=1, inactive/noise=2; `frame_label_str()` |
+| `src/config.py` | Global config singleton; `init_config(model_name)` selects per-model buffer settings |
+| `config.toml` | All hyperparameters — `[buffers.*]`, `[features.*]`, `[tcn]`, `[tcn.model]` |
+| `results/*.eval` | Evaluation reports for each model |
+
+### TCN (`src/tcn/`)
+| File | Purpose |
+|------|---------|
+| `blocks.py` | `CausalConv1d` + `TCNResidualBlock` — causal dilated conv building blocks |
+| `model.py` | `SpeechMusicDetector` (waveform → probs) + `CausalTCN` |
+| `preprocess.py` | `LogMelSpectrogram` — 22050Hz, 1024/512 STFT, 80-mel, z-norm |
+| `dataset.py` | HF dataset loader, frame-label builder |
+| `training.py` | Training loop, chunk iterator, optimizer |
+| `evaluation.py` | Inference + metrics for full test split |
+| `streaming.py` | `StreamingInference` — online chunk-by-chunk inference |
+| `augmentation.py` | `augment()` — random gain ±6dB + Gaussian noise |
+| `cli.py` | Click CLI: train, eval, smoke-test-online |
+| `config.py` | Config loader; reads `[tcn]` section of `config.toml` |
 | `weights/tcn.safetensors` | Trained model weights |
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std (computed from train set) |
-| `results/tcn.eval` | Last evaluation report |
+
+### Classic models (`src/classic/`)
+| File | Purpose |
+|------|---------|
+| `modelclass.py` | Abstract base: `fit()`, `save()`, `load()` via joblib |
+| `feat_extractor.py` | `FeatExtractor` — stateful frame-level feature extraction (30ms/15ms hop); **call `reset()` between clips** |
+| `gmm.py` | Two-GMM density classifier (speech GMM vs music GMM); 8 components, diag covariance |
+| `decisiontree.py` | Decision tree with exponential-forgetting smoothing on last decisions |
+| `svm.py` | `SGDClassifier` with hinge loss (linear SVM) |
+| `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
+| `cli.py` | Click CLI per model: train, eval, smoke-test |
+| `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights |
+
+### Scripts (`scripts/`) — uv subproject
+| File | Purpose |
+|------|---------|
+| `visualize_results.py` | Parses all `results/*.eval` files, plots macro F1 comparison + per-subclass breakdown → `results/results.png` |
+
+### Dataset scripts (`dataset_scripts/`) — uv subproject
+| File | Purpose |
+|------|---------|
+| `build.py` | Builds and uploads the HF dataset |
+| `augment_over_music.py` | Generates speech-over-music augmented samples |
 
 ## Paper vs Implementation Differences
 
@@ -80,8 +115,19 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training |
 
 ## Inference
-Model needs **two files** to run:
+
+### TCN
+Needs two files:
 1. `weights/tcn_preprocess_stats.pt` — loaded automatically by `LogMelSpectrogram.__init__`
 2. `weights/tcn.safetensors` — loaded explicitly by eval/CLI code
 
+### Classic models
+Weights loaded via `model.load()` from `weights/<model_name>` (joblib pickle).
+Feature extraction is stateful — `FeatExtractor.reset()` must be called between clips.
+
 Labels: `-1` = speech, `1` = music, `2` = inactive
+
+## Status
+- **TCN**: done — 2-class F1=0.9504, 3-class F1=0.9033 (both targets met)
+- **Classic baselines**: done — DT/SVM/GMM evaluated; GMM was broken (buffer not reset between clips, now fixed; needs retraining)
+- **Next**: new module (TBD)
