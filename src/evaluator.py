@@ -175,9 +175,9 @@ def _compute_subclass_metrics(
 def _compute_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
-    y_sub: np.ndarray,
     eval_labels: list,
     time_per_sample_ns: float,
+    by_subclass: Dict[str, SubclassMetrics],
 ) -> EvalResults:
     f1_per = f1_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
     prec_per = precision_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
@@ -193,7 +193,7 @@ def _compute_metrics(
         time_per_frame_ns=time_per_sample_ns,
         accuracy=float(accuracy_score(y_true, y_pred)),
         conf_mat=confusion_matrix(y_true, y_pred, labels=eval_labels),
-        by_subclass=_compute_subclass_metrics(y_true, y_pred, y_sub, eval_labels),
+        by_subclass=by_subclass,
         labels=eval_labels,
         per_class=per_class,
     )
@@ -215,9 +215,10 @@ def run_evaluation(
         raise ValueError("y_true, y_pred and subclasses must have the same length")
 
     mask_2 = np.isin(y_true, [-1, 1])
+    by_subclass = _compute_subclass_metrics(y_true, y_pred, subclasses, [-1, 1, 2])
     both = EvalResultsBoth(
-        two_class=_compute_metrics(y_true[mask_2], y_pred[mask_2], subclasses[mask_2], [-1, 1], time_per_sample_ns),
-        three_class=_compute_metrics(y_true, y_pred, subclasses, [-1, 1, 2], time_per_sample_ns),
+        two_class=_compute_metrics(y_true[mask_2], y_pred[mask_2], [-1, 1], time_per_sample_ns, by_subclass),
+        three_class=_compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass),
     )
 
     report = format_report(both)
