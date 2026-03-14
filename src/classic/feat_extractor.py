@@ -48,6 +48,14 @@ class FeatExtractor:
         self.last_fft: Optional[np.ndarray] = None
         self.last_mfcc: Optional[np.ndarray] = None
 
+    def reset(self) -> None:
+        """Reset all stateful buffers between clips."""
+        self.signal_buffer.clear()
+        self.feat_buffer.clear()
+        self.sec_feat_buffer.clear()
+        self.last_fft = None
+        self.last_mfcc = None
+
     def _get_feature_set(self) -> FeatureSet:
         features = self.cfg.get(FEATURES, {})
         name = features.get("set") or self.cfg["model"]["name"]

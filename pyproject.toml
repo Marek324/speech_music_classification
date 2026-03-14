@@ -32,4 +32,5 @@ packages = ["src"]
 [tool.uv.workspace]
 members = [
     "dataset_scripts",
+    "scripts",
 ]

@@ -140,6 +140,7 @@ class InputHandler:
         return float(self.extract_duration_ns) / len(x)
 
     def _process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        self.fextractor.reset()
         audio = row["audio"].get_all_samples().data
         if hasattr(audio, "cpu"):
             audio = audio.cpu()

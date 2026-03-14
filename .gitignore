@@ -1,5 +1,3 @@
-dataset*/
-!dataset_scripts
 .env
 
 debug/
@@ -14,5 +12,3 @@ job.sh.*
 
 etc/
 .cache/
-wandb/
-weights/*.smoke*
