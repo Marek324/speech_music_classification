@@ -1,6 +1,8 @@
 # input_handler.py
 # Marek Hric
 
+import hashlib
+import json
 import logging
 import os
 import time
@@ -75,6 +77,25 @@ class InputHandler:
         else:
             self._init_microphone_mode()
 
+    def _cache_key(self, ds_link: str, ds_split: str) -> str:
+        cfg = config.get_config()
+        fingerprint = json.dumps({
+            "ds_link": ds_link,
+            "ds_split": ds_split,
+            "model": cfg["model"]["name"],
+            "sample_rate": cfg["sample_rate"],
+            "n_fft": cfg["n_fft"],
+            "buffers": cfg["buffers"],
+            "features": cfg["features"],
+        }, sort_keys=True)
+        return hashlib.md5(fingerprint.encode()).hexdigest()
+
+    def _cache_path(self, ds_link: str, ds_split: str) -> "Path":
+        from pathlib import Path
+        cache_dir = Path(__file__).resolve().parent.parent / "cache"
+        cache_dir.mkdir(exist_ok=True)
+        return cache_dir / f"{self._cache_key(ds_link, ds_split)}.npz"
+
     def _init_dataset_mode(
         self, ds_link: str, ds_split: str, ds_revision: str
     ) -> None:
@@ -86,6 +107,17 @@ class InputHandler:
             "classes": Counter(),
             "subclasses": Counter(),
         }
+
+        cache_path = self._cache_path(ds_link, ds_split)
+        if cache_path.exists():
+            log.info("Loading features from cache: %s", cache_path)
+            data = np.load(cache_path, allow_pickle=False)
+            self.X = data["X"]
+            self.y = data["y"]
+            self.subclasses = data["subclasses"].astype(SUBCLASS_DTYPE)
+            self.extract_duration_ns = 0
+            log.info("Loaded %d frames from cache.", len(self.X))
+            return
 
         dataset = load_dataset(
             ds_link, split=ds_split, revision=ds_revision
@@ -128,6 +160,9 @@ class InputHandler:
 
         self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
         log.info("Aggregation done.")
+
+        log.info("Saving features to cache: %s", cache_path)
+        np.savez(cache_path, X=self.X, y=self.y, subclasses=np.array(self.subclasses))
 
     def _init_microphone_mode(self) -> None:
         self.st_buffer = np.zeros(0, dtype=np.float32)
