@@ -185,22 +185,13 @@ def run_evaluation(
     if len(y_true) != len(y_pred) or len(y_true) != len(subclasses):
         raise ValueError("y_true, y_pred and subclasses must have the same length")
 
-    # Single pass over all frames with all 3 labels
-    full = _compute_metrics(y_true, y_pred, subclasses, [-1, 1, 2], time_per_sample_ns)
-
-    # 2-class: reuse per-class values from full; accuracy filtered to speech/music frames only
+    # 2-class: compute independently on speech/music frames only (no inactive contamination)
     mask_2 = np.isin(y_true, [-1, 1])
-    conf_2 = full.conf_mat[np.ix_([0, 1], [0, 1])]
-    res_2 = EvalResults(
-        n_classes=2,
-        labels=[-1, 1],
-        per_class={l: full.per_class[l] for l in [-1, 1]},
-        conf_mat=conf_2,
-        accuracy=accuracy_score(y_true[mask_2], y_pred[mask_2]),
-        by_subclass=full.by_subclass,
-        time_per_frame_ns=full.time_per_frame_ns,
+    res_2 = _compute_metrics(
+        y_true[mask_2], y_pred[mask_2], subclasses[mask_2], [-1, 1], time_per_sample_ns
     )
-    res_3 = full
+    # 3-class: all frames
+    res_3 = _compute_metrics(y_true, y_pred, subclasses, [-1, 1, 2], time_per_sample_ns)
 
     both = EvalResultsBoth(two_class=res_2, three_class=res_3)
 

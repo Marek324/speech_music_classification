@@ -42,7 +42,8 @@ class SVM(ModelClass):
 
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
         X = X.astype(np.float64)
-        self.svm.fit(X, y)
+        mask = np.isin(y, [-1, 1])
+        self.svm.fit(X[mask], y[mask])
 
     def _state_to_save(self):
         return {"svm_pipeline": self.svm}

@@ -19,7 +19,7 @@ Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possibl
 | n_layers  | 1–4 | 4 |
 | n_stacks  | 3–10 | 3 |
 | kernel_size | 3, 5, 7, ..., 19 | 5 |
-| dropout | 0.05–0.5 | 0.3 |
+| dropout | 0.05–0.5 | 0.5 |
 
 ### Paper-prescribed training (§3.5)
 - Optimizer: SGD, momentum=0.9 *(currently using Adam due to stability issues with 16h dataset)*
@@ -43,9 +43,6 @@ HuggingFace: `Marek324/speech-music-classification`
 
 ## Critical Known Issues
 
-### 2 output labels
-TCN only outputs speech(-1)/music(1) labels and is supposed to output 'inactive' (2) label as well.
-
 ### Chunk-length mismatch (fixed)
 `SEQ_LEN=270` (6.3s) silently dropped 61% of speech clips — they were too short to yield a single chunk. Training became almost exclusively music → model predicted music for everything. **Fixed by reducing `SEQ_LEN` to 128 (3s)**.
 
@@ -58,6 +55,7 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ## File Map
 | File | Purpose |
 |------|---------|
+| `src/tcn/blocks.py` | `CausalConv1d` + `TCNResidualBlock` — causal dilated conv building blocks |
 | `src/tcn/training.py` | Training loop, chunk iterator, optimizer |
 | `src/tcn/evaluation.py` | Inference + metrics for full test split |
 | `src/tcn/cli.py` | Click CLI: train, eval, smoke-test-online |
@@ -71,6 +69,15 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `weights/tcn.safetensors` | Trained model weights |
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std (computed from train set) |
 | `results/tcn.eval` | Last evaluation report |
+
+## Paper vs Implementation Differences
+
+| Aspect | Paper (Lemaire & Holzapfel 2019) | This implementation |
+|--------|----------------------------------|---------------------|
+| Optimizer | SGD, momentum=0.9 | Adam, lr=1e-3, weight_decay=1e-4 |
+| Normalization | WeightNorm (keras-tcn reference) | `BatchNorm1d` after each conv |
+| Post-processing | Duration thresholds (§3.6) to smooth predictions | Not implemented |
+| Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training |
 
 ## Inference
 Model needs **two files** to run:
