@@ -31,11 +31,7 @@ class ModelClass(ABC):
         return path
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:
-        """Train or load from cache if weights exist."""
-        if self._weights_exist():
-            log.info("Loading %s weights from cache", self.__class__.__name__)
-            self.load()
-            return
+        """Train the model."""
         self._train(X, y)
 
     @abstractmethod
