@@ -12,3 +12,4 @@ job.sh.*
 
 etc/
 .cache/
+wandb/
