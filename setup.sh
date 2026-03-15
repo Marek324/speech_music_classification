@@ -6,7 +6,6 @@ sudo apt update && sudo apt install -y ffmpeg git-lfs
 
 # ── uv + Python deps ──────────────────────────────────────────────────────────
 curl -LsSf https://astral.sh/uv/install.sh | sh
-source "$HOME/.bashrc"
 uv sync
 
 # ── Git config ────────────────────────────────────────────────────────────────
@@ -46,6 +45,5 @@ find . -name "*.part*" -not -path "./.git/*" | \
     cat "${base}".part* > "${base}"
 done
 
-source "$HOME/.bashrc"
 echo "Setup complete!"
 
