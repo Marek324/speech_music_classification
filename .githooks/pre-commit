@@ -1,0 +1,39 @@
+#!/bin/bash
+# Auto-split files larger than 1.9GB before committing
+# Splits into .partXX chunks tracked by LFS, ignores the original
+
+SPLIT_SIZE="1900m"
+THRESHOLD=$((1900 * 1024 * 1024))  # 1.9 GB in bytes
+
+split_file() {
+    local file="$1"
+    echo "[pre-commit] Splitting large file: $file"
+    split -b "$SPLIT_SIZE" "$file" "${file}.part"
+
+    # Stage the parts
+    git add "${file}.part"*
+
+    # Remove original from index (keep on disk)
+    git rm --cached "$file" 2>/dev/null || true
+
+    # Add to .gitignore if not already there
+    local rel="${file#./}"
+    if ! grep -qxF "$rel" .gitignore 2>/dev/null; then
+        echo "$rel" >> .gitignore
+        git add .gitignore
+    fi
+
+    echo "[pre-commit] Split into: $(ls ${file}.part* | tr '\n' ' ')"
+}
+
+# Find all staged files that are too large
+git diff --cached --name-only | while read f; do
+    [ -f "$f" ] || continue
+    size=$(stat -c%s "$f" 2>/dev/null || stat -f%z "$f")
+    if [ "$size" -gt "$THRESHOLD" ]; then
+        split_file "$f"
+    fi
+done
+
+exit 0
+
