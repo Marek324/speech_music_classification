@@ -79,8 +79,8 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `augmentation.py` | `augment()` — random gain ±6dB + Gaussian noise |
 | `cli.py` | Click CLI: train, eval, smoke-test-online |
 | `config.py` | Config loader; reads `[tcn]` section of `config.toml` |
-| `weights/tcn.safetensors` | Trained model weights |
-| `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std (computed from train set) |
+| `weights/tcn.safetensors` | Trained model weights *(not in git — download via HF)* |
+| `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
 
 ### Classic models (`src/classic/`)
 | File | Purpose |
@@ -92,12 +92,14 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `svm.py` | `SGDClassifier` with hinge loss (linear SVM) |
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
 | `cli.py` | Click CLI per model: train, eval, smoke-test |
-| `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights |
+| `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights *(not in git — download via HF)* |
 
 ### Scripts (`scripts/`) — uv subproject
 | File | Purpose |
 |------|---------|
 | `visualize_results.py` | Parses all `results/*.eval` files, plots macro F1 comparison + per-subclass breakdown → `results/results.png` |
+| `upload_artifacts.py` | Uploads `weights/` and `cache/` to `Marek324/butfit-bp-artifacts` on HF |
+| `download_artifacts.py` | Downloads `weights/` and `cache/` from HF (run after cloning) |
 
 ### Dataset scripts (`dataset_scripts/`) — uv subproject
 | File | Purpose |
@@ -117,7 +119,7 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ## Inference
 
 ### TCN
-Needs two files:
+Needs two files (download with `uv run python scripts/download_artifacts.py`):
 1. `weights/tcn_preprocess_stats.pt` — loaded automatically by `LogMelSpectrogram.__init__`
 2. `weights/tcn.safetensors` — loaded explicitly by eval/CLI code
 

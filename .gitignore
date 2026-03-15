@@ -13,3 +13,6 @@ job.sh.*
 etc/
 .cache/
 wandb/
+
+weights/
+cache/

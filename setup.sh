@@ -2,14 +2,13 @@
 set -e
 
 # ── System dependencies ───────────────────────────────────────────────────────
-sudo apt update && sudo apt install -y ffmpeg git-lfs
+sudo apt update && sudo apt install -y ffmpeg
 
 # ── uv + Python deps ──────────────────────────────────────────────────────────
 curl -LsSf https://astral.sh/uv/install.sh | sh
 uv sync
 
 # ── Git config ────────────────────────────────────────────────────────────────
-git lfs install
 git config --global pull.rebase true
 git config --global pull.ff only
 
@@ -31,19 +30,8 @@ echo "export WANDB_API_KEY=$wandb_key" >> "$HOME/.bashrc"
 # ── Claude Code ───────────────────────────────────────────────────────────────
 curl -fsSL https://claude.ai/install.sh | bash
 
-# ── Pull LFS data ─────────────────────────────────────────────────────────────
-git lfs pull
+# ── Download weights and cache from HuggingFace ───────────────────────────────
+export HF_TOKEN="$hf_token"
+uv run python scripts/download_artifacts.py
 
-# ── Reassemble sharded files ──────────────────────────────────────────────────
-find . -name "*.part*" -not -path "./.git/*" | \
-    sed 's/\.part[a-z]*$//' | sort -u | while read base; do
-    if [ -f "${base}" ]; then
-        echo "Skipping $base — already exists"
-        continue
-    fi
-    echo "Reassembling: $base"
-    cat "${base}".part* > "${base}"
-done
-
-echo "Setup complete!"
-
+echo "Setup complete, run 'source .bashrc'!"
