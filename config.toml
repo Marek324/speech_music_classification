@@ -31,12 +31,12 @@ lt_len_ms = 300
 [buffers.gmm]
 frame_length_ms = 30
 hop_length_ms = 15
-lt_len_ms = 600
+lt_len_ms = 1000
 
 [buffers.svm]
 frame_length_ms = 30
 hop_length_ms = 15
-lt_len_ms = 600
+lt_len_ms = 1000
 
 [tcn]
 # Preprocessing: resample 22050 Hz mono, Hann STFT (1024, 512), power spectrum,

@@ -45,8 +45,7 @@ class GMM(ModelClass):
             verbose=2,
         )
 
-        # cca 300ms / 15ms hop
-        self.delta_buf = deque(maxlen=20)
+        self.delta_buf = deque(maxlen=66)
 
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
         X = X.astype(np.float64)
