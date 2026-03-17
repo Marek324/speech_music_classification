@@ -8,8 +8,7 @@ import torch.nn.functional as F
 
 class CausalConv1d(nn.Module):
     """
-    1-D convolution that is strictly causal: output at time t depends only
-    on inputs at times <= t. Achieved by left-padding.
+    1-D convolution that is strictly causal.
     """
 
     def __init__(self, in_channels: int, out_channels: int, kernel_size: int, dilation: int):
@@ -29,11 +28,6 @@ class CausalConv1d(nn.Module):
 
 
 class TCNResidualBlock(nn.Module):
-    """
-    One residual block = two causal dilated convolutions + skip connection.
-    Follows WaveNet / Bai et al. 2018 recipe.
-    """
-
     def __init__(
         self,
         in_channels: int,
