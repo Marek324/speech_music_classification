@@ -63,7 +63,7 @@ def _smoke_test_classic(model_name: str):
         X_list.append(feat)
     X = np.array(X_list, dtype=np.float64)
 
-    y = np.random.choice([-1, 1], n_frames)
+    y = np.random.choice([-1, 1, 2], n_frames)
     subclasses = np.array(["smoke"] * n_frames, dtype=SUBCLASS_DTYPE)
 
     model = MODELS[model_name](f"smoke_{model_name}")
@@ -75,10 +75,9 @@ def _smoke_test_classic(model_name: str):
 
     res = run_evaluation(y, y_pred, subclasses, time_per_sample_ns, output_name=model.name, save_to_file=False)
     log.info(
-        "Smoke test passed. Model: %s, FeatExtractor OK | 2-class F1: %.4f | 3-class F1: %.4f",
+        "Smoke test passed. Model: %s, FeatExtractor OK | 3-class F1: %.4f",
         model_name,
-        res.two_class.f1,
-        res.three_class.f1,
+        res.f1,
     )
 
 

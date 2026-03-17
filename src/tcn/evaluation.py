@@ -7,7 +7,7 @@ import time
 import numpy as np
 import torch
 
-from ..evaluator import EvalResultsBoth, run_evaluation
+from ..evaluator import EvalResults, run_evaluation
 from ..wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
 from .config import get_config, get_weights_path
@@ -85,10 +85,10 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     return y_true, y_pred, y_sub, time_per_sample_ns
 
 
-def eval_tcn(save_to_file: bool = True) -> EvalResultsBoth:
+def eval_tcn(save_to_file: bool = True) -> EvalResults:
     """Evaluate TCN model on full test split. Uses main evaluator for metrics and output."""
     y_true, y_pred, subclasses, time_per_sample_ns = get_predictions()
-    both = run_evaluation(
+    res = run_evaluation(
         y_true,
         y_pred,
         subclasses,
@@ -100,11 +100,11 @@ def eval_tcn(save_to_file: bool = True) -> EvalResultsBoth:
     n = len(y_true)
     wandb_init(config={})
     wandb_log({
-        "eval/accuracy": both.two_class.accuracy,
-        "eval/f1": both.two_class.f1,
-        "eval/correct": int(both.two_class.accuracy * n),
+        "eval/accuracy": res.accuracy,
+        "eval/f1": res.f1,
+        "eval/correct": int(res.accuracy * n),
         "eval/total": n,
     })
     wandb_finish()
 
-    return both
+    return res

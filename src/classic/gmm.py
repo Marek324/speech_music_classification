@@ -44,8 +44,17 @@ class GMM(ModelClass):
             random_state=0,
             verbose=2,
         )
+        self.gmm_inactive = GaussianMixture(
+            n_components=8,
+            covariance_type="diag",
+            reg_covar=1e-4,
+            max_iter=200,
+            init_params="kmeans",
+            random_state=0,
+            verbose=2,
+        )
 
-        self.delta_buf = deque(maxlen=66)
+        self.ll_buf = deque(maxlen=66)
 
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
         X = X.astype(np.float64)
@@ -54,19 +63,27 @@ class GMM(ModelClass):
 
         X_s = Xn[y == -1]
         X_m = Xn[y == 1]
+        X_i = Xn[y == 2]
 
-        if len(X_s) == 0 or len(X_m) == 0:
-            raise ValueError("Both speech and music samples are required")
+        if len(X_s) == 0 or len(X_m) == 0 or len(X_i) == 0:
+            raise ValueError("Speech, music, and inactive samples are all required")
 
         self.gmm_speech.fit(X_s)
         self.gmm_music.fit(X_m)
+        self.gmm_inactive.fit(X_i)
 
     def _state_to_save(self):
-        return {"speech": self.gmm_speech, "music": self.gmm_music, "scaler": self.scaler}
+        return {
+            "speech": self.gmm_speech,
+            "music": self.gmm_music,
+            "inactive": self.gmm_inactive,
+            "scaler": self.scaler,
+        }
 
     def _restore_state(self, state) -> None:
         self.gmm_speech = state["speech"]
         self.gmm_music = state["music"]
+        self.gmm_inactive = state["inactive"]
         self.scaler = state["scaler"]
 
     def predict(self, frame: np.ndarray) -> int:
@@ -76,12 +93,11 @@ class GMM(ModelClass):
 
         ll_s = self.gmm_speech.score_samples(x)[0]
         ll_m = self.gmm_music.score_samples(x)[0]
+        ll_n = self.gmm_inactive.score_samples(x)[0]
+        self.ll_buf.append(np.array([ll_s, ll_m, ll_n]))
 
-        delta = ll_s - ll_m
-        self.delta_buf.append(delta)
-
-        smoothed = np.mean(self.delta_buf)
-        return -1 if smoothed > 0 else 1
+        smoothed = np.mean(self.ll_buf, axis=0)
+        return [-1, 1, 2][int(np.argmax(smoothed))]
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
         x = frame.astype(np.float64)
@@ -90,32 +106,36 @@ class GMM(ModelClass):
 
         ll_s = self.gmm_speech.score_samples(x)
         ll_m = self.gmm_music.score_samples(x)
+        ll_n = self.gmm_inactive.score_samples(x)
 
-        ll = np.vstack([ll_s, ll_m]).T
+        ll = np.vstack([ll_s, ll_m, ll_n]).T
         ll_norm = logsumexp(ll, axis=1, keepdims=True)
 
         probs = np.exp(ll - ll_norm)
 
-        # columns: [speech, music]
+        # columns: [speech, music, inactive]
         return probs[0]
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
         x = X.astype(np.float64)
         Xn = self.scaler.transform(x)
 
-        ll_s = self.gmm_speech.score_samples(Xn)
-        ll_m = self.gmm_music.score_samples(Xn)
-
-        return np.where(ll_s > ll_m, -1, 1)
+        ll = np.vstack([
+            self.gmm_speech.score_samples(Xn),
+            self.gmm_music.score_samples(Xn),
+            self.gmm_inactive.score_samples(Xn),
+        ]).T   # (N, 3)
+        return np.array([-1, 1, 2])[np.argmax(ll, axis=1)]
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
         x = X.astype(np.float64)
         Xn = self.scaler.transform(x)
 
-        ll_s = self.gmm_speech.score_samples(Xn)
-        ll_m = self.gmm_music.score_samples(Xn)
-
-        ll = np.vstack([ll_s, ll_m]).T
+        ll = np.vstack([
+            self.gmm_speech.score_samples(Xn),
+            self.gmm_music.score_samples(Xn),
+            self.gmm_inactive.score_samples(Xn),
+        ]).T   # (N, 3)
         ll_norm = logsumexp(ll, axis=1, keepdims=True)
 
         return np.exp(ll - ll_norm)

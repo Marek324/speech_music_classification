@@ -32,19 +32,18 @@ def parse_eval(path: Path) -> dict:
         m = re.search(r"Macro\s+([\d.]+)", section)
         return float(m.group(1)) if m else None
 
-    two_class = re.search(r"── 2-class.*?── 3-class", text, re.DOTALL)
-    three_class = re.search(r"── 3-class.*?── By subclass", text, re.DOTALL)
+    eval_section = re.search(r"── 3-class.*?── By subclass", text, re.DOTALL)
     subclass_section = re.search(r"── By subclass.*", text, re.DOTALL)
 
     time_m = re.search(r"Time/frame\s*:\s*([\d.]+)", text)
     time_per_frame = float(time_m.group(1)) if time_m else None
 
-    per_class_2 = {}
-    if two_class:
-        for cls in ["Speech", "Music"]:
-            m = re.search(rf"{cls}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)", two_class.group())
+    per_class = {}
+    if eval_section:
+        for cls in ["Speech", "Music", "Inactive"]:
+            m = re.search(rf"{cls}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)", eval_section.group())
             if m:
-                per_class_2[cls.lower()] = {
+                per_class[cls.lower()] = {
                     "f1": float(m.group(1)), "p": float(m.group(2)), "r": float(m.group(3)),
                 }
 
@@ -56,8 +55,7 @@ def parse_eval(path: Path) -> dict:
                 rows.append([int(x) for x in m.group(1).split()])
         return np.array(rows, dtype=float) if len(rows) == len(classes) else None
 
-    cm_2 = parse_cm(two_class.group(), ["Speech", "Music"]) if two_class else None
-    cm_3 = parse_cm(three_class.group(), ["Speech", "Music", "Inactive"]) if three_class else None
+    cm = parse_cm(eval_section.group(), ["Speech", "Music", "Inactive"]) if eval_section else None
 
     subclasses = {}
     if subclass_section:
@@ -69,11 +67,9 @@ def parse_eval(path: Path) -> dict:
                 }
 
     return {
-        "2class_macro_f1": macro_f1(two_class.group()) if two_class else None,
-        "3class_macro_f1": macro_f1(three_class.group()) if three_class else None,
-        "per_class_2": per_class_2,
-        "cm_2": cm_2,
-        "cm_3": cm_3,
+        "macro_f1": macro_f1(eval_section.group()) if eval_section else None,
+        "per_class": per_class,
+        "cm": cm,
         "time_per_frame": time_per_frame,
         "subclasses": subclasses,
     }
@@ -82,19 +78,15 @@ def parse_eval(path: Path) -> dict:
 def plot_macro_f1(ax, data):
     labels = list(data.keys())
     x = np.arange(len(labels))
-    w = 0.35
-    f1_2 = [data[m]["2class_macro_f1"] or 0 for m in labels]
-    f1_3 = [data[m]["3class_macro_f1"] or 0 for m in labels]
-    bars2 = ax.bar(x - w / 2, f1_2, w, label="2-class", color=[COLORS[m] for m in labels], alpha=0.9)
-    bars3 = ax.bar(x + w / 2, f1_3, w, label="3-class", color=[COLORS[m] for m in labels], alpha=0.5, hatch="//")
+    f1_vals = [data[m]["macro_f1"] or 0 for m in labels]
+    bars = ax.bar(x, f1_vals, 0.5, color=[COLORS[m] for m in labels], alpha=0.9)
     ax.set_xticks(x)
     ax.set_xticklabels([MODEL_SHORT[m] for m in labels])
     ax.set_ylim(0, 1.05)
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
-    ax.set_title("Macro F1 by Eval Mode")
+    ax.set_title("Macro F1 (3-class)")
     ax.set_ylabel("Macro F1")
-    ax.legend(fontsize=7)
-    for bar in [*bars2, *bars3]:
+    for bar in bars:
         h = bar.get_height()
         if h > 0.02:
             ax.text(bar.get_x() + bar.get_width() / 2, h + 0.01, f"{h:.2f}", ha="center", va="bottom", fontsize=7)
@@ -102,29 +94,27 @@ def plot_macro_f1(ax, data):
 
 def plot_pr_scatter(ax, data):
     # Iso-F1 curves
-    r_range = np.linspace(0.75, 1.0, 300)
-    for f1_val, label_pos_r in [(0.85, 0.77), (0.90, 0.77), (0.95, 0.77)]:
+    r_range = np.linspace(0.5, 1.0, 300)
+    for f1_val in [0.75, 0.85, 0.90, 0.95]:
         with np.errstate(invalid="ignore", divide="ignore"):
             p_curve = f1_val * r_range / (2 * r_range - f1_val)
-        valid = (p_curve >= 0.75) & (p_curve <= 1.02)
+        valid = (p_curve >= 0.5) & (p_curve <= 1.02)
         ax.plot(r_range[valid], p_curve[valid], color="lightgray", linewidth=0.8, zorder=0)
-        # place label near the diagonal
         mid = np.searchsorted(r_range[valid], (r_range[valid].min() + r_range[valid].max()) / 2)
         if mid < len(r_range[valid]):
             ax.text(r_range[valid][mid], p_curve[valid][mid] + 0.005, f"F1={f1_val}",
                     fontsize=6, color="gray", ha="center")
 
-    markers = {"speech": "o", "music": "s"}
+    markers = {"speech": "o", "music": "s", "inactive": "^"}
     for model in data:
         for cls, marker in markers.items():
-            pt = data[model]["per_class_2"].get(cls)
+            pt = data[model]["per_class"].get(cls)
             if pt:
                 ax.scatter(pt["r"], pt["p"], color=COLORS[model], marker=marker,
                            s=70, zorder=3, edgecolors="white", linewidths=0.5)
                 ax.annotate(f"{MODEL_SHORT[model]}", (pt["r"], pt["p"]),
                             textcoords="offset points", xytext=(4, 2), fontsize=6, color=COLORS[model])
 
-    # Manual legend: model colors + class shapes
     from matplotlib.lines import Line2D
     legend_els = [
         Line2D([0], [0], color=COLORS[m], marker="o", linestyle="None", markersize=6, label=MODEL_SHORT[m])
@@ -132,13 +122,14 @@ def plot_pr_scatter(ax, data):
     ] + [
         Line2D([0], [0], color="gray", marker="o", linestyle="None", markersize=6, label="Speech (circle)"),
         Line2D([0], [0], color="gray", marker="s", linestyle="None", markersize=6, label="Music (square)"),
+        Line2D([0], [0], color="gray", marker="^", linestyle="None", markersize=6, label="Inactive (triangle)"),
     ]
     ax.legend(handles=legend_els, fontsize=6, ncol=1)
-    ax.set_xlim(0.75, 1.02)
-    ax.set_ylim(0.75, 1.02)
+    ax.set_xlim(0.5, 1.02)
+    ax.set_ylim(0.5, 1.02)
     ax.set_xlabel("Recall")
     ax.set_ylabel("Precision")
-    ax.set_title("Precision vs Recall (2-class)")
+    ax.set_title("Precision vs Recall (3-class)")
 
 
 def plot_inference_time(ax, data):
@@ -215,7 +206,7 @@ def main():
     for i, model in enumerate(data):
         plot_confusion_matrix(
             fig.add_subplot(gs[1, i]),
-            data[model]["cm_3"],
+            data[model]["cm"],
             cm_classes,
             f"{MODEL_SHORT[model]} — 3-class CM",
         )

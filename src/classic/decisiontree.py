@@ -36,22 +36,15 @@ class DecisionTree(ModelClass):
             ]
         )
         self.name: str = name
-        self.last_decisions: deque[float] = deque(maxlen=n_last_decisions)
+        self.last_decisions: deque[np.ndarray] = deque(maxlen=n_last_decisions)
         self.decision_forget_factor: float = decision_forget_factor
         _indices = np.arange(n_last_decisions)
         _weights = np.exp(-_indices / self.decision_forget_factor)
         self.smoothing_weights = _weights / np.sum(_weights)
 
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
-        log.info("Masking data for DecisionTree training")
-        # select speech/music
-        mask = np.isin(y, [-1, 1])
-
-        X_train = X[mask]
-        y_train = y[mask]
-
-        log.info("Training DecisionTree")
-        self.tree.fit(X_train, y_train)
+        log.info("Training DecisionTree on all 3 classes")
+        self.tree.fit(X, y)
 
     def _state_to_save(self):
         return {
@@ -71,39 +64,30 @@ class DecisionTree(ModelClass):
         self.smoothing_weights = _weights / np.sum(_weights)
 
     def predict(self, frame: np.ndarray) -> int:
-        pred = self.tree.predict_proba(frame.reshape(1, -1))[0]
+        probs = self.tree.predict_proba(frame.reshape(1, -1))[0]   # shape (n_classes,)
+        self.last_decisions.append(probs)
 
-        # normalized decision [-1; 1]
-        decision = float((pred[1] - pred[0]) / abs(pred[1] + pred[0]))
-        self.last_decisions.append(decision)
+        decisions = np.array(self.last_decisions)[::-1]             # (n, n_classes)
+        curr_weights = self.smoothing_weights[:len(decisions)]
+        curr_weights = curr_weights / curr_weights.sum()
+        smoothed = curr_weights @ decisions                         # (n_classes,)
 
-        last_decisions = np.array(self.last_decisions)[::-1]
-
-        # pick and normalize less weights if not enough decisions yet
-        curr_weights = self.smoothing_weights[: len(last_decisions)]
-        curr_weights = curr_weights / np.sum(curr_weights)
-
-        smoothed_decision = np.dot(last_decisions, curr_weights)
-
-        return 1 if smoothed_decision > 0 else -1
-
+        classes = self.tree.named_steps['classifier'].classes_
+        return int(classes[np.argmax(smoothed)])
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
-        probs = self.tree.predict_proba(X)
-
-        grades = probs[:, 1] - probs[:, 0]
-
-        raw_sums = np.convolve(grades, self.smoothing_weights, mode='full')[:len(grades)]
-
-        norm_factors = np.convolve(np.ones(len(grades)), self.smoothing_weights, mode='full')[:len(grades)]
-
-        smoothed_grades = raw_sums / norm_factors
-
-        return np.where(smoothed_grades > 0, 1, -1)
+        probs = self.tree.predict_proba(X)      # (N, n_classes)
+        classes = self.tree.named_steps['classifier'].classes_
+        N, K = probs.shape
+        norm = np.convolve(np.ones(N), self.smoothing_weights, mode='full')[:N]
+        smoothed = np.stack([
+            np.convolve(probs[:, k], self.smoothing_weights, mode='full')[:N] / norm
+            for k in range(K)
+        ], axis=1)
+        return classes[np.argmax(smoothed, axis=1)]
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
         return self.tree.predict_proba(frame.reshape(1, -1))[0]
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
         return self.tree.predict_proba(X)
-

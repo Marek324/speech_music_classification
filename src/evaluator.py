@@ -64,12 +64,6 @@ class EvalResults:
         return float(np.mean([self.per_class[l].recall for l in self.labels]))
 
 
-@dataclass
-class EvalResultsBoth:
-    two_class: EvalResults
-    three_class: EvalResults
-
-
 # ---------------------------------------------------------------------------
 # Formatting
 # ---------------------------------------------------------------------------
@@ -117,13 +111,12 @@ def _fmt_subclass_table(by_subclass: Dict[str, SubclassMetrics]) -> str:
     return "\n".join(lines)
 
 
-def format_report(both: EvalResultsBoth) -> str:
+def format_report(res: EvalResults) -> str:
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     return "\n\n".join([
         f"Evaluation report — {ts}",
-        _fmt_eval(both.two_class),
-        _fmt_eval(both.three_class),
-        _fmt_subclass_table(both.three_class.by_subclass),
+        _fmt_eval(res),
+        _fmt_subclass_table(res.by_subclass),
     ])
 
 
@@ -206,7 +199,7 @@ def run_evaluation(
     time_per_sample_ns: float,
     output_name: str,
     save_to_file: bool = True,
-) -> EvalResultsBoth:
+) -> EvalResults:
     """
     Main evaluation entry point. Computes metrics and optionally saves report.
     Labels: -1=speech, 1=music, 2=inactive.
@@ -214,14 +207,10 @@ def run_evaluation(
     if len(y_true) != len(y_pred) or len(y_true) != len(subclasses):
         raise ValueError("y_true, y_pred and subclasses must have the same length")
 
-    mask_2 = np.isin(y_true, [-1, 1])
     by_subclass = _compute_subclass_metrics(y_true, y_pred, subclasses, [-1, 1, 2])
-    both = EvalResultsBoth(
-        two_class=_compute_metrics(y_true[mask_2], y_pred[mask_2], [-1, 1], time_per_sample_ns, by_subclass),
-        three_class=_compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass),
-    )
+    res = _compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass)
 
-    report = format_report(both)
+    report = format_report(res)
     if save_to_file:
         results_dir = Path(__file__).resolve().parent.parent / "results"
         results_dir.mkdir(parents=True, exist_ok=True)
@@ -230,4 +219,4 @@ def run_evaluation(
         log.info("Saved evaluation results to %s", out_path)
 
     log.info("\n%s", report)
-    return both
+    return res

@@ -45,8 +45,6 @@ class SVM(ModelClass):
         self.dec_buf = deque(maxlen=20)
 
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
-        mask = np.isin(y, [-1, 1])
-        X, y = X[mask], y[mask]
         X, y = _subsample_balanced(X, y, max_per_class=_MAX_PER_CLASS)
         self.svm.fit(X.astype(np.float64), y)
 
@@ -59,11 +57,12 @@ class SVM(ModelClass):
     def predict(self, frame: np.ndarray) -> int:
         x = np.atleast_2d(frame.astype(np.float64))
 
-        decision = self.svm.decision_function(x)
-        self.dec_buf.append(decision[0])
+        decision = self.svm.decision_function(x)[0]   # shape (3,) for 3-class OvO
+        self.dec_buf.append(decision)
 
-        smoothed = np.mean(self.dec_buf)
-        return -1 if smoothed < 0 else 1
+        smoothed = np.mean(self.dec_buf, axis=0)       # shape (3,)
+        classes = self.svm.named_steps['svm'].classes_
+        return int(classes[np.argmax(smoothed)])
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
         X = X.astype(np.float64)
@@ -71,8 +70,8 @@ class SVM(ModelClass):
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
         warnings.warn("SVM does not provide probabilities; returning placeholder")
-        return np.array([0.5, 0.5])
+        return np.full(3, 1/3)
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
         warnings.warn("SVM does not provide probabilities; returning placeholder")
-        return np.full((len(X), 2), 0.5)
+        return np.full((len(X), 3), 1/3)

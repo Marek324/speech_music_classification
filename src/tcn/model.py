@@ -95,7 +95,7 @@ class SpeechMusicDetector(nn.Module):
         Args:
             waveform: (batch, samples) mono at sample_rate
         Returns:
-            probs: (batch, 2, time_frames)
+            probs: (batch, 3, time_frames)
         """
         spec = self.fe(waveform)
         probs = self.model(spec)

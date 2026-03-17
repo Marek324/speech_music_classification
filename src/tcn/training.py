@@ -35,7 +35,7 @@ def train_step(model, optimizer, loss_fn, waveform, targets):
 
     Args:
         waveform: (B, samples)
-        targets:  (B, 2, T) float 0/1 labels for [speech, music] per frame
+        targets:  (B, 3, T) float 0/1 labels for [speech, music, inactive] per frame
     Returns:
         scalar loss
     """
