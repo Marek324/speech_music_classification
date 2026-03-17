@@ -11,6 +11,9 @@ all: $(CO).pdf
 
 pdf: $(CO).pdf
 
+live:
+	latexmk -pdf -pvc $(CO).tex
+
 $(CO).ps: $(CO).dvi
 	dvips $(CO)
 

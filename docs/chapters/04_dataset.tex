@@ -1,0 +1,136 @@
+\chapter{Dataset}
+\label{cap:dataset}
+
+This chapter describes the dataset used in this work, the requirements imposed on datasets for speech and music classification, the construction of a custom dataset and its properties.
+
+\section{Overview}
+
+The dataset used in training and evaluation of classifier should represent real-world scenarios as accurately as possible.
+For this reason, it is useful to define the range of acoustic events that the classifier may encounter in practice.
+
+Al-Shoshan~\cite{ALSHOSHAN200695} proposes the following categorization of audio signals:
+\begin{enumerate}
+    \item \textit{"Speech signal composed of a single talker within a specific time period."}
+    \item \textit{"Pure music signal without any speech component."}
+    \item \textit{"Mixture of single-talker speech and background music."}
+    \item \textit{"Songs, i.e., a mixture of music and a singer's voice."}
+    \item \textit{"Singing without musical accompaniment."}
+    \item \textit{"Abnormal music, including unconventional cadences, human whistles, or non-musical sounds embedded as part of a musical structure."}
+    \item \textit{"Speech signal composed of two or more speakers talking simultaneously."}
+    \item \textit{"Non-speech and non-music signals, such as car, motor, or fan sounds."}
+    \item \textit{"Complex sound mixtures involving multiple speakers, singers, and musical sources."}
+\end{enumerate}
+
+This categorization covers both natural and artificially generated sound types that may occur in real-world audio signals and therefore provides a useful reference for defining the scope of the dataset used in this work.
+
+\section{Composition and Construction}
+
+Following this categorization, three main classes of data can be defined:
+\begin{enumerate}
+    \item \textbf{Speech}: Categories 1, 3, and 7.
+    \item \textbf{Music}: Categories 2, 4, 5, 6, and 9.
+    \item \textbf{Non-speech Non-music audio}: Category 8 and silence, this class will be labeled as \textbf{Inactive}.
+\end{enumerate}
+
+
+%For the purposes of this work, these categories are mapped to three output classes of the classifier as follows:
+%\begin{itemize}
+%    \item Categories 1, 3, and 7 correspond to the \textit{speech} class.
+%    \item Categories 2, 4, 5, 6, and 9 correspond to the \textit{music} class.
+%    \item Category 8, together with silence segments, corresponds to the \textit{inactive} class.
+%\end{itemize}
+
+The dataset used in the training and evaluation phases for all classifiers mentioned in this thesis is a combination of publicly available datasets, mainly from huggingface.com.
+
+Sources were chosen to take into account all categories of audio signals described in the previous section and will now be enumerated.
+
+\begin{enumerate}
+    \item People's speech (MLCommons)
+
+One of the largest public datasets used for English speech recognition, hosted on huggingface.com.
+It contains 30,000 hours of clean speech divided into recordings around 15 seconds.
+It was chosen as a majority part of clean speech part of the final dataset.
+16,000 rows were taken from this dataset, corresponding to approximately 67 hours of audio.
+
+    \item English--Arabic Speech Translation (Ammagra)
+
+This dataset was chosen to provide the rest of the clean speech.
+It is hosted on huggingface.com and contains over 300,000 rows of recordings mostly under 10 seconds.
+4,000 rows, which correspond to roughly under 8 hours.
+
+    \item
+
+\end{enumerate}
+
+The dataset used in this thesis is a combination of publicly available datasets listed below:
+
+
+Weak labels were converted into strong, time-aligned annotations by automatically detecting active and silent regions. Class-specific activity detection was applied:
+
+\begin{itemize}
+    \item \textbf{Speech:} Silero VAD~\footnote{\url{https://github.com/snakers4/silero-vad}} for the detection of speech activity.
+    \item \textbf{Music:} PyDub~\footnote{\url{https://github.com/jiaaro/pydub}} amplitude-based silence detection.
+\end{itemize}
+
+\section{Statistics}
+\label{sec:dataset_statistics}
+All data were randomly shuffled and split into disjoint subsets:
+
+\begin{itemize}
+    \item \textbf{Training:} 80\%
+    \item \textbf{Validation:} 10\%
+    \item \textbf{Test:} 10\%
+\end{itemize}
+
+\begin{table}[ht]
+    \centering
+    \caption{Dataset Statistics and Composition}
+    \label{tab:dataset_stats}
+    \begin{tabular}{lrrr}
+        \toprule
+        \textbf{Class / Subclass} & \textbf{Frames} & \textbf{Duration (min)} & \textbf{Share (\%)} \\
+        \midrule
+        \textbf{Speech (Total)} & \textbf{20,187,451} & \textbf{3,364.58} & \textbf{65.8\%} \\
+        \hspace{3mm} Clean & 19,769,776 & 3,294.96 & 64.4\% \\
+        \hspace{3mm} Noisy & 284,171 & 47.36 & 0.9\% \\
+        \hspace{3mm} Noisy Environment & 133,504 & 22.25 & 0.4\% \\
+        \addlinespace
+        \textbf{Music (Total)} & \textbf{10,074,118} & \textbf{1,679.02} & \textbf{32.8\%} \\
+        \hspace{3mm} Mainstream & 5,436,783 & 906.13 & 17.7\% \\
+        \hspace{3mm} Acoustic & 2,856,838 & 476.14 & 9.3\% \\
+        \hspace{3mm} Instrumental & 1,187,275 & 197.88 & 3.9\% \\
+        \hspace{3mm} Vocal & 470,332 & 78.39 & 1.5\% \\
+        \hspace{3mm} Electronic & 122,890 & 20.48 & 0.4\% \\
+        \addlinespace
+        \textbf{Noise (Total)} & \textbf{439,630} & \textbf{73.27} & \textbf{1.4\%} \\
+        \midrule
+        \textbf{Total} & \textbf{30,701,199} & \textbf{5,116.87} & \textbf{100.0\%} \\
+        \bottomrule
+    \end{tabular}
+\end{table}
+
+
+% ===================================
+%           PIPELINE
+% ===================================
+
+%\chapter{Pipeline}
+%\label{cap:pipeline}
+
+% ===================================
+%           MODELS
+% ===================================
+%\chapter{Models}
+%\label{cap:ref_models}
+
+% ===================================
+%           EXPERIMENTS
+% ===================================
+%\chapter{Experiments}
+%\label{cap:experiments}
+
+% ===================================
+%           CONCLUSION
+% ===================================
+%\chapter{Conclusion}
+%\label{cap:conclusion}

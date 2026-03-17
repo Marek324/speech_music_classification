@@ -89,7 +89,7 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `feat_extractor.py` | `FeatExtractor` — stateful frame-level feature extraction (30ms/15ms hop); **call `reset()` between clips** |
 | `gmm.py` | Two-GMM density classifier (speech GMM vs music GMM); 8 components, diag covariance |
 | `decisiontree.py` | Decision tree with exponential-forgetting smoothing on last decisions |
-| `svm.py` | `SGDClassifier` with hinge loss (linear SVM) |
+| `svm.py` | `SVC(kernel='rbf', C=1, γ=3)`; balanced subsampling to 50k/class at train time |
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
 | `cli.py` | Click CLI per model: train, eval, smoke-test |
 | `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights *(not in git — download via HF)* |
@@ -109,12 +109,26 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 
 ## Paper vs Implementation Differences
 
-| Aspect | Paper (Lemaire & Holzapfel 2019) | This implementation |
-|--------|----------------------------------|---------------------|
+### TCN — Lemaire & Holzapfel ISMIR 2019
+
+| Aspect | Paper | This implementation |
+|--------|-------|---------------------|
 | Optimizer | SGD, momentum=0.9 | Adam, lr=1e-3, weight_decay=1e-4 |
 | Normalization | WeightNorm (keras-tcn reference) | `BatchNorm1d` after each conv |
 | Post-processing | Duration thresholds (§3.6) to smooth predictions | Not implemented |
 | Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training |
+
+### GMM & SVM — Khonglah & Prasanna DSP 2016
+
+| Aspect | Paper | This implementation |
+|--------|-------|---------------------|
+| SVM kernel | RBF, C=1, γ=3 (libSVM) | RBF, C=1, γ=3 (`sklearn.svm.SVC`) ✓ |
+| SVM training scale | ~2400 1s-window vectors from 160 clips | Frame-level; subsampled to 50k/class |
+| Feature window | 1s non-overlapping | 1s rolling (`lt_len_ms=1000`) ✓ |
+| GMM components | 8, diagonal covariance | 8, diagonal ✓ |
+| GMM smoothing | ~1s window over log-likelihood delta | 66-frame rolling buffer (~1s @ 15ms hop) ✓ |
+| Scaling | Log-mel normalization per clip | `RobustScaler` (GMM) / `StandardScaler` (SVM) |
+| Non-linear mapping | Sigmoid on log-likelihood delta before threshold | Not implemented |
 
 ## Inference
 
@@ -131,5 +145,5 @@ Labels: `-1` = speech, `1` = music, `2` = inactive
 
 ## Status
 - **TCN**: done — 2-class F1=0.9504, 3-class F1=0.9033 (both targets met)
-- **Classic baselines**: done — DT/SVM/GMM evaluated; GMM was broken (buffer not reset between clips, now fixed; needs retraining)
+- **Classic baselines**: DT done; SVM and GMM retrained pending — both updated to closer match paper (SVM: SGDClassifier→SVC RBF C=1 γ=3; both: lt_len_ms 600→1000; GMM: smoothing buffer 20→66 frames)
 - **Next**: new module (TBD)

@@ -1,0 +1,23 @@
+\chapter{Introduction}
+Classification of speech and music involves determining whether a signal, either whole or just a segment, is speech or music.
+The focus of this work is on-line classification, the process of classifying a continuous live stream of data~\cite{Eyben2016}.
+In contrast to the offline approach, data are processed while being recorded, and the result is returned immediately after the computation is complete.
+
+This task is typically a crucial preprocessing step in larger pipelines, such as automatic speech recognition~\cite{BENZEGHIBA2007763} or telephony; therefore, the aim is not only to improve the precision of the classifier but also to enhance its efficiency.
+Historically, complexity constraints have led researchers to develop relatively simple machine learning models, such as Decision Trees~\cite {Lavner2009-zo}, Gaussian Mixture Models (GMMs), or Support Vector Machines (SVMs)~\cite{KHONGLAH201671}.
+
+The improvement in computational power of devices that utilize applications requiring speech/music classifiers, combined with the rise of deep learning, has led to a resurgence and advancement in the field of speech and music classification in recent years.
+Researchers have experimented with various neural network architectures, primarily Convolutional Recurrent Neural Networks (CRNNs)~\cite{choi2016convolutionalrecurrentneuralnetworks}.
+
+Many existing solutions for on-line speech and music classification are either proprietary or limited in scope.
+Common limitations include restrictive assumptions about the input signal, such as the presence of only speech or only music, and a lack of training on more complex acoustic scenarios, for example overlapping speakers or mixed audio content.
+Other approaches are overly general and therefore inefficient or impractical when deployed specifically for this task.
+
+The objective of this thesis is to review existing machine learning and deep learning methods and to propose a novel deep learning–based approach for on-line speech and music classification.
+
+The experiments have shown ...
+
+The thesis is organized as follows.
+\Cref{cap:background} describes the historical background, defines the concept of on-line speech and music classification, and presents the constraints on the methods used, as well as the motivation for this thesis.
+\Cref{cap:classification_approaches} provides an overview of existing methods, their architectures and limitations, and presents the models used as references for this work, including their strengths, weaknesses, and the adjustments made to the original implementations.
+\Cref{cap:dataset} covers the dataset used in the training and evaluation of the classifiers.
