@@ -1,51 +1,51 @@
-Evaluation report — 2026-03-15 09:35:18 UTC
+Evaluation report — 2026-03-17 00:52:12 UTC
 
 ── 2-class evaluation ────────────────────────────
-  Time/frame : 6.6234 ms
-  Macro F1   : 0.8298
+  Time/frame : 3.2251 ms
+  Macro F1   : 0.8750
 
                     F1       P       R
-  Speech        0.8088  0.8297  0.7889
-  Music         0.8508  0.8344  0.8679
+  Speech        0.8719  0.8084  0.9461
+  Music         0.8781  0.9489  0.8170
   ─────────────────────────────────────
-  Macro         0.8298  0.8321  0.8284
+  Macro         0.8750  0.8787  0.8816
 
   Confusion matrix (rows=true, cols=pred):
                 Speech   Music
-  Speech    [  120233   32165  ]
-  Music     [   24671  162084  ]
+  Speech    [  144189    8209  ]
+  Music     [   34171  152584  ]
 
 ── 3-class evaluation ────────────────────────────
-  Time/frame : 6.6234 ms
-  Macro F1   : 0.5489
+  Time/frame : 3.2251 ms
+  Macro F1   : 0.5785
 
                     F1       P       R
-  Speech        0.8067  0.8253  0.7889
-  Music         0.8400  0.8137  0.8679
+  Speech        0.8686  0.8029  0.9461
+  Music         0.8669  0.9232  0.8170
   Inactive      0.0000  0.0000  0.0000
   ─────────────────────────────────────
-  Macro         0.5489  0.5463  0.5523
+  Macro         0.5785  0.5754  0.5877
 
   Confusion matrix (rows=true, cols=pred):
                     Speech     Music  Inactive
-  Speech      [    120233     32165         0  ]
-  Music       [     24671    162084         0  ]
-  Inactive    [       784      4933         0  ]
+  Speech      [    144189      8209         0  ]
+  Music       [     34171    152584         0  ]
+  Inactive    [      1228      4489         0  ]
 
 ── By subclass ────────────────────────────────────
   Subclass                      F1       P       R     Acc
-  music_country             0.4953  0.3362  0.9403  0.9403
-  music_electronic          0.5211  0.3594  0.9474  0.9474
-  music_folk                0.5230  0.3605  0.9517  0.9517
-  music_hiphop              0.5276  0.3633  0.9635  0.9635
-  music_instrumental        0.5281  0.3636  0.9644  0.9644
-  music_pop                 0.5270  0.3629  0.9617  0.9617
-  music_rock                0.5258  0.3622  0.9588  0.9588
-  music_vocal               0.3819  0.3143  0.4867  0.4867
+  music_country             0.6965  0.5790  0.8740  0.8740
+  music_electronic          0.7483  0.6201  0.9434  0.9434
+  music_folk                0.7444  0.6182  0.9354  0.9354
+  music_hiphop              0.7166  0.6039  0.8811  0.8811
+  music_instrumental        0.7356  0.6137  0.9179  0.9179
+  music_pop                 0.7555  0.6237  0.9578  0.9578
+  music_rock                0.7464  0.6192  0.9396  0.9396
+  music_vocal               0.4187  0.4983  0.3611  0.3611
   noise                     0.0000  0.0000  0.0000  0.0000
-  speech_clean              0.7683  0.6939  0.8605  0.8605
-  speech_corrupted          0.6610  0.5331  0.8698  0.8698
-  speech_multispeaker       0.3160  0.1918  0.8981  0.8981
-  speech_multispeaker_over_music  0.1343  0.0752  0.6285  0.6285
-  speech_noisy              0.4883  0.3988  0.6296  0.6296
-  speech_over_music         0.3460  0.2500  0.5617  0.5617
+  speech_clean              0.7831  0.6506  0.9832  0.9832
+  speech_corrupted          0.6404  0.4780  0.9699  0.9699
+  speech_multispeaker       0.2703  0.1568  0.9790  0.9790
+  speech_multispeaker_over_music  0.1431  0.0777  0.9055  0.9055
+  speech_noisy              0.5441  0.3964  0.8671  0.8671
+  speech_over_music         0.4104  0.2692  0.8634  0.8634
