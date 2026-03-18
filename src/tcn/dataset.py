@@ -40,10 +40,10 @@ def _timestamps_to_frame_labels(labels_list, n_frames, sample_rate, hop_length) 
     return frame_labels
 
 
-def get_tcn_dataset(ds_link: str, split: str):
+def get_tcn_dataset(ds_link: str, split: str, revision: str | None = None):
     """Load HF dataset once. Resample to TCN sample_rate."""
     cfg = get_config()
-    return load_dataset(ds_link, split=split).cast_column(
+    return load_dataset(ds_link, split=split, revision=revision).cast_column(
         "audio",
         Audio(sampling_rate=cfg["sample_rate"], num_channels=1),
     )
@@ -100,9 +100,13 @@ def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = Fa
 
 
 def load_tcn_dataset(
-    ds_link: str, split: str, max_rows: int | None = None, yield_subclass: bool = False
+    ds_link: str,
+    split: str,
+    max_rows: int | None = None,
+    yield_subclass: bool = False,
+    revision: str | None = None,
 ):
     """Load HF dataset, yield (waveform, targets) or (waveform, targets, subclass) per row.
     max_rows=None loads full dataset."""
-    ds = get_tcn_dataset(ds_link, split)
+    ds = get_tcn_dataset(ds_link, split, revision=revision)
     yield from iter_tcn_rows(ds, max_rows, f"Loading {split}", yield_subclass=yield_subclass)

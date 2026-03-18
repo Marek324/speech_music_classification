@@ -157,12 +157,15 @@ def compute_and_save_preprocess_stats(
     ds_link: str | None = None,
     max_rows: int | None = None,
     stats_path: Path | None = None,
+    revision: str | None = None,
 ) -> Path:
     """Compute preprocess stats from training set and save. Returns path to saved file."""
     cfg = get_config()
-    ds_link = ds_link or cfg["dataset"]["train"]
+    ds_link = ds_link or cfg["dataset"]["url"]
     if ds_link is None:
-        raise ValueError("No dataset link; set [dataset] train in config or pass ds_link.")
+        raise ValueError("No dataset link; set [dataset] url in config or pass ds_link.")
+    if revision is None:
+        revision = cfg["dataset"].get("revision")
     stats_path = stats_path or get_preprocess_stats_path()
 
     fe = LogMelSpectrogram(
@@ -177,7 +180,7 @@ def compute_and_save_preprocess_stats(
 
     from .dataset import get_tcn_dataset, iter_tcn_rows
 
-    ds = get_tcn_dataset(ds_link, "train")
+    ds = get_tcn_dataset(ds_link, "train", revision=revision)
     sums = None
     sumsq = None
     count = 0

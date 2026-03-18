@@ -77,11 +77,12 @@ class InputHandler:
         else:
             self._init_microphone_mode()
 
-    def _cache_key(self, ds_link: str, ds_split: str) -> str:
+    def _cache_key(self, ds_link: str, ds_split: str, ds_revision: str) -> str:
         cfg = config.get_config()
         fingerprint = json.dumps({
             "ds_link": ds_link,
             "ds_split": ds_split,
+            "ds_revision": ds_revision,
             "model": cfg["model"]["name"],
             "sample_rate": cfg["sample_rate"],
             "n_fft": cfg["n_fft"],
@@ -90,11 +91,11 @@ class InputHandler:
         }, sort_keys=True)
         return hashlib.md5(fingerprint.encode()).hexdigest()
 
-    def _cache_path(self, ds_link: str, ds_split: str) -> "Path":
+    def _cache_path(self, ds_link: str, ds_split: str, ds_revision: str) -> "Path":
         from pathlib import Path
         cache_dir = Path(__file__).resolve().parent.parent / "cache"
         cache_dir.mkdir(exist_ok=True)
-        return cache_dir / f"{self._cache_key(ds_link, ds_split)}.npz"
+        return cache_dir / f"{self._cache_key(ds_link, ds_split, ds_revision)}.npz"
 
     def _init_dataset_mode(
         self, ds_link: str, ds_split: str, ds_revision: str
@@ -108,7 +109,7 @@ class InputHandler:
             "subclasses": Counter(),
         }
 
-        cache_path = self._cache_path(ds_link, ds_split)
+        cache_path = self._cache_path(ds_link, ds_split, ds_revision)
         if cache_path.exists():
             log.info("Loading features from cache: %s", cache_path)
             data = np.load(cache_path, allow_pickle=False)

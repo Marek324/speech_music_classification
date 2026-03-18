@@ -39,7 +39,7 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
         config_path = Path(__file__).resolve().parent.parent.parent / "config.toml"
 
     cfg = dict(_DEFAULT)
-    cfg["dataset"] = {"train": None, "eval": None, "stats": None}
+    cfg["dataset"] = {"url": None, "revision": None}
 
     if not config_path.exists():
         return cfg

@@ -46,20 +46,22 @@ SR = 16000
 # -10 dB = clearly audible background; -15 dB = subtle background.
 MUSIC_RELATIVE_DB = -10.0
 
-# How many FMA clips to pre-fetch into memory as the mixing pool.
-# Evenly split across all 6 FMA genres for diversity.
-MUSIC_POOL_SIZE = 200
 
-TARGETS: dict[str, dict] = {
-    "speech_over_music": {
-        "speech_subclass": "speech_clean",
-        "total": 194,
-    },
-    "speech_multispeaker_over_music": {
-        "speech_subclass": "speech_multispeaker",
-        "total": 260,
-    },
-}
+def _build_config(total_hours: int) -> tuple[int, dict[str, dict]]:
+    """Return (music_pool_size, targets) scaled to total_hours."""
+    pool_size = max(200, total_hours * 5)
+    scale = total_hours / 20
+    targets = {
+        "speech_over_music": {
+            "speech_subclass": "speech_clean",
+            "total": int(194 * scale),
+        },
+        "speech_multispeaker_over_music": {
+            "speech_subclass": "speech_multispeaker",
+            "total": int(260 * scale),
+        },
+    }
+    return pool_size, targets
 
 FMA_GENRES = ["Electronic", "Folk", "Hip-Hop", "Instrumental", "Pop", "Rock"]
 genre_map = {"Electronic": 0, "Folk": 2, "Hip-Hop": 3, "Instrumental": 4, "Pop": 6, "Rock": 7}
@@ -367,9 +369,12 @@ def generate_synthetic(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def main():
+def run_augmentation(total_hours: int):
+    """Entry point — called from build.py or standalone."""
+    pool_size, targets = _build_config(total_hours)
+
     print("=" * 60)
-    print("Synthetic data generation")
+    print(f"Synthetic data generation  ({total_hours}h scale)")
     print(f"Source : {DATA_DIR.resolve()}")
     print(f"Music  : rpmon/fma-genre-classification  ({', '.join(FMA_GENRES)})")
     print(f"Mix    : music at {MUSIC_RELATIVE_DB} dB relative to speech RMS")
@@ -378,9 +383,9 @@ def main():
     print("\nLoading VAD model...")
     vad = VADLabeler()
 
-    music_pool = build_music_pool(MUSIC_POOL_SIZE)
+    music_pool = build_music_pool(pool_size)
 
-    for subclass_out, cfg in TARGETS.items():
+    for subclass_out, cfg in targets.items():
         print(
             f"\nCollecting source files for {subclass_out}  (from {cfg['speech_subclass']})..."
         )
@@ -396,6 +401,17 @@ def main():
     print("\n" + "=" * 60)
     print("Synthetic generation complete.")
     print("=" * 60)
+
+
+def main():
+    import argparse
+
+    from build import SIZE_PRESETS
+
+    parser = argparse.ArgumentParser(description="Generate synthetic speech-over-music data")
+    parser.add_argument("size", choices=SIZE_PRESETS, help="mini (1h), mid (20h), or full (200h)")
+    args = parser.parse_args()
+    run_augmentation(SIZE_PRESETS[args.size])
 
 
 if __name__ == "__main__":

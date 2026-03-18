@@ -3,9 +3,8 @@ channels = 1
 n_fft = 512
 
 [dataset]
-train = "Marek324/speech-music-classification"
-eval = "Marek324/speech-music-classification"
-stats = "Marek324/speech-music-classification"
+url = "Marek324/speech-music-classification"
+revision = "full"
 
 [wandb]
 project = "Speech Music Classification"
