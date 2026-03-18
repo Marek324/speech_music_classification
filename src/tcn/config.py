@@ -28,9 +28,12 @@ def get_weights_path() -> Path:
     return Path(__file__).resolve().parent.parent.parent / "weights" / "tcn.safetensors"
 
 
-def get_preprocess_stats_path() -> Path:
+def get_preprocess_stats_path(revision: str | None = None) -> Path:
     """Path to precomputed normalization stats (mean, std) for log-mel spectrograms."""
-    return Path(__file__).resolve().parent.parent.parent / "weights" / "tcn_preprocess_stats.pt"
+    weights = Path(__file__).resolve().parent.parent.parent / "weights"
+    if revision:
+        return weights / f"tcn_preprocess_stats_{revision}.pt"
+    return weights / "tcn_preprocess_stats.pt"
 
 
 def get_config(config_path: Path | None = None) -> Dict[str, Any]:

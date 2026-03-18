@@ -82,7 +82,8 @@ class LogMelSpectrogram(nn.Module):
             else:
                 log.warning("Preprocess stats not found at %s; normalization will fail at inference.", path)
         else:
-            stats_path = get_preprocess_stats_path()
+            rev = get_config()["dataset"].get("revision")
+            stats_path = get_preprocess_stats_path(revision=rev)
             if stats_path.exists():
                 self._load_stats(stats_path)
                 self._stats_loaded = True
@@ -118,7 +119,8 @@ class LogMelSpectrogram(nn.Module):
 
     def _validate_stats(self):
         if self.norm_mean is None or self.norm_std is None:
-            path = get_preprocess_stats_path()
+            rev = get_config()["dataset"].get("revision")
+            path = get_preprocess_stats_path(revision=rev)
             raise RuntimeError(
                 "TCN preprocessing requires precomputed normalization stats (mean, std). "
                 f"Run training first to compute and save stats to {path}, "
@@ -145,7 +147,8 @@ class LogMelSpectrogram(nn.Module):
 
 def validate_preprocess_stats() -> None:
     """Ensure precomputed normalization stats exist. Raise RuntimeError if missing."""
-    path = get_preprocess_stats_path()
+    rev = get_config()["dataset"].get("revision")
+    path = get_preprocess_stats_path(revision=rev)
     if not path.exists():
         raise RuntimeError(
             "TCN preprocessing requires precomputed normalization stats. "
@@ -166,7 +169,7 @@ def compute_and_save_preprocess_stats(
         raise ValueError("No dataset link; set [dataset] url in config or pass ds_link.")
     if revision is None:
         revision = cfg["dataset"].get("revision")
-    stats_path = stats_path or get_preprocess_stats_path()
+    stats_path = stats_path or get_preprocess_stats_path(revision=revision)
 
     fe = LogMelSpectrogram(
         sample_rate=cfg["sample_rate"],

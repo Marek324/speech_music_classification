@@ -78,7 +78,8 @@ class SpeechMusicDetector(nn.Module):
         super().__init__()
         cfg = get_config()
         sr = sample_rate or cfg["sample_rate"]
-        stats_path = get_preprocess_stats_path()
+        rev = cfg["dataset"].get("revision")
+        stats_path = get_preprocess_stats_path(revision=rev)
         self.fe = LogMelSpectrogram(
             sample_rate=sr,
             n_fft=cfg["n_fft"],
