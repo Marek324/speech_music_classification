@@ -45,7 +45,7 @@ MUSIC_FRAC = 0.45
 NOISE_FRAC = 0.10
 
 RAND_SEED = 381
-DATA_DIR = Path("data")
+DATA_DIR = Path("data")  # overwritten in main() to data/{size}
 MAX_FILES_PER_FOLDER = 9000
 SR = 16000
 
@@ -772,8 +772,10 @@ def parse_args() -> argparse.Namespace:
 
 
 def main():
+    global DATA_DIR
     args = parse_args()
     total_hours = SIZE_PRESETS[args.size]
+    DATA_DIR = Path("data") / args.size
 
     speech_sources, music_sources, noise_sources = build_sources(total_hours)
     all_sources = speech_sources + music_sources + noise_sources
@@ -793,7 +795,7 @@ def main():
     print("=" * 60)
 
     from augment_over_music import run_augmentation
-    run_augmentation(total_hours)
+    run_augmentation(total_hours, data_dir=DATA_DIR)
 
     print("\n" + "=" * 60)
     print("Exporting to parquet...")

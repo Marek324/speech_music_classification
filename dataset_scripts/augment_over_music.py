@@ -369,8 +369,11 @@ def generate_synthetic(
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-def run_augmentation(total_hours: int):
+def run_augmentation(total_hours: int, data_dir: Path | None = None):
     """Entry point — called from build.py or standalone."""
+    global DATA_DIR
+    if data_dir is not None:
+        DATA_DIR = data_dir
     pool_size, targets = _build_config(total_hours)
 
     print("=" * 60)
@@ -411,7 +414,7 @@ def main():
     parser = argparse.ArgumentParser(description="Generate synthetic speech-over-music data")
     parser.add_argument("size", choices=SIZE_PRESETS, help="mini (1h), mid (20h), or full (200h)")
     args = parser.parse_args()
-    run_augmentation(SIZE_PRESETS[args.size])
+    run_augmentation(SIZE_PRESETS[args.size], data_dir=Path("data") / args.size)
 
 
 if __name__ == "__main__":
