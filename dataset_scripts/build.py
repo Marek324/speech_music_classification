@@ -73,32 +73,6 @@ SR                   = 16000
 # ─────────────────────────────────────────────────────────────────────────────
 
 
-@dataclass
-class DatasetSpec:
-    """
-    target_seconds  — stop streaming once this many seconds are accumulated
-    max_rows        — hard safety cap to prevent infinite streaming
-    detector        — "vad" | "music" | "silence"
-    audio_decode    — True  → AudioDecoder   (VAD/silence)
-                      False → raw bytes dict (music labeler)
-    """
-
-    name: str
-    hf_id: str
-    cls: str       # "speech" | "music" | "noise"
-    subclass: str
-    target_seconds: float
-    detector: str
-    audio_col: str = "audio"
-    sil_thr: int = -16
-    split: str = "train"
-    audio_decode: bool = True
-    filter_col: str | None = None
-    filter_val: int | None = None
-    skip: int = 0
-    max_rows: int = 10_000
-    extra_load_kwargs: dict = field(default_factory=dict)
-
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Spec factories — all targets derived from total_hours
