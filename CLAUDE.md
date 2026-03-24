@@ -104,8 +104,10 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ### Dataset scripts (`dataset_scripts/`) — uv subproject
 | File | Purpose |
 |------|---------|
-| `build.py` | Builds and uploads the HF dataset |
-| `augment_over_music.py` | Generates speech-over-music augmented samples |
+| `build.py` | Sole CLI entry: streams HF sources → Parquet shards |
+| `augmentation.py` | Speech-over-music mixes (imported by `build.py`) |
+| `split_writer.py` | LibriSpeech-style path: `{staging}/{mini\|mid\|full}/{train\|validation\|test}/{speech\|music\|inactive}/part_*.parquet` |
+| `HUB_DATASET_README.md` | Template Hub card (configs `full` first, then `mid`, `mini`) — copy to repo `README.md` before upload |
 
 ## Paper vs Implementation Differences
 
