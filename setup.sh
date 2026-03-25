@@ -26,7 +26,7 @@ echo "export HF_TOKEN=$hf_token" >> "$HOME/.bashrc"
 echo "export WANDB_API_KEY=$wandb_key" >> "$HOME/.bashrc"
 
 # ── Claude Code ───────────────────────────────────────────────────────────────
-npm install -g @anthropic-ai/claude-code
+curl -fsSL https://claude.ai/install.sh | bash
 
 # ── Download weights and cache from HuggingFace ───────────────────────────────
 HF_TOKEN="$hf_token" uv run python scripts/download_artifacts.py
