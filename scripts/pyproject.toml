@@ -1,8 +1,12 @@
+[project[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "scripts"
 version = "0.1.0"
 description = "Visualization and analysis scripts"
-requires-python = ">=3.10.0"
+requires-python = ">=3.12"
 dependencies = [
     "matplotlib>=3.10.0",
 ]

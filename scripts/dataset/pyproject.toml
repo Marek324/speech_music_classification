@@ -1,19 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "dataset-scripts"
 version = "0.1.0"
-description = "Add your description here"
+description = "Dataset building and labeling scripts"
 readme = "README.md"
-requires-python = ">=3.10.0"
+requires-python = ">=3.12"
 dependencies = [
     "datasets[audio]>=4.5.0",
-    "hf>=1.4.1",
+    "huggingface-hub>=0.24.0",
     "pyarrow>=18.0.0",
     "pyannote-audio>=4.0.4",
     "pydub>=0.25.1",
     "silero-vad>=6.2.1",
     "soundfile>=0.13.1",
-    "torchcodec>=0.2.0",
-    "tqdm>=4.67.3",
+    "tqdm>=4.67.0",
 ]
 
 [dependency-groups]
