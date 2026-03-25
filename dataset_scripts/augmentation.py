@@ -15,7 +15,6 @@ from tqdm import tqdm
 
 from labeling import SR, VADLabeler
 from source_config import (
-    AUGMENT_OUTPUT_SPLIT_FRACTIONS,
     FMA_GENRE_MAP,
     FMA_GENRES,
     FMA_HF_ID,
@@ -129,10 +128,11 @@ def generate_synthetic(
     target_minutes: float,
     vad: VADLabeler,
     data_dir: Path,
+    split_fractions: dict[str, float],
 ):
     split_targets_min = {
         split: target_minutes * frac
-        for split, frac in AUGMENT_OUTPUT_SPLIT_FRACTIONS.items()
+        for split, frac in split_fractions.items()
     }
     rng = random.Random(RAND_SEED)
     table_cache: dict[Path, pa.Table] = {}
@@ -177,7 +177,7 @@ def generate_synthetic(
     print(f"  Done: {subclass_out}")
 
 
-def run_augmentation(tier: TierName, data_dir: Path, *, test: bool = False) -> None:
+def run_augmentation(tier: TierName, data_dir: Path, *, split_fractions: dict[str, float], test: bool = False) -> None:
     seed_all()
 
     entries = augment_entries(tier, test=test)
@@ -211,6 +211,7 @@ def run_augmentation(tier: TierName, data_dir: Path, *, test: bool = False) -> N
             e.target_minutes,
             vad,
             data_dir,
+            split_fractions,
         )
 
     print("\nAugmentation complete.")

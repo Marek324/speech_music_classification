@@ -7,13 +7,14 @@ from typing import Any, Optional, Union
 import numpy as np
 import torch
 from pydub import AudioSegment
-from pyannote.audio import Pipeline
+from pyannote.audio import Model
+from pyannote.audio.pipelines import VoiceActivityDetection
 from silero_vad import get_speech_timestamps, load_silero_vad
 from torchcodec.decoders import AudioDecoder
 
 SR = 16_000
 
-PYANNOTE_VAD_PIPELINE = "pyannote/voice-activity-detection"
+PYANNOTE_SEGMENTATION_MODEL = "pyannote/segmentation-3.0"
 
 _MUSIC_RMS_HOP_MS = 20
 _MUSIC_RMS_PERCENTILE = 20
@@ -145,19 +146,10 @@ class MusicLabeler:
     """Music vs inactive: pyannote SPEECH ∪ RMS loud frames (instrumental)."""
 
     def __init__(self) -> None:
-        token = os.environ.get("HF_TOKEN")
-        if not token:
-            raise RuntimeError(
-                "MusicLabeler requires HF_TOKEN (Hugging Face access token). "
-                "Accept the licence at https://hf.co/pyannote/voice-activity-detection "
-                "then export HF_TOKEN=hf_...."
-            )
-        pl = Pipeline.from_pretrained(PYANNOTE_VAD_PIPELINE, token=token)
-        if pl is None:
-            raise RuntimeError(
-                f"Failed to load pyannote pipeline {PYANNOTE_VAD_PIPELINE!r}"
-            )
-        self._pipeline: Pipeline = pl
+        model = Model.from_pretrained(PYANNOTE_SEGMENTATION_MODEL)
+        pl = VoiceActivityDetection(segmentation=model)
+        pl.instantiate({"min_duration_on": 0.0, "min_duration_off": 0.0})
+        self._pipeline: VoiceActivityDetection = pl
 
     def label(self, audio: dict) -> Optional[list[dict[str, Any]]]:
         try:

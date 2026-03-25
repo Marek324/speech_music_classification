@@ -16,126 +16,20 @@ Run:
 """
 
 import argparse
-import sys
 from pathlib import Path
 
-from datasets import Audio, IterableDataset, load_dataset
+from augmentation import run_augmentation
+from process import process_source
 from source_config import (
     HF_DATASET_STAGING_ROOT,
     HF_SPLIT_NAMES,
-    RAND_SEED,
-    TEST_SOURCE_MAX_ROWS,
+    TIER_SPLIT_FRACTIONS,
     TierName,
-    SourceEntry,
     seed_all,
     tier_dataset_dir,
 )
 from sources import TIER_TOTAL_MINUTES, make_entries
-from tqdm import tqdm
-
-from labeling import SR, get_labeler
 from split_writer import SplitWriter
-
-
-def load_source(entry: SourceEntry, max_rows: int, skip: int = 0) -> IterableDataset:
-    col = entry.audio_col
-    ds = load_dataset(entry.hf_id, split=entry.split, streaming=True, **entry.hf_load_kwargs())
-    assert isinstance(ds, IterableDataset)
-    ds = ds.shuffle(seed=RAND_SEED)
-    if entry.filter_col and entry.filter_val is not None:
-        ds = ds.filter(lambda row: row[entry.filter_col] == entry.filter_val)
-    if skip > 0:
-        ds = ds.skip(skip)
-    ds = ds.take(max_rows)
-    ds = ds.select_columns(col)
-    ds = ds.cast_column(col, Audio(sampling_rate=SR, num_channels=1, decode=entry.audio_decode))
-    return ds
-
-
-def process_source(
-    entry: SourceEntry,
-    data_dir: Path,
-    writers: dict[tuple[str, str], SplitWriter],
-    *,
-    test: bool,
-) -> bool:
-    """Stream HF rows until accumulated labeled audio reaches ``entry.target_minutes``.
-
-    With ``test=True``, read at most ``TEST_SOURCE_MAX_ROWS`` rows and keep the first
-    row that produces valid labels (smoke test).
-    """
-    target_min = entry.target_minutes
-    max_rows = TEST_SOURCE_MAX_ROWS if test else entry.max_rows_for_stream()
-    col = entry.audio_col
-
-    print(f"\n{'─' * 60}")
-    print(f"  {entry.display_name}  [{entry.cls} → {entry.metadata_subclass}]")
-    if test:
-        print(f"  target: test mode (≤{TEST_SOURCE_MAX_ROWS} HF row(s) per source)")
-    else:
-        print(f"  target: {target_min:.2f} min audio")
-    print(f"{'─' * 60}")
-
-    try:
-        ds = load_source(entry, max_rows)
-    except Exception as e:
-        print(f"  [FAIL] load_source: {e}", file=sys.stderr)
-        return False
-
-    labeler = get_labeler(entry.detector)
-
-    train_cutoff_min = target_min * 0.8
-    val_cutoff_min = target_min * 0.9
-    accumulated_min = 0.0
-    local_idx = 0
-    any_written = False
-
-    for row in tqdm(ds, desc=f"  {entry.display_name}", total=max_rows if test else None):
-        audio = row[col]
-        if hasattr(audio, "get_all_samples"):
-            data = audio.get_all_samples().data
-            if hasattr(data, "cpu"):
-                data = data.cpu()
-            audio = data.numpy().squeeze().astype("float32")
-        labels = labeler.label(audio)
-        if labels is None:
-            print(f"  [SKIP] row {local_idx} — invalid audio", file=sys.stderr)
-            local_idx += 1
-            if test:
-                break
-            continue
-
-        clip_min = labels[-1]["end"] / 1000.0 / 60.0
-
-        if test:
-            split_name = "train"
-        elif accumulated_min < train_cutoff_min:
-            split_name = "train"
-        elif accumulated_min < val_cutoff_min:
-            split_name = "validation"
-        else:
-            split_name = "test"
-
-        writers[(entry.cls, split_name)].write(
-            audio, labels, entry.display_name, local_idx, entry.cls, entry.metadata_subclass
-        )
-        accumulated_min += clip_min
-        local_idx += 1
-        any_written = True
-
-        if test:
-            break
-        if accumulated_min >= target_min:
-            break
-
-    if test:
-        print(f"  test mode: wrote {int(any_written)} clip(s)")
-    else:
-        pct = accumulated_min / target_min * 100 if target_min else 0
-        print(f"  {accumulated_min:.2f} min written  (target {target_min:.2f} min, {pct:.0f}%)")
-        if pct < 90:
-            print("  [WARN] source exhausted before reaching target", file=sys.stderr)
-    return any_written
 
 
 def main():
@@ -157,7 +51,7 @@ def main():
     parser.add_argument(
         "--test",
         action="store_true",
-        help=f"Smoke test: ≤{TEST_SOURCE_MAX_ROWS} HF row per source; small augmentation budget",
+        help=f"Smoke test: ≤{1} HF row per source; small augmentation budget",
     )
     args = parser.parse_args()
 
@@ -186,9 +80,10 @@ def main():
         (m, s): SplitWriter(m, s, data_dir) for m in modalities for s in HF_SPLIT_NAMES
     }
 
+    fractions = TIER_SPLIT_FRACTIONS[tier_key]
     failed, succeeded = [], []
     for entry in entries:
-        ok = process_source(entry, data_dir, writers, test=args.test)
+        ok = process_source(entry, writers, split_fractions=fractions, test=args.test)
         (succeeded if ok else failed).append(entry.display_name)
 
     for w in writers.values():
@@ -201,9 +96,7 @@ def main():
             print(f"  ✗ {name}")
 
     print("\nRunning augmentation...")
-    from augmentation import run_augmentation
-
-    run_augmentation(tier_key, data_dir=data_dir, test=args.test)
+    run_augmentation(tier_key, data_dir=data_dir, split_fractions=fractions, test=args.test)
 
     print("\nBuild complete.")
     print("=" * 60)

@@ -64,15 +64,15 @@ FMA_GENRE_MAP: dict[str, int] = {
     "Rock": 7,
 }
 
-# Synthetic output minutes per split (sums to 1.0); names match HF splits.
-AUGMENT_OUTPUT_SPLIT_FRACTIONS: dict[str, float] = {
-    "train": 0.8,
-    "validation": 0.1,
-    "test": 0.1,
-}
-
 # Splits on disk and in Hub ``load_dataset(..., split=...)``.
 HF_SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "test")
+
+# Per-tier train/val/test fractions (must sum to 1.0).
+TIER_SPLIT_FRACTIONS: Dict[TierName, Dict[str, float]] = {
+    TierName.mini: {"train": 0.70, "validation": 0.15, "test": 0.15},
+    TierName.mid:  {"train": 0.80, "validation": 0.10, "test": 0.10},
+    TierName.full: {"train": 0.84, "validation": 0.08, "test": 0.08},
+}
 
 
 @dataclass(frozen=True)
@@ -85,18 +85,17 @@ class AugmentEntry:
 
 
 # Per-tier targets (minutes of *synthetic* audio per recipe), same pattern as ``sources.SOURCES``.
-# Scale tiers to roughly match former 3.75% / 2.25% of nominal tier totals (~12 / ~928 / ~11200 min).
 AUGMENT_SOURCES: Dict[TierName, tuple[AugmentEntry, ...]] = {
     TierName.mini: (
-        AugmentEntry("speech_som", "speech_clean", 0.5),
+        AugmentEntry("speech_som", "speech_clean", 1.0),
     ),
     TierName.mid: (
-        AugmentEntry("speech_som", "speech_clean", 35.0),
-        AugmentEntry("speech_msom", "speech_multispeaker", 21.0),
+        AugmentEntry("speech_som", "speech_clean", 36.0),
+        AugmentEntry("speech_msom", "speech_multispeaker", 24.0),
     ),
     TierName.full: (
-        AugmentEntry("speech_som", "speech_clean", 420.0),
-        AugmentEntry("speech_msom", "speech_multispeaker", 252.0),
+        AugmentEntry("speech_som", "speech_clean", 360.0),
+        AugmentEntry("speech_msom", "speech_multispeaker", 240.0),
     ),
 }
 
@@ -122,6 +121,7 @@ class SourceEntry:
     audio_col: str = "audio"
     filter_col: Optional[str] = None
     filter_val: Optional[Any] = None
+    filter_include: bool = True
     extra_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     @property

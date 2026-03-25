@@ -104,7 +104,9 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ### Dataset scripts (`dataset_scripts/`) — uv subproject
 | File | Purpose |
 |------|---------|
-| `build.py` | Sole CLI entry: streams HF sources → Parquet shards, then runs augmentation |
+| `build.py` | CLI entry point: parses args, orchestrates sources → augmentation |
+| `dataloader.py` | `load_source()` — streams and filters a HF dataset for one `SourceEntry` |
+| `process.py` | `process_source()` — labels and writes one source to parquet shards |
 | `sources.py` | `SOURCES` dict — per-tier `SourceEntry` list with target minutes; `make_entries()` |
 | `source_config.py` | `SourceEntry` / `TierConfig` dataclasses; `AUGMENT_SOURCES` per tier; FMA config |
 | `augmentation.py` | Speech-over-music mixes — reads base speech parquet, mixes with FMA pool, writes synthetic clips |
