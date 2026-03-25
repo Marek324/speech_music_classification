@@ -101,7 +101,7 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `upload_artifacts.py` | Uploads `weights/` and `cache/` to `Marek324/butfit-bp-artifacts` on HF |
 | `download_artifacts.py` | Downloads `weights/` and `cache/` from HF (run after cloning) |
 
-### Dataset scripts (`dataset_scripts/`) — uv subproject
+### Dataset scripts (`scripts/dataset/`) — uv subproject
 | File | Purpose |
 |------|---------|
 | `build.py` | CLI entry point: parses args, orchestrates sources → augmentation |
