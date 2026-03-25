@@ -26,27 +26,20 @@ Total time: 12000min (200hours)
 
 
 ## Subclasses
-| Subclass | %  | Mid | Full |
-| --- | --- | --- | --- |
-| **Speech** | 40*  | 480  | 4800  |
-| Clean      | 40  | 192  | 1920  |
-| Corrupted  | 20     | 96   | 960   |
-| Noisy      | 20     | 96   | 960   |
-| Multispeaker | 7.5    | 36 | 360  |
-| SoM\*\*\* (Speech over Music) | 7.5 | 36 | 360 |
-| MSoM\*\*\* (Multi-Speaker over Music) | 5 | 24 | 240 |
-| **Music** | 40* | 10 | 480 | 4800 |
-| Each genre** | 10 | 40 | 400 |
-| **Inactive** | 20* | 240 | 2400 |
+| Subclass | %  | Mini | Mid | Full |
+| --- | --- | --- | --- | --- |
+| **Speech** | 40*  | 5.5 | 480  | 4800  |
+| Clean      | 40  | 5   | 192  | 1920  |
+| Dirty      | 20  | —   | 96   | 960   |
+| Noisy      | 20  | —   | 96   | 960   |
+| Multispeaker | 7.5 | — | 36   | 360   |
+| SoM\*\*\* (Speech over Music) | 7.5 | 0.5 | 36 | 360 |
+| MSoM\*\*\* (Multi-Speaker over Music) | 5 | — | 24 | 240 |
+| **Music** | 40* | 5 | 400 | 4000 |
+| Each genre** | — | — | 40 | 400 |
+| Pop (mini) | — | 5 | — | — |
+| **Inactive** | 20* | 2 | 240 | 2400 |
 
 \* % in whole dataset
 \*\* Music genres: Instrumental, Electronic, Pop, Rock, Acapella, Hip-Hop, Folk, Metal, Jazz, Country
 \*\*\* Augmented subclasses: Speech over Music, Multi-Speaker over Music
-
-### Mini Tier
-Total time: 12 minutes
-| (Sub)class  | Minutes |
-| --- | --- |
-| Clean Speech | 5 |
-| Pop Music    | 5 |
-| Inactive     | 2 |

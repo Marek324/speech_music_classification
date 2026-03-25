@@ -1,15 +1,11 @@
 ---
-# Copy this file to your Hub dataset repo as README.md before pushing / upload-large-folder.
-# Layout mirrors multi-config audio sets (e.g. LibriSpeech): one config per tier, splits inside each.
-
-pretty_name: Speech / Music classification (frame labels)
-license: apache-2.0
-language: []
+pretty_name: Speech / Music classification
+license: unknown
+language: en
 tags:
   - audio
   - parquet
 
-# Default config for `load_dataset`: use `full` (list it first; many clients default to the first config).
 configs:
   - config_name: full
     data_files:

@@ -14,14 +14,14 @@ COLORS = {"tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm":
 MODEL_SHORT = {"tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
 
 SPEECH_SUBS = [
-    "speech_clean", "speech_corrupted", "speech_multispeaker",
-    "speech_multispeaker_over_music", "speech_noisy", "speech_over_music",
+    "speech_clean", "speech_dirty", "speech_multispeaker",
+    "speech_msom", "speech_noisy", "speech_som",
 ]
 MUSIC_SUBS = [
     "music_country", "music_electronic", "music_folk", "music_hiphop",
     "music_instrumental", "music_pop", "music_rock", "music_vocal",
 ]
-SPEECH_SHORT = ["clean", "corrupted", "multi", "multi+music", "noisy", "+music"]
+SPEECH_SHORT = ["clean", "dirty", "multi", "msom", "noisy", "som"]
 MUSIC_SHORT = ["country", "electronic", "folk", "hiphop", "instrumental", "pop", "rock", "vocal"]
 
 

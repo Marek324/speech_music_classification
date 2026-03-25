@@ -47,7 +47,9 @@ def _wav_mono_16k_from_hf_dict(audio: dict) -> np.ndarray:
     return _wav_mono_16_pydub(_pydub_from_hf_dict(audio))
 
 
-def _duration_ms(audio: Union[AudioDecoder, dict]) -> int:
+def _duration_ms(audio: Union[AudioDecoder, dict, np.ndarray]) -> int:
+    if isinstance(audio, np.ndarray):
+        return int(len(audio) * 1000 / SR)
     if isinstance(audio, AudioDecoder):
         return int(audio.get_all_samples().duration_seconds * 1000)
     return len(_pydub_from_hf_dict(audio))
@@ -188,7 +190,7 @@ class MusicLabeler:
 
 
 class SilenceLabeler:
-    def label(self, audio: Union[AudioDecoder, dict]) -> list[dict[str, Any]]:
+    def label(self, audio: Union[AudioDecoder, dict, np.ndarray]) -> list[dict[str, Any]]:
         return [make_label("inactive", 0, _duration_ms(audio))]
 
 

@@ -1,4 +1,4 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import Enum  # TODO: migrate project to 3.12 later to use StrEnum
 from pathlib import Path
 from typing import Any, Dict, Literal, Optional
@@ -36,9 +36,10 @@ def seed_all() -> None:
         torch.cuda.manual_seed_all(RAND_SEED)
 
 
-# --test: at most this many HF rows read per source; augmentation budget (minutes) capped
+# --test: at most this many HF rows read per source
 TEST_SOURCE_MAX_ROWS = 1
-TEST_AUG_TOTAL_MINUTES = 0.5
+# --test: each augmented recipe targets this many minutes (like TEST for base sources)
+TEST_AUG_TARGET_MINUTES = 0.1
 
 # ── speech-over-music augmentation (see augmentation.py) ──
 
@@ -75,21 +76,37 @@ HF_SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "test")
 
 
 @dataclass(frozen=True)
-class AugFractionSpec:
-    speech_subclass: str
-    fraction: float  # share of total dataset target minutes
+class AugmentEntry:
+    """Synthetic speech-over-music recipe: same idea as ``SourceEntry.target_minutes``."""
+
+    output_subclass: str  # written ``subclass`` / folder semantics
+    speech_subclass: str  # which base ``speech/{split}/speech`` rows to mix
+    target_minutes: float
 
 
-AUG_FRACTIONS: dict[str, AugFractionSpec] = {
-    "speech_over_music": AugFractionSpec(
-        speech_subclass="speech_clean",
-        fraction=0.45 * 0.075,  # 45% speech × 7.5% share = 3.375%
+# Per-tier targets (minutes of *synthetic* audio per recipe), same pattern as ``sources.SOURCES``.
+# Scale tiers to roughly match former 3.75% / 2.25% of nominal tier totals (~12 / ~928 / ~11200 min).
+AUGMENT_SOURCES: Dict[TierName, tuple[AugmentEntry, ...]] = {
+    TierName.mini: (
+        AugmentEntry("speech_som", "speech_clean", 0.5),
     ),
-    "speech_multispeaker_over_music": AugFractionSpec(
-        speech_subclass="speech_multispeaker",
-        fraction=0.45 * 0.050,  # 45% speech × 5.0% share = 2.25%
+    TierName.mid: (
+        AugmentEntry("speech_som", "speech_clean", 35.0),
+        AugmentEntry("speech_msom", "speech_multispeaker", 21.0),
+    ),
+    TierName.full: (
+        AugmentEntry("speech_som", "speech_clean", 420.0),
+        AugmentEntry("speech_msom", "speech_multispeaker", 252.0),
     ),
 }
+
+
+def augment_entries(tier: TierName, *, test: bool = False) -> list[AugmentEntry]:
+    """Copy of tier recipes; ``test=True`` uses ``TEST_AUG_TARGET_MINUTES`` per recipe (smoke)."""
+    entries = list(AUGMENT_SOURCES[tier])
+    if test:
+        return [replace(e, target_minutes=TEST_AUG_TARGET_MINUTES) for e in entries]
+    return entries
 
 
 @dataclass
@@ -104,7 +121,7 @@ class SourceEntry:
     audio_decode: bool
     audio_col: str = "audio"
     filter_col: Optional[str] = None
-    filter_val: Optional[str] = None
+    filter_val: Optional[Any] = None
     extra_kwargs: Dict[str, Any] = field(default_factory=dict)
 
     @property

@@ -104,9 +104,13 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ### Dataset scripts (`dataset_scripts/`) — uv subproject
 | File | Purpose |
 |------|---------|
-| `build.py` | Sole CLI entry: streams HF sources → Parquet shards |
-| `augmentation.py` | Speech-over-music mixes (imported by `build.py`) |
+| `build.py` | Sole CLI entry: streams HF sources → Parquet shards, then runs augmentation |
+| `sources.py` | `SOURCES` dict — per-tier `SourceEntry` list with target minutes; `make_entries()` |
+| `source_config.py` | `SourceEntry` / `TierConfig` dataclasses; `AUGMENT_SOURCES` per tier; FMA config |
+| `augmentation.py` | Speech-over-music mixes — reads base speech parquet, mixes with FMA pool, writes synthetic clips |
+| `labeling.py` | `VADLabeler`, `MusicLabeler`, `SilenceLabeler` — produce frame-level labels for each clip |
 | `split_writer.py` | LibriSpeech-style path: `{staging}/{mini\|mid\|full}/{train\|validation\|test}/{speech\|music\|inactive}/part_*.parquet` |
+| `notes.md` | Dataset spec: tier totals, subclass targets per tier |
 | `HUB_DATASET_README.md` | Template Hub card (configs `full` first, then `mid`, `mini`) — copy to repo `README.md` before upload |
 
 ## Paper vs Implementation Differences

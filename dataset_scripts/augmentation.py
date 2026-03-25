@@ -1,4 +1,4 @@
-"""Speech-over-music mixes for augmented subclasses (see source_config.AUG_FRACTIONS)."""
+"""Speech-over-music mixes (see ``source_config.AUGMENT_SOURCES`` per ``TierName``)."""
 
 import io
 import itertools
@@ -16,13 +16,14 @@ from tqdm import tqdm
 from labeling import SR, VADLabeler
 from source_config import (
     AUGMENT_OUTPUT_SPLIT_FRACTIONS,
-    AUG_FRACTIONS,
     FMA_GENRE_MAP,
     FMA_GENRES,
     FMA_HF_ID,
     MUSIC_POOL_SIZE,
     MUSIC_RELATIVE_DB,
     RAND_SEED,
+    TierName,
+    augment_entries,
     seed_all,
 )
 from split_writer import SplitWriter
@@ -161,7 +162,7 @@ def generate_synthetic(
             if labels is None:
                 continue
             writer.write(
-                mixed, labels, subclass_out, global_idx, "speech", subclass_out
+                mixed, labels, f"augmented_{subclass_out}", global_idx, "speech", subclass_out
             )
             accumulated_min += (len(mixed) / SR) / 60.0
             global_idx += 1
@@ -176,11 +177,16 @@ def generate_synthetic(
     print(f"  Done: {subclass_out}")
 
 
-def run_augmentation(total_minutes: float, data_dir: Path, *, test: bool = False) -> None:
+def run_augmentation(tier: TierName, data_dir: Path, *, test: bool = False) -> None:
     seed_all()
 
+    entries = augment_entries(tier, test=test)
+    total_aug_min = sum(e.target_minutes for e in entries)
+
     print("\n" + "=" * 60)
-    print(f"Augmentation  ({total_minutes:.2f} min budget → {data_dir})")
+    print(
+        f"Augmentation  [{tier.value}]  {total_aug_min:.2f} min synthetic target  →  {data_dir}"
+    )
     print("=" * 60)
 
     print("\nLoading VAD model...")
@@ -188,19 +194,23 @@ def run_augmentation(total_minutes: float, data_dir: Path, *, test: bool = False
     if test:
         pool_size = 12
     else:
-        pool_size = max(12, min(MUSIC_POOL_SIZE, int(total_minutes / 6)))
+        pool_size = max(12, min(MUSIC_POOL_SIZE, int(total_aug_min / 6)))
     music_pool = build_music_pool(pool_size)
 
-    for subclass_out, cfg in AUG_FRACTIONS.items():
-        target_min = total_minutes * cfg.fraction
-        print(f"\nCollecting {cfg.speech_subclass} for {subclass_out}...")
-        speech_refs = collect_speech_refs(cfg.speech_subclass, data_dir)
+    for e in entries:
+        print(f"\nCollecting {e.speech_subclass} for {e.output_subclass}...")
+        speech_refs = collect_speech_refs(e.speech_subclass, data_dir)
         has_any = any(refs for refs in speech_refs.values())
         if not has_any:
             print("  [SKIP] No base speech clips found — run build.py first")
             continue
         generate_synthetic(
-            subclass_out, speech_refs, music_pool, target_min, vad, data_dir
+            e.output_subclass,
+            speech_refs,
+            music_pool,
+            e.target_minutes,
+            vad,
+            data_dir,
         )
 
     print("\nAugmentation complete.")

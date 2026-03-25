@@ -24,7 +24,6 @@ from source_config import (
     HF_DATASET_STAGING_ROOT,
     HF_SPLIT_NAMES,
     RAND_SEED,
-    TEST_AUG_TOTAL_MINUTES,
     TEST_SOURCE_MAX_ROWS,
     TierName,
     SourceEntry,
@@ -92,7 +91,13 @@ def process_source(
     any_written = False
 
     for row in tqdm(ds, desc=f"  {entry.display_name}", total=max_rows if test else None):
-        labels = labeler.label(row[col])
+        audio = row[col]
+        if hasattr(audio, "get_all_samples"):
+            data = audio.get_all_samples().data
+            if hasattr(data, "cpu"):
+                data = data.cpu()
+            audio = data.numpy().squeeze().astype("float32")
+        labels = labeler.label(audio)
         if labels is None:
             print(f"  [SKIP] row {local_idx} — invalid audio", file=sys.stderr)
             local_idx += 1
@@ -112,7 +117,7 @@ def process_source(
             split_name = "test"
 
         writers[(entry.cls, split_name)].write(
-            row[col], labels, entry.display_name, local_idx, entry.cls, entry.metadata_subclass
+            audio, labels, entry.display_name, local_idx, entry.cls, entry.metadata_subclass
         )
         accumulated_min += clip_min
         local_idx += 1
@@ -159,6 +164,8 @@ def main():
     tier_key = TierName(args.tier)
     staging = args.out_dir or HF_DATASET_STAGING_ROOT
     data_dir = tier_dataset_dir(staging, tier_key)
+    if args.test:
+        data_dir = data_dir.parent / (data_dir.name + "_test")
 
     entries = make_entries(tier_key)
     nominal_total_min = sum(e.target_minutes for e in entries)
@@ -193,11 +200,10 @@ def main():
         for name in failed:
             print(f"  ✗ {name}")
 
-    aug_minutes = TEST_AUG_TOTAL_MINUTES if args.test else nominal_total_min
     print("\nRunning augmentation...")
     from augmentation import run_augmentation
 
-    run_augmentation(total_minutes=aug_minutes, data_dir=data_dir, test=args.test)
+    run_augmentation(tier_key, data_dir=data_dir, test=args.test)
 
     print("\nBuild complete.")
     print("=" * 60)
