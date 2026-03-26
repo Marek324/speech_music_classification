@@ -151,9 +151,12 @@ class MusicLabeler:
         pl.instantiate({"min_duration_on": 0.0, "min_duration_off": 0.0})
         self._pipeline: VoiceActivityDetection = pl
 
-    def label(self, audio: dict) -> Optional[list[dict[str, Any]]]:
+    def label(self, audio: Union[dict, np.ndarray]) -> Optional[list[dict[str, Any]]]:
         try:
-            wav = _wav_mono_16k_from_hf_dict(audio)
+            if isinstance(audio, np.ndarray):
+                wav = audio
+            else:
+                wav = _wav_mono_16k_from_hf_dict(audio)
         except Exception:
             return None
 

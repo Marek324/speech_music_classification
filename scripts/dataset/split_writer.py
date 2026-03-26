@@ -1,14 +1,12 @@
 """Parquet shards: ``{config_dir}/{split}/{modality}/part_*.parquet`` (LibriSpeech-style tier + HF splits)."""
 
 import io
-import json
 from pathlib import Path
 from typing import Any, Union
 
 import numpy as np
-import pyarrow as pa
-import pyarrow.parquet as pq
 import soundfile as sf
+from datasets import Audio
 from pydub import AudioSegment
 from torchcodec.decoders import AudioDecoder
 
@@ -49,31 +47,35 @@ class SplitWriter:
         self.base.mkdir(parents=True, exist_ok=True)
         self._shard_idx = len(list(self.base.glob("part_*.parquet")))
         self._rows: dict[str, list[Any]] = {
-            "audio_wav": [],
+            "audio": [],
             "sampling_rate": [],
             "class": [],
             "subclass": [],
             "source": [],
             "row_idx": [],
-            "labels_json": [],
+            "labels": [],
         }
 
     def _flush(self) -> None:
-        if not self._rows["audio_wav"]:
+        if not self._rows["audio"]:
             return
-        table = pa.table(
-            {
-                "audio_wav": pa.array(self._rows["audio_wav"], type=pa.binary()),
-                "sampling_rate": pa.array(self._rows["sampling_rate"], type=pa.int32()),
-                "class": pa.array(self._rows["class"], type=pa.string()),
-                "subclass": pa.array(self._rows["subclass"], type=pa.string()),
-                "source": pa.array(self._rows["source"], type=pa.string()),
-                "row_idx": pa.array(self._rows["row_idx"], type=pa.int64()),
-                "labels_json": pa.array(self._rows["labels_json"], type=pa.string()),
-            }
-        )
+        import datasets as hf
+        features = hf.Features({
+            "audio": Audio(sampling_rate=SR),
+            "sampling_rate": hf.Value("int32"),
+            "class": hf.Value("string"),
+            "subclass": hf.Value("string"),
+            "source": hf.Value("string"),
+            "row_idx": hf.Value("int64"),
+            "labels": hf.Sequence(hf.Features({
+                "label": hf.Value("string"),
+                "start": hf.Value("int32"),
+                "end": hf.Value("int32"),
+            })),
+        })
+        ds = hf.Dataset.from_dict(self._rows, features=features)
         path = self.base / f"part_{self._shard_idx:05d}.parquet"
-        pq.write_table(table, path)
+        ds.to_parquet(str(path))
         self._shard_idx += 1
         for k in self._rows:
             self._rows[k].clear()
@@ -91,12 +93,17 @@ class SplitWriter:
         subclass: str,
     ) -> None:
         wav_bytes = _audio_to_wav_bytes(audio)
-        self._rows["audio_wav"].append(wav_bytes)
+        self._rows["audio"].append({"bytes": wav_bytes, "path": None})
         self._rows["sampling_rate"].append(SR)
         self._rows["class"].append(cls)
         self._rows["subclass"].append(subclass)
         self._rows["source"].append(name)
         self._rows["row_idx"].append(idx)
-        self._rows["labels_json"].append(json.dumps(labels))
-        if len(self._rows["audio_wav"]) >= ROWS_PER_PARQUET_FILE:
+        # HF Sequence(Features) expects columnar dict-of-lists, not list-of-dicts
+        self._rows["labels"].append({
+            "label": [l["label"] for l in labels],
+            "start": [l["start"] for l in labels],
+            "end": [l["end"] for l in labels],
+        })
+        if len(self._rows["audio"]) >= ROWS_PER_PARQUET_FILE:
             self._flush()

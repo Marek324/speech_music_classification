@@ -12,10 +12,12 @@ Layout (LibriSpeech-like: **config** = tier, then HF splits, then modality):
 Run:
     uv run python build.py mid
     uv run python build.py mini --out-dir /path/to/staging
-    uv run python build.py mid --test    # one HF row per source + small augmentation
+    uv run python build.py mid --smoke    # one HF row per split per source + small augmentation
 """
 
 import argparse
+import os
+import shutil
 from pathlib import Path
 
 from augmentation import run_augmentation
@@ -49,17 +51,19 @@ def main():
         help=f"Hub staging parent (default: {HF_DATASET_STAGING_ROOT}); files go to <out-dir>/<tier>/…",
     )
     parser.add_argument(
-        "--test",
+        "--smoke",
         action="store_true",
-        help=f"Smoke test: ≤{1} HF row per source; small augmentation budget",
+        help="Smoke run: 1 HF row per split per source; small augmentation budget",
     )
     args = parser.parse_args()
 
     tier_key = TierName(args.tier)
     staging = args.out_dir or HF_DATASET_STAGING_ROOT
     data_dir = tier_dataset_dir(staging, tier_key)
-    if args.test:
-        data_dir = data_dir.parent / (data_dir.name + "_test")
+    if args.smoke:
+        data_dir = data_dir.parent / (data_dir.name + "_smoke")
+        if data_dir.exists():
+            shutil.rmtree(data_dir)
 
     entries = make_entries(tier_key)
     nominal_total_min = sum(e.target_minutes for e in entries)
@@ -68,7 +72,7 @@ def main():
     m_inact = sum(e.target_minutes for e in entries if e.cls == "inactive")
 
     print("=" * 60)
-    mode = "TEST (1 row/source)" if args.test else "full"
+    mode = "SMOKE (1 row/source)" if args.smoke else "full"
     print(f"Dataset build  [{args.tier}]  {mode}  →  {nominal_total_min:.0f} min nominal target")
     print(f"Output  : {data_dir.resolve()}")
     print(f"Sources : {len(entries)}")
@@ -83,7 +87,7 @@ def main():
     fractions = TIER_SPLIT_FRACTIONS[tier_key]
     failed, succeeded = [], []
     for entry in entries:
-        ok = process_source(entry, writers, split_fractions=fractions, test=args.test)
+        ok = process_source(entry, writers, split_fractions=fractions, smoke=args.smoke)
         (succeeded if ok else failed).append(entry.display_name)
 
     for w in writers.values():
@@ -96,10 +100,15 @@ def main():
             print(f"  ✗ {name}")
 
     print("\nRunning augmentation...")
-    run_augmentation(tier_key, data_dir=data_dir, split_fractions=fractions, test=args.test)
+    run_augmentation(tier_key, data_dir=data_dir, split_fractions=fractions, smoke=args.smoke)
 
     print("\nBuild complete.")
     print("=" * 60)
+    # HF datasets streaming leaves background threads alive; Python's GIL
+    # teardown ABORTs (exit 134) when those threads release thread-state after
+    # the interpreter has already started finalizing.  os._exit skips the
+    # problematic cleanup path while still flushing stdio.
+    os._exit(0)
 
 
 if __name__ == "__main__":

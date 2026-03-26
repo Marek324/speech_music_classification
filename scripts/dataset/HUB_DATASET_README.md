@@ -9,28 +9,28 @@ tags:
 configs:
   - config_name: full
     data_files:
-      train:
-        - full/train/**/*.parquet
-      validation:
-        - full/validation/**/*.parquet
-      test:
-        - full/test/**/*.parquet
+      - split: train
+        path: full/train/**/*.parquet
+      - split: validation
+        path: full/validation/**/*.parquet
+      - split: test
+        path: full/test/**/*.parquet
   - config_name: mid
     data_files:
-      train:
-        - mid/train/**/*.parquet
-      validation:
-        - mid/validation/**/*.parquet
-      test:
-        - mid/test/**/*.parquet
+      - split: train
+        path: mid/train/**/*.parquet
+      - split: validation
+        path: mid/validation/**/*.parquet
+      - split: test
+        path: mid/test/**/*.parquet
   - config_name: mini
     data_files:
-      train:
-        - mini/train/**/*.parquet
-      validation:
-        - mini/validation/**/*.parquet
-      test:
-        - mini/test/**/*.parquet
+      - split: train
+        path: mini/train/**/*.parquet
+      - split: validation
+        path: mini/validation/**/*.parquet
+      - split: test
+        path: mini/test/**/*.parquet
 ---
 
 ## Structure
@@ -51,7 +51,7 @@ After `uv run python build.py {mini|mid|full}` for each tier (same `--out-dir` s
       ...
 ```
 
-Parquet columns: `audio_wav`, `sampling_rate`, `class`, `subclass`, `source`, `row_idx`, `labels_json`.
+Parquet columns: `audio` (HF Audio struct), `sampling_rate`, `class`, `subclass`, `source`, `row_idx`, `labels` (list of `{label, start, end}` in ms).
 
 ## Upload
 

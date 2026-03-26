@@ -15,14 +15,17 @@ from tqdm import tqdm
 
 from labeling import SR, VADLabeler
 from source_config import (
+    AUGMENT_MUSIC_GENRES,
     FMA_GENRE_MAP,
-    FMA_GENRES,
     FMA_HF_ID,
     MUSIC_POOL_SIZE,
     MUSIC_RELATIVE_DB,
+    NOISE_SNR_RANGE_DB,
     RAND_SEED,
     TierName,
+    NoiseAugEntry,
     augment_entries,
+    noise_aug_entries,
     seed_all,
 )
 from split_writer import SplitWriter
@@ -53,11 +56,11 @@ def pydub_to_numpy(seg: AudioSegment) -> np.ndarray:
     return arr
 
 
-def build_music_pool(pool_size: int) -> list[np.ndarray]:
-    print(f"Building music pool ({pool_size} clips, {len(FMA_GENRES)} genres)...")
-    per_genre = max(1, pool_size // len(FMA_GENRES))
+def build_music_pool(pool_size: int, genres: tuple[str, ...]) -> list[np.ndarray]:
+    print(f"Building music pool ({pool_size} clips, {len(genres)} genres: {', '.join(genres)})...")
+    per_genre = max(1, pool_size // len(genres))
     pool: list[np.ndarray] = []
-    for genre in FMA_GENRES:
+    for genre in genres:
         genre_val = FMA_GENRE_MAP[genre]
         ds = load_dataset(FMA_HF_ID, split="train", streaming=True).cast_column(
             "audio", Audio(decode=False)
@@ -85,6 +88,27 @@ def build_music_pool(pool_size: int) -> list[np.ndarray]:
     return pool
 
 
+def mix_with_noise(speech: np.ndarray, noise: np.ndarray, snr_db: float, rng: random.Random) -> np.ndarray:
+    if len(noise) == 0:
+        return speech.copy()
+    if len(noise) > len(speech):
+        offset = rng.randint(0, len(noise) - len(speech))
+        noise = noise[offset:offset + len(speech)]
+    else:
+        repeats = -(-len(speech) // len(noise))
+        noise = np.tile(noise, repeats)[:len(speech)]
+    noise_rms_val = rms(noise)
+    if noise_rms_val < 1e-9:
+        return speech.copy()
+    target_noise_rms = rms(speech) / (10 ** (snr_db / 20))
+    noise_scaled = noise * (target_noise_rms / noise_rms_val)
+    mixed = speech + noise_scaled
+    peak = np.max(np.abs(mixed))
+    if peak > 1.0:
+        mixed /= peak
+    return mixed.astype(np.float32)
+
+
 def collect_speech_refs(subclass: str, data_dir: Path) -> dict[str, list[tuple[Path, int]]]:
     """Row refs under ``{config_dir}/{split}/speech/`` (same layout as ``SplitWriter``)."""
     result: dict[str, list[tuple[Path, int]]] = {
@@ -107,18 +131,96 @@ def collect_speech_refs(subclass: str, data_dir: Path) -> dict[str, list[tuple[P
     return result
 
 
+def collect_noise_refs(data_dir: Path) -> dict[str, list[tuple[Path, int]]]:
+    """Row refs under ``{config_dir}/{split}/inactive/``."""
+    result: dict[str, list[tuple[Path, int]]] = {"train": [], "validation": [], "test": []}
+    for split in result:
+        root = data_dir / split / "inactive"
+        if not root.exists():
+            continue
+        for path in sorted(root.glob("part_*.parquet")):
+            t = pq.read_table(path, columns=["row_idx"])
+            for i in range(len(t)):
+                result[split].append((path, i))
+    for split, refs in result.items():
+        print(f"  noise/{split}: {len(refs)} clips")
+    return result
+
+
 def _read_wav_from_parquet(
     path: Path, row_idx: int, table_cache: dict[Path, pa.Table]
 ) -> np.ndarray:
     if path not in table_cache:
-        table_cache[path] = pq.read_table(path, columns=["audio_wav"])
+        table_cache[path] = pq.read_table(path, columns=["audio"])
     t = table_cache[path]
-    raw = t["audio_wav"][row_idx].as_py()
+    raw = t["audio"][row_idx].as_py()["bytes"]
     bio = io.BytesIO(raw)
     arr, _ = sf.read(bio, dtype="float32", always_2d=False)
     if arr.ndim > 1:
         arr = arr.mean(axis=1)
     return arr
+
+
+def _read_labels_from_parquet(
+    path: Path, row_idx: int, labels_cache: dict[Path, pa.Table]
+) -> list[dict]:
+    if path not in labels_cache:
+        labels_cache[path] = pq.read_table(path, columns=["labels"])
+    t = labels_cache[path]
+    # HF Sequence(Features) stores as struct-of-lists: {"label": [...], "start": [...], "end": [...]}
+    raw = t["labels"][row_idx].as_py()
+    return [{"label": l, "start": s, "end": e} for l, s, e in zip(raw["label"], raw["start"], raw["end"])]
+
+
+def generate_noisy_speech(
+    entry: NoiseAugEntry,
+    speech_refs: dict[str, list[tuple[Path, int]]],
+    noise_refs: dict[str, list[tuple[Path, int]]],
+    data_dir: Path,
+    split_fractions: dict[str, float],
+    smoke: bool = False,
+) -> None:
+    split_targets_min = {split: entry.target_minutes * frac for split, frac in split_fractions.items()}
+    rng = random.Random(RAND_SEED)
+    audio_cache: dict[Path, pa.Table] = {}
+    labels_cache: dict[Path, pa.Table] = {}
+
+    print(f"\n{'─' * 60}")
+    print(f"  Generating {entry.output_subclass}  (target {entry.target_minutes:.2f} min, SNR {NOISE_SNR_RANGE_DB[0]:.0f}–{NOISE_SNR_RANGE_DB[1]:.0f} dB)")
+    print(f"{'─' * 60}")
+
+    global_idx = 0
+    for split, split_target_min in split_targets_min.items():
+        available_speech = speech_refs.get(split, [])
+        available_noise = noise_refs.get(split, [])
+        if not available_speech:
+            print(f"  [WARN] No speech clips in {split}/speech/ — skipping")
+            continue
+        if not available_noise:
+            print(f"  [WARN] No noise clips in {split}/inactive/ — skipping")
+            continue
+
+        writer = SplitWriter("speech", split, data_dir)
+        accumulated_min = 0.0
+        shuffled = rng.sample(available_speech, len(available_speech))
+
+        for path, row_idx in itertools.cycle(shuffled):
+            speech_arr = _read_wav_from_parquet(path, row_idx, audio_cache)
+            labels = _read_labels_from_parquet(path, row_idx, labels_cache)
+            noise_path, noise_row_idx = rng.choice(available_noise)
+            noise_arr = _read_wav_from_parquet(noise_path, noise_row_idx, audio_cache)
+            snr_db = rng.uniform(*NOISE_SNR_RANGE_DB)
+            mixed = mix_with_noise(speech_arr, noise_arr, snr_db, rng)
+            writer.write(mixed, labels, f"augmented_{entry.output_subclass}", global_idx, "speech", entry.output_subclass)
+            accumulated_min += (len(mixed) / SR) / 60.0
+            global_idx += 1
+            if smoke or accumulated_min >= split_target_min:
+                break
+
+        writer.close()
+        print(f"  {split}: {accumulated_min:.2f} min  (target {split_target_min:.2f} min)")
+
+    print(f"  Done: {entry.output_subclass}")
 
 
 def generate_synthetic(
@@ -129,6 +231,7 @@ def generate_synthetic(
     vad: VADLabeler,
     data_dir: Path,
     split_fractions: dict[str, float],
+    smoke: bool = False,
 ):
     split_targets_min = {
         split: target_minutes * frac
@@ -166,7 +269,7 @@ def generate_synthetic(
             )
             accumulated_min += (len(mixed) / SR) / 60.0
             global_idx += 1
-            if accumulated_min >= split_target_min:
+            if smoke or accumulated_min >= split_target_min:
                 break
 
         writer.close()
@@ -177,41 +280,50 @@ def generate_synthetic(
     print(f"  Done: {subclass_out}")
 
 
-def run_augmentation(tier: TierName, data_dir: Path, *, split_fractions: dict[str, float], test: bool = False) -> None:
+def run_augmentation(tier: TierName, data_dir: Path, *, split_fractions: dict[str, float], smoke: bool = False) -> None:
     seed_all()
 
-    entries = augment_entries(tier, test=test)
-    total_aug_min = sum(e.target_minutes for e in entries)
+    music_entries = augment_entries(tier, smoke=smoke)
+    n_entries = noise_aug_entries(tier, smoke=smoke)
+    total_aug_min = sum(e.target_minutes for e in music_entries) + sum(e.target_minutes for e in n_entries)
 
     print("\n" + "=" * 60)
-    print(
-        f"Augmentation  [{tier.value}]  {total_aug_min:.2f} min synthetic target  →  {data_dir}"
-    )
+    print(f"Augmentation  [{tier.value}]  {total_aug_min:.2f} min synthetic target  →  {data_dir}")
     print("=" * 60)
 
-    print("\nLoading VAD model...")
-    vad = VADLabeler()
-    if test:
-        pool_size = 12
-    else:
-        pool_size = max(12, min(MUSIC_POOL_SIZE, int(total_aug_min / 6)))
-    music_pool = build_music_pool(pool_size)
+    # ── speech-over-music (speech_som, speech_msom) ──
+    if music_entries:
+        print("\nLoading VAD model...")
+        vad = VADLabeler()
+        genres = AUGMENT_MUSIC_GENRES[tier]
+        music_total = sum(e.target_minutes for e in music_entries)
+        if smoke:
+            pool_size = max(len(genres), 12)
+        else:
+            pool_size = max(len(genres), min(MUSIC_POOL_SIZE, int(music_total / 6)))
+        music_pool = build_music_pool(pool_size, genres)
 
-    for e in entries:
-        print(f"\nCollecting {e.speech_subclass} for {e.output_subclass}...")
-        speech_refs = collect_speech_refs(e.speech_subclass, data_dir)
-        has_any = any(refs for refs in speech_refs.values())
-        if not has_any:
-            print("  [SKIP] No base speech clips found — run build.py first")
-            continue
-        generate_synthetic(
-            e.output_subclass,
-            speech_refs,
-            music_pool,
-            e.target_minutes,
-            vad,
-            data_dir,
-            split_fractions,
-        )
+        for e in music_entries:
+            print(f"\nCollecting {e.speech_subclass} for {e.output_subclass}...")
+            speech_refs = collect_speech_refs(e.speech_subclass, data_dir)
+            if not any(refs for refs in speech_refs.values()):
+                print("  [SKIP] No base speech clips found — run build.py first")
+                continue
+            generate_synthetic(e.output_subclass, speech_refs, music_pool, e.target_minutes, vad, data_dir, split_fractions, smoke=smoke)
+
+    # ── speech-over-noise (speech_noisy) ──
+    if n_entries:
+        print("\nCollecting noise clips...")
+        noise_refs = collect_noise_refs(data_dir)
+        if not any(refs for refs in noise_refs.values()):
+            print("  [SKIP] No inactive clips found — run build.py first")
+        else:
+            for e in n_entries:
+                print(f"\nCollecting {e.speech_subclass} for {e.output_subclass}...")
+                speech_refs = collect_speech_refs(e.speech_subclass, data_dir)
+                if not any(refs for refs in speech_refs.values()):
+                    print("  [SKIP] No base speech clips found — run build.py first")
+                    continue
+                generate_noisy_speech(e, speech_refs, noise_refs, data_dir, split_fractions, smoke=smoke)
 
     print("\nAugmentation complete.")

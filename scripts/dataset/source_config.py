@@ -36,10 +36,10 @@ def seed_all() -> None:
         torch.cuda.manual_seed_all(RAND_SEED)
 
 
-# --test: at most this many HF rows read per source
-TEST_SOURCE_MAX_ROWS = 1
-# --test: each augmented recipe targets this many minutes (like TEST for base sources)
-TEST_AUG_TARGET_MINUTES = 0.1
+# --smoke: at most this many HF rows read per source (1 per split: train/validation/test)
+SMOKE_SOURCE_MAX_ROWS = 3
+# --smoke: each augmented recipe targets this many minutes
+SMOKE_AUG_TARGET_MINUTES = 0.1
 
 # ── speech-over-music augmentation (see augmentation.py) ──
 
@@ -55,6 +55,14 @@ FMA_GENRES: tuple[str, ...] = (
     "Pop",
     "Rock",
 )
+
+# Per-tier genres used for the augmentation music pool.
+# Mini uses only Pop to match its base music source; mid/full use all genres.
+AUGMENT_MUSIC_GENRES: dict[TierName, tuple[str, ...]] = {
+    TierName.mini: ("Pop",),
+    TierName.mid: FMA_GENRES,
+    TierName.full: FMA_GENRES,
+}
 FMA_GENRE_MAP: dict[str, int] = {
     "Electronic": 0,
     "Folk": 2,
@@ -100,11 +108,46 @@ AUGMENT_SOURCES: Dict[TierName, tuple[AugmentEntry, ...]] = {
 }
 
 
-def augment_entries(tier: TierName, *, test: bool = False) -> list[AugmentEntry]:
-    """Copy of tier recipes; ``test=True`` uses ``TEST_AUG_TARGET_MINUTES`` per recipe (smoke)."""
+def augment_entries(tier: TierName, *, smoke: bool = False) -> list[AugmentEntry]:
+    """Copy of tier recipes; ``smoke=True`` uses ``SMOKE_AUG_TARGET_MINUTES`` per recipe."""
     entries = list(AUGMENT_SOURCES[tier])
-    if test:
-        return [replace(e, target_minutes=TEST_AUG_TARGET_MINUTES) for e in entries]
+    if smoke:
+        return [replace(e, target_minutes=SMOKE_AUG_TARGET_MINUTES) for e in entries]
+    return entries
+
+
+# ── speech-over-noise augmentation ──
+
+# Speech-to-noise ratio range in dB (speech louder than noise).
+# 5 dB = audibly noisy, 20 dB = lightly noisy.
+NOISE_SNR_RANGE_DB: tuple[float, float] = (5.0, 20.0)
+
+
+@dataclass(frozen=True)
+class NoiseAugEntry:
+    """Synthetic noisy-speech recipe: mix ``speech_subclass`` clips with inactive noise."""
+
+    speech_subclass: str
+    target_minutes: float
+    output_subclass: str = "speech_noisy"
+
+
+NOISE_AUG_SOURCES: Dict[TierName, tuple[NoiseAugEntry, ...]] = {
+    TierName.mini: (),
+    TierName.mid: (
+        NoiseAugEntry("speech_clean", 96.0),
+    ),
+    TierName.full: (
+        NoiseAugEntry("speech_clean", 960.0),
+    ),
+}
+
+
+def noise_aug_entries(tier: TierName, *, smoke: bool = False) -> list[NoiseAugEntry]:
+    """Copy of tier noise recipes; ``smoke=True`` uses ``SMOKE_AUG_TARGET_MINUTES``."""
+    entries = list(NOISE_AUG_SOURCES[tier])
+    if smoke:
+        return [replace(e, target_minutes=SMOKE_AUG_TARGET_MINUTES) for e in entries]
     return entries
 
 
@@ -146,11 +189,17 @@ class SourceEntry:
         elif self.detector == "music":
             avg_s = 25.0
         else:
-            avg_s = 15.0
+            # Silence/noise clips (e.g. DEMAND) are often several minutes long;
+            # use a conservative 60 s estimate so we don't over-fetch.
+            avg_s = 60.0
         target_s = self.target_minutes * 60.0
         n = int(target_s / avg_s * 2) + 1
         if target_s < 90:
             return max(3, n)
+        # Silence sources have large per-row payloads; a lower floor avoids
+        # buffering gigabytes just to reach the target.
+        if self.detector == "silence":
+            return max(10, n)
         return max(100, n)
 
     def hf_load_kwargs(self) -> Dict[str, Any]:
