@@ -16,3 +16,5 @@ wandb/
 
 weights/
 cache/
+
+speech_music_dataset/

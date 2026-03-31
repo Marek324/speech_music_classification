@@ -121,11 +121,11 @@ def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch
     return total_loss / max(n_batches, 1)
 
 
-def _validation_loss(model, loss_fn, ds_link: str, revision: str | None = None) -> float:
+def _validation_loss(model, loss_fn, ds_link: str, name: str = "full") -> float:
     """Compute mean BCE loss on validation split (no gradient)."""
     device = next(model.parameters()).device
     model.eval()
-    ds = get_tcn_dataset(ds_link, "validation", revision=revision)
+    ds = get_tcn_dataset(ds_link, "validation", name=name)
     total_loss = 0.0
     n_batches = 0
     with torch.no_grad():
@@ -167,9 +167,13 @@ def train_tcn(
     ds_url = cfg["dataset"]["url"]
     ds_rev = cfg["dataset"].get("revision")
 
+    train_cfg = cfg["dataset"]["train"]
+    eval_cfg = cfg["dataset"]["eval"]
+
     if not stats_path.exists():
         compute_and_save_preprocess_stats(
-            ds_link=ds_url,
+            ds_link=train_cfg["url"],
+            name=train_cfg["name"],
             max_rows=max_train_rows,
             stats_path=stats_path,
             revision=ds_rev,
@@ -188,8 +192,9 @@ def train_tcn(
     if use_wandb:
         wandb_init(config={"model": "tcn", "epochs": epochs, "patience": patience, **cfg})
 
-    ds = get_tcn_dataset(ds_url, "train", revision=ds_rev)
-    ds_link = ds_url
+    ds = get_tcn_dataset(train_cfg["url"], "train", name=train_cfg["name"])
+    ds_link = eval_cfg["url"]
+    eval_name = eval_cfg["name"]
 
     best_val_loss = float("inf")
     best_state = None
@@ -199,7 +204,7 @@ def train_tcn(
         loss = _train_epoch(model, optimizer, loss_fn, ds, cfg, max_train_rows, ep + 1)
         metrics = {"train/loss": loss, "epoch": ep + 1}
 
-        val_loss = _validation_loss(model, loss_fn, ds_link, revision=ds_rev)
+        val_loss = _validation_loss(model, loss_fn, ds_link, name=eval_name)
         current_lr = optimizer.param_groups[0]["lr"]
         log.info(
             "Epoch %d train loss: %.4f validation loss: %.4f lr: %.2e",

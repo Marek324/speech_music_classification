@@ -101,11 +101,19 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `upload_artifacts.py` | Uploads `weights/` and `cache/` to `Marek324/butfit-bp-artifacts` on HF |
 | `download_artifacts.py` | Downloads `weights/` and `cache/` from HF (run after cloning) |
 
-### Dataset scripts (`dataset_scripts/`) — uv subproject
+### Dataset scripts (`scripts/dataset/`) — uv subproject
 | File | Purpose |
 |------|---------|
-| `build.py` | Builds and uploads the HF dataset |
-| `augment_over_music.py` | Generates speech-over-music augmented samples |
+| `build.py` | CLI entry point: parses args, orchestrates sources → augmentation |
+| `dataloader.py` | `load_source()` — streams and filters a HF dataset for one `SourceEntry` |
+| `process.py` | `process_source()` — labels and writes one source to parquet shards |
+| `sources.py` | `SOURCES` dict — per-tier `SourceEntry` list with target minutes; `make_entries()` |
+| `source_config.py` | `SourceEntry` / `TierConfig` dataclasses; `AUGMENT_SOURCES` per tier; FMA config |
+| `augmentation.py` | Speech-over-music mixes — reads base speech parquet, mixes with FMA pool, writes synthetic clips |
+| `labeling.py` | `VADLabeler`, `MusicLabeler`, `SilenceLabeler` — produce frame-level labels for each clip |
+| `split_writer.py` | LibriSpeech-style path: `{staging}/{mini\|mid\|full}/{train\|validation\|test}/{speech\|music\|inactive}/part_*.parquet` |
+| `notes.md` | Dataset spec: tier totals, subclass targets per tier |
+| `HUB_DATASET_README.md` | Template Hub card (configs `full` first, then `mid`, `mini`) — copy to repo `README.md` before upload |
 
 ## Paper vs Implementation Differences
 

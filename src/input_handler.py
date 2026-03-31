@@ -54,7 +54,7 @@ class InputHandler:
         feat_extractor: FeatExtractor,
         ds_link: str = "",
         ds_split: str = "train",
-        ds_revision: str = "main",
+        ds_revision: str = "main"
     ):
         if mode not in ("dataset", "microphone"):
             raise ValueError(f"Invalid mode: {mode}")
@@ -98,7 +98,7 @@ class InputHandler:
         return cache_dir / f"{self._cache_key(ds_link, ds_split, ds_revision)}.npz"
 
     def _init_dataset_mode(
-        self, ds_link: str, ds_split: str, ds_revision: str
+            self, ds_link: str, ds_split: str, ds_revision: str
     ) -> None:
         if not ds_link:
             raise ValueError("Dataset mode requires ds_link")
@@ -184,7 +184,15 @@ class InputHandler:
 
         cls_name = row["class"]
         subclass = row["subclass"]
-        labels = row["labels"]
+        labels_raw = row["labels"] or []
+        if isinstance(labels_raw, dict):
+            keys = list(labels_raw.keys())
+            labels = [
+                {k: labels_raw[k][i] for k in keys}
+                for i in range(len(labels_raw[keys[0]]))
+            ]
+        else:
+            labels = labels_raw
 
         feats, labels_out, subclasses_out = [], [], []
         frame_start = 0

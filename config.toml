@@ -2,9 +2,17 @@ sample_rate = 16000
 channels = 1
 n_fft = 512
 
-[dataset]
+[dataset.train]
 url = "Marek324/speech-music-classification"
-revision = "full"
+name = "full"
+
+[dataset.eval]
+url = "Marek324/speech-music-classification"
+name = "full"
+
+[dataset.stats]
+url = "Marek324/speech-music-classification"
+name = "full"
 
 [wandb]
 project = "Speech Music Classification"
