@@ -40,10 +40,10 @@ def _timestamps_to_frame_labels(labels_list, n_frames, sample_rate, hop_length) 
     return frame_labels
 
 
-def get_tcn_dataset(ds_link: str, split: str):
+def get_tcn_dataset(ds_link: str, split: str, name: str = "full"):
     """Load HF dataset once. Resample to TCN sample_rate."""
     cfg = get_config()
-    return load_dataset(ds_link, split=split).cast_column(
+    return load_dataset(ds_link, name=name, split=split).cast_column(
         "audio",
         Audio(sampling_rate=cfg["sample_rate"], num_channels=1),
     )
@@ -79,7 +79,16 @@ def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = Fa
         if n_frames < 1:
             continue
 
-        labels_list = row.get("labels") or []
+        labels_raw = row.get("labels") or []
+        # Normalize dict-of-lists → list-of-dicts
+        if isinstance(labels_raw, dict):
+            keys = list(labels_raw.keys())
+            labels_list = [
+                {k: labels_raw[k][i] for k in keys}
+                for i in range(len(labels_raw[keys[0]]))
+            ]
+        else:
+            labels_list = labels_raw
         if labels_list:
             frame_labels = _timestamps_to_frame_labels(labels_list, n_frames, sr, hop)
             targets = torch.zeros(3, n_frames, dtype=torch.float32)
@@ -100,9 +109,10 @@ def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = Fa
 
 
 def load_tcn_dataset(
-    ds_link: str, split: str, max_rows: int | None = None, yield_subclass: bool = False
+    ds_link: str, split: str, max_rows: int | None = None, yield_subclass: bool = False,
+    name: str = "full",
 ):
     """Load HF dataset, yield (waveform, targets) or (waveform, targets, subclass) per row.
     max_rows=None loads full dataset."""
-    ds = get_tcn_dataset(ds_link, split)
+    ds = get_tcn_dataset(ds_link, split, name=name)
     yield from iter_tcn_rows(ds, max_rows, f"Loading {split}", yield_subclass=yield_subclass)

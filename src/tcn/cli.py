@@ -105,8 +105,9 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
     y_true_list, y_pred_list, subclasses_list = [], [], []
     total_frames = 0
     t0 = time.perf_counter_ns()
+    eval_cfg = cfg["dataset"]["eval"]
     for wav, targets, subclass in load_tcn_dataset(
-        cfg["dataset"]["eval"], "test", max_rows=max_rows, yield_subclass=True
+        eval_cfg["url"], "test", max_rows=max_rows, yield_subclass=True, name=eval_cfg["name"]
     ):
         with torch.no_grad():
             wav = wav.to(device)

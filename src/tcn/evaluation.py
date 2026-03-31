@@ -32,7 +32,7 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
 
     validate_preprocess_stats()
 
-    ds_link = cfg["dataset"]["eval"]
+    eval_cfg = cfg["dataset"]["eval"]
 
     model = SpeechMusicDetector(sample_rate=sr)
     from safetensors.torch import load_file
@@ -50,7 +50,7 @@ def get_predictions() -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
     t0 = time.perf_counter_ns()
     total_frames = 0
     for wav, targets, subclass in load_tcn_dataset(
-        ds_link, "test", yield_subclass=True
+        eval_cfg["url"], "test", yield_subclass=True, name=eval_cfg["name"]
     ):
         with torch.no_grad():
             wav = wav.to(device)

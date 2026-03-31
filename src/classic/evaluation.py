@@ -26,13 +26,14 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     model.load()
 
     cfg = config.get_config()
-    ds_link = cfg["dataset"]["eval"]
+    eval_cfg = cfg["dataset"]["eval"]
     fe = FeatExtractor()
     ih = InputHandler(
         mode="dataset",
         feat_extractor=fe,
-        ds_link=ds_link,
+        ds_link=eval_cfg["url"],
         ds_split="test",
+        ds_revision=eval_cfg["revision"],
     )
 
     X = ih.getX()
