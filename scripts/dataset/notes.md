@@ -1,12 +1,10 @@
 # Speech-Music classification dataset
+
+> **Note**: All minute counts in this file are *targets*. Actual minutes written per subclass/split
+> depend on how much data is available from each HF source. After a build, the summary table printed
+> by `build.py` shows actual vs target per subclass and flags any subclass with 0 minutes in val/test.
+
 ## Splits
-### Mini Tier
-Total time: 13 minutes
-| Split | % | Minutes |
-| --- | --- | --- |
-| Train | 70 | 9.1  |
-| Val   | 15 | 1.95 |
-| Test  | 15 | 1.95 |
 
 ### Mid Tier
 Total time: 1200 min (20 hours)
@@ -17,30 +15,30 @@ Total time: 1200 min (20 hours)
 | Test  | 10 | 120    |
 
 ### Full Tier
-Total time: 12000 min (200 hours)
+Total time: 6000 min (100 hours)
 | Split | %  | Minutes |
 |------ |----|---------|
-| Train | 84 | 10080  |
-| Val   | 8  | 960    |
-| Test  | 8  | 960    |
-
+| Train | 84 | 5040   |
+| Val   | 8  | 480    |
+| Test  | 8  | 480    |
 
 ## Subclasses
-| Subclass | %  | Mini | Mid | Full |
-| --- | --- | --- | --- | --- |
-| **Speech** | 40*  | 6   | 480  | 4800  |
-| Clean      | 40  | 5   | 192  | 1920  |
-| Dirty      | 20  | —   | 96   | 960   |
-| Noisy      | 20  | —   | 96   | 960   |
-| Multispeaker | 7.5 | — | 36   | 360   |
-| SoM\*\*\* (Speech over Music) | 7.5 | 1 | 36 | 360 |
-| MSoM\*\*\* (Multi-Speaker over Music) | 5 | — | 24 | 240 |
-| **Music** | 40* | 5 | 480 | 4800 |
-| Each FMA genre (×6) | — | — | 72 | 750 |
-| Acapella | — | — | 48 | 300 |
-| Pop (mini) | — | 5 | — | — |
-| **Inactive** | 20* | 2 | 240 | 2400 |
+| Subclass | %  | Mid | Full |
+| --- | --- | --- | --- |
+| **Speech** | 40*  | 480  | 2400  |
+| Clean      | 40  | 192  | 960   |
+| Dirty      | 20  | 96   | 480   |
+| Noisy**    | 20  | 96   | 480   |
+| Multispeaker** (LibriMix-style) | 7.5 | 36  | 180   |
+| SoM** (Speech over Music) | 7.5 | 36 | 180 |
+| MSoM** (Multi-Speaker over Music) | 5 | 24 | 120 |
+| **Music** | 40* | 480 | 2400 |
+| Each FMA genre (×6) | — | 72 | 375 |
+| Acapella | — | 48 | 150 |
+| **Inactive** | 20* | 240 | 1200 |
 
-\* % in whole dataset
-\*\* Music genres: Instrumental, Electronic, Pop, Rock, Acapella, Hip-Hop, Folk
-\*\*\* Augmented subclasses: Speech over Music, Multi-Speaker over Music
+\* % of whole dataset
+\*\* Augmented subclasses (synthetic): Multispeaker mixes pairs of speech_clean clips;
+SoM/MSoM mix speech with FMA music; Noisy mixes speech with DEMAND noise.
+
+Music genres: Instrumental, Electronic, Pop, Rock, Hip-Hop, Folk (+ Acapella separate).

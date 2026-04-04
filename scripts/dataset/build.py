@@ -5,13 +5,13 @@ accept https://hf.co/pyannote/voice-activity-detection .
 
 Layout (LibriSpeech-like: **config** = tier, then HF splits, then modality):
 
-  ``{staging}/{mini|mid|full}/{train|validation|test}/{speech|music|inactive}/part_*.parquet``
+  ``{staging}/{mid|full}/{train|validation|test}/{speech|music|inactive}/part_*.parquet``
 
 ``--out-dir`` is the **staging parent** (default ``speech_music_dataset``); each run writes only its tier subfolder.
 
 Run:
     uv run python build.py mid
-    uv run python build.py mini --out-dir /path/to/staging
+    uv run python build.py full --out-dir /path/to/staging
     uv run python build.py mid --smoke    # one HF row per split per source + small augmentation
 """
 
@@ -23,14 +23,17 @@ from pathlib import Path
 from augmentation import run_augmentation
 from process import process_source
 from source_config import (
+    AUGMENT_SOURCES,
     HF_DATASET_STAGING_ROOT,
     HF_SPLIT_NAMES,
+    MULTISPEAKER_AUG_SOURCES,
+    NOISE_AUG_SOURCES,
     TIER_SPLIT_FRACTIONS,
     TierName,
     seed_all,
     tier_dataset_dir,
 )
-from sources import TIER_TOTAL_MINUTES, make_entries
+from source_config import TIER_TOTAL_MINUTES, make_entries
 from split_writer import SplitWriter
 
 
@@ -85,22 +88,82 @@ def main():
     }
 
     fractions = TIER_SPLIT_FRACTIONS[tier_key]
-    failed, succeeded = [], []
+    failed = []
+    # (subclass, target_min, {split: (minutes, rows)})
+    source_stats: list[tuple[str, float, dict[str, tuple[float, int]]]] = []
     for entry in entries:
-        ok = process_source(entry, writers, split_fractions=fractions, smoke=args.smoke)
-        (succeeded if ok else failed).append(entry.display_name)
+        result = process_source(entry, writers, split_fractions=fractions, smoke=args.smoke)
+        if result is None:
+            failed.append(entry.display_name)
+        else:
+            source_stats.append((entry.metadata_subclass, entry.target_minutes, result))
 
     for w in writers.values():
         w.close()
 
     print("\n" + "=" * 60)
-    print(f"Base sources: {len(succeeded)} OK, {len(failed)} FAILED")
+    print(f"Base sources: {len(source_stats)} OK, {len(failed)} FAILED")
     if failed:
         for name in failed:
             print(f"  ✗ {name}")
 
     print("\nRunning augmentation...")
-    run_augmentation(tier_key, data_dir=data_dir, split_fractions=fractions, smoke=args.smoke)
+    aug_stats = run_augmentation(tier_key, data_dir=data_dir, split_fractions=fractions, smoke=args.smoke)
+
+    # ── Summary table: targets vs actuals per subclass/split ──
+    aug_targets: dict[str, float] = {}
+    for e in (
+        list(MULTISPEAKER_AUG_SOURCES.get(tier_key, ()))
+        + list(AUGMENT_SOURCES.get(tier_key, ()))
+        + list(NOISE_AUG_SOURCES.get(tier_key, ()))
+    ):
+        aug_targets[e.output_subclass] = e.target_minutes
+
+    def _fmt(minutes: float, rows: int) -> str:
+        return f"{minutes:.2f} ({rows})"
+
+    col_w = 26
+    cell_w = 14
+    print("\n" + "=" * 60)
+    print("Summary: actual minutes (rows) written")
+    print(f"{'Subclass':<{col_w}} {'Target':>8}  {'Train':<{cell_w}}  {'Val':<{cell_w}}  {'Test':<{cell_w}}")
+    sep = "─" * (col_w + 8 + 3 * (cell_w + 2) + 4)
+    print(sep)
+    warnings = []
+    for subclass, target, splits in source_stats:
+        train_m, train_r = splits.get("train", (0.0, 0))
+        val_m, val_r = splits.get("validation", (0.0, 0))
+        test_m, test_r = splits.get("test", (0.0, 0))
+        flag = "  ⚠" if (val_r == 0 or test_r == 0) else ""
+        print(f"  {subclass:<{col_w - 2}} {target:>8.1f}  {_fmt(train_m, train_r):<{cell_w}}  {_fmt(val_m, val_r):<{cell_w}}  {_fmt(test_m, test_r):<{cell_w}}{flag}")
+        if flag:
+            warnings.append(subclass)
+    for subclass, splits in aug_stats.items():
+        target = aug_targets.get(subclass, 0.0)
+        train_m, train_r = splits.get("train", (0.0, 0))
+        val_m, val_r = splits.get("validation", (0.0, 0))
+        test_m, test_r = splits.get("test", (0.0, 0))
+        flag = "  ⚠" if (val_r == 0 or test_r == 0) else ""
+        print(f"  {subclass:<{col_w - 2}} {target:>8.1f}  {_fmt(train_m, train_r):<{cell_w}}  {_fmt(val_m, val_r):<{cell_w}}  {_fmt(test_m, test_r):<{cell_w}}{flag}")
+        if flag:
+            warnings.append(subclass)
+    print(sep)
+    total_min: dict[str, float] = {"train": 0.0, "validation": 0.0, "test": 0.0}
+    total_rows: dict[str, int] = {"train": 0, "validation": 0, "test": 0}
+    for _, _, splits in source_stats:
+        for s in total_min:
+            m, r = splits.get(s, (0.0, 0))
+            total_min[s] += m
+            total_rows[s] += r
+    for _, splits in aug_stats.items():
+        for s in total_min:
+            m, r = splits.get(s, (0.0, 0))
+            total_min[s] += m
+            total_rows[s] += r
+    total_target = sum(e.target_minutes for e in entries) + sum(aug_targets.values())
+    print(f"  {'TOTAL':<{col_w - 2}} {total_target:>8.1f}  {_fmt(total_min['train'], total_rows['train']):<{cell_w}}  {_fmt(total_min['validation'], total_rows['validation']):<{cell_w}}  {_fmt(total_min['test'], total_rows['test']):<{cell_w}}")
+    if warnings:
+        print(f"\n  ⚠  {len(warnings)} subclass(es) missing val or test data: {', '.join(warnings)}")
 
     print("\nBuild complete.")
     print("=" * 60)

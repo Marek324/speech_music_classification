@@ -23,23 +23,15 @@ configs:
         path: mid/validation/**/*.parquet
       - split: test
         path: mid/test/**/*.parquet
-  - config_name: mini
-    data_files:
-      - split: train
-        path: mini/train/**/*.parquet
-      - split: validation
-        path: mini/validation/**/*.parquet
-      - split: test
-        path: mini/test/**/*.parquet
 ---
 
 ## Structure
 
-After `uv run python build.py {mini|mid|full}` for each tier (same `--out-dir` staging parent):
+After `uv run python build.py {mid|full}` for each tier (same `--out-dir` staging parent):
 
 ```text
 <staging>/
-  full/   # or mid/, mini/
+  full/   # or mid/
     train/
       speech/       part_*.parquet
       music/
@@ -55,7 +47,7 @@ Parquet columns: `audio` (HF Audio struct), `sampling_rate`, `class`, `subclass`
 
 ## Upload
 
-From the **staging parent** (folder that contains `mini/`, `mid/`, `full/`):
+From the **staging parent** (folder that contains `mid/`, `full/`):
 
 ```bash
 hf upload-large-folder --repo-type dataset YOUR_ORG/YOUR_REPO .

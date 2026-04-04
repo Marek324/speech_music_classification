@@ -6,6 +6,11 @@ from typing import Any, Optional, Union
 
 import numpy as np
 import torch
+
+# NNPACK is unavailable on many cloud/CI CPUs; PyTorch logs hundreds of identical
+# warnings to stderr on first conv use. Disable before Silero/pyannote load.
+torch.backends.nnpack.set_flags(False)
+
 from pydub import AudioSegment
 from pyannote.audio import Model
 from pyannote.audio.pipelines import VoiceActivityDetection

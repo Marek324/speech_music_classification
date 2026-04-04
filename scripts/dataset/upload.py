@@ -13,7 +13,7 @@ from huggingface_hub import HfApi, create_repo
 REPO_ID = "Marek324/speech-music-classification"
 STAGING_ROOT = Path(__file__).resolve().parent.parent.parent / "speech_music_dataset"
 README_PATH = Path(__file__).resolve().parent / "HUB_DATASET_README.md"
-TIERS = ("mini", "mid", "full")
+TIERS = ("mid", "full")
 
 
 def main() -> None:

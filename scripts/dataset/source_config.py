@@ -1,3 +1,4 @@
+import tomllib
 from dataclasses import dataclass, field, replace
 from enum import Enum  # TODO: migrate project to 3.12 later to use StrEnum
 from pathlib import Path
@@ -5,12 +6,11 @@ from typing import Any, Dict, Literal, Optional
 
 
 class TierName(Enum):
-    mini = "mini"
     mid = "mid"
     full = "full"
 
 
-# Parent directory for Hub upload: contains ``mini/``, ``mid/``, ``full/`` (one subfolder per build).
+# Parent directory for Hub upload: contains ``mid/``, ``full/`` (one subfolder per build).
 HF_DATASET_STAGING_ROOT = Path("speech_music_dataset")
 
 
@@ -41,6 +41,34 @@ SMOKE_SOURCE_MAX_ROWS = 3
 # --smoke: each augmented recipe targets this many minutes
 SMOKE_AUG_TARGET_MINUTES = 0.1
 
+# ── multi-speaker augmentation (LibriMix-style, see augmentation.py) ──
+
+MULTISPEAKER_GAIN_RANGE_DB: tuple[float, float] = (-5.0, 5.0)
+
+
+@dataclass(frozen=True)
+class MultispeakerAugEntry:
+    """Synthetic multi-speaker recipe: mix pairs of single-speaker clips."""
+
+    speech_subclass: str
+    target_minutes: float
+    output_subclass: str = "speech_multispeaker"
+
+
+MULTISPEAKER_AUG_SOURCES: Dict[TierName, tuple[MultispeakerAugEntry, ...]] = {
+    TierName.mid: (MultispeakerAugEntry("speech_clean", 36.0),),
+    TierName.full: (MultispeakerAugEntry("speech_clean", 180.0),),
+}
+
+
+def multispeaker_aug_entries(tier: TierName, *, smoke: bool = False) -> list[MultispeakerAugEntry]:
+    """Copy of tier multispeaker recipes; ``smoke=True`` uses ``SMOKE_AUG_TARGET_MINUTES``."""
+    entries = list(MULTISPEAKER_AUG_SOURCES[tier])
+    if smoke:
+        return [replace(e, target_minutes=SMOKE_AUG_TARGET_MINUTES) for e in entries]
+    return entries
+
+
 # ── speech-over-music augmentation (see augmentation.py) ──
 
 MUSIC_RELATIVE_DB = -10.0
@@ -56,10 +84,7 @@ FMA_GENRES: tuple[str, ...] = (
     "Rock",
 )
 
-# Per-tier genres used for the augmentation music pool.
-# Mini uses only Pop to match its base music source; mid/full use all genres.
 AUGMENT_MUSIC_GENRES: dict[TierName, tuple[str, ...]] = {
-    TierName.mini: ("Pop",),
     TierName.mid: FMA_GENRES,
     TierName.full: FMA_GENRES,
 }
@@ -77,7 +102,6 @@ HF_SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "test")
 
 # Per-tier train/val/test fractions (must sum to 1.0).
 TIER_SPLIT_FRACTIONS: Dict[TierName, Dict[str, float]] = {
-    TierName.mini: {"train": 0.70, "validation": 0.15, "test": 0.15},
     TierName.mid:  {"train": 0.80, "validation": 0.10, "test": 0.10},
     TierName.full: {"train": 0.84, "validation": 0.08, "test": 0.08},
 }
@@ -94,16 +118,13 @@ class AugmentEntry:
 
 # Per-tier targets (minutes of *synthetic* audio per recipe), same pattern as ``sources.SOURCES``.
 AUGMENT_SOURCES: Dict[TierName, tuple[AugmentEntry, ...]] = {
-    TierName.mini: (
-        AugmentEntry("speech_som", "speech_clean", 1.0),
-    ),
     TierName.mid: (
         AugmentEntry("speech_som", "speech_clean", 36.0),
         AugmentEntry("speech_msom", "speech_multispeaker", 24.0),
     ),
     TierName.full: (
-        AugmentEntry("speech_som", "speech_clean", 360.0),
-        AugmentEntry("speech_msom", "speech_multispeaker", 240.0),
+        AugmentEntry("speech_som", "speech_clean", 180.0),
+        AugmentEntry("speech_msom", "speech_multispeaker", 120.0),
     ),
 }
 
@@ -133,12 +154,11 @@ class NoiseAugEntry:
 
 
 NOISE_AUG_SOURCES: Dict[TierName, tuple[NoiseAugEntry, ...]] = {
-    TierName.mini: (),
     TierName.mid: (
         NoiseAugEntry("speech_clean", 96.0),
     ),
     TierName.full: (
-        NoiseAugEntry("speech_clean", 960.0),
+        NoiseAugEntry("speech_clean", 480.0),
     ),
 }
 
@@ -219,6 +239,48 @@ class TierConfig:
     entries: list[SourceEntry]
 
 
+def load_sources(path: Path) -> Dict[TierName, TierConfig]:
+    """Load source definitions from a TOML file structured as [tier.name] tables.
+
+    Each ``[tier.name]`` block maps directly to a ``SourceEntry``; the source
+    name is taken from the TOML key so it need not be repeated as a field.
+    """
+    with open(path, "rb") as f:
+        data = tomllib.load(f)
+    result: Dict[TierName, TierConfig] = {}
+    for tier in TierName:
+        entries = [
+            SourceEntry(
+                name=name,
+                hf_id=fields["hf_id"],
+                cls=fields["cls"],
+                subclass=fields["subclass"],
+                target_minutes=fields["target_minutes"],
+                detector=fields["detector"],
+                split=fields["split"],
+                audio_decode=fields["audio_decode"],
+                audio_col=fields.get("audio_col", "audio"),
+                filter_col=fields.get("filter_col"),
+                filter_val=fields.get("filter_val"),
+                filter_include=fields.get("filter_include", True),
+                extra_kwargs=fields.get("extra_kwargs", {}),
+            )
+            for name, fields in data.get(tier.value, {}).items()
+        ]
+        result[tier] = TierConfig(entries=entries)
+    return result
 
 
+_SOURCES_TOML = Path(__file__).parent / "sources.toml"
+SOURCES: Dict[TierName, TierConfig] = load_sources(_SOURCES_TOML)
+TIER_TOTAL_MINUTES: Dict[TierName, float] = {
+    t: float(sum(e.target_minutes for e in SOURCES[t].entries)) for t in TierName
+}
+
+
+def make_entries(tier: TierName) -> list[SourceEntry]:
+    entries = SOURCES[tier].entries
+    if not entries or sum(e.target_minutes for e in entries) <= 0:
+        raise ValueError(f"Tier {tier!r} has zero total target_minutes")
+    return list(entries)
 

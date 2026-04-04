@@ -31,16 +31,51 @@ Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possibl
 - Loss: binary cross-entropy
 
 ## Dataset
-HuggingFace: `Marek324/speech-music-classification`
+HuggingFace: `Marek324/speech-music-classification` — **mid tier** (config name `mid`)
 
-| Split | Speech | Music | Noise | Total |
-|-------|--------|-------|-------|-------|
-| train | 2795 | 673 | 231 | 3699 |
-| val | 349 | 79 | 25 | 453 |
-| test | 353 | 82 | 25 | 460 |
+### Actual clip counts (mid tier, what's currently uploaded)
 
-- Training split ≈ **16 hours** (paper used ~125h)
-- **Speech clips are short** (median ~165 frames ≈ 3.8s), music clips are long (~1290 frames ≈ 30s)
+| Split | Rows | Minutes |
+|-------|------|---------|
+| train | 3226 | 951 min |
+| val   | 411  | 122 min |
+| test  | 405  | 121 min |
+
+### Actual minutes per subclass (mid tier)
+
+| Subclass | Target | Train | Val | Test |
+|----------|--------|-------|-----|------|
+| speech_clean | 192 | 154.7 (741) | 18.6 (93) | 18.8 (92) |
+| speech_dirty | 96 | 77.1 (390) | 9.9 (49) | 9.0 (49) |
+| speech_multispeaker | 36 | 21.2 (433) | 2.6 (54) | 2.5 (54) |
+| music_instrumental | 72 | 58.0 (116) | 7.5 (15) | 7.0 (14) |
+| music_electronic | 72 | 58.0 (116) | 7.5 (15) | 7.0 (14) |
+| music_pop | 72 | 58.0 (116) | 7.5 (15) | 7.0 (14) |
+| music_rock | 72 | 58.0 (116) | 7.5 (15) | 7.0 (14) |
+| music_acapella | 48 | 35.5 (29) | 5.2 (4) | 7.8 (4) |
+| music_hip-hop | 72 | 58.0 (116) | 7.5 (15) | 7.0 (14) |
+| music_folk | 72 | 58.0 (116) | 7.5 (15) | 7.0 (14) |
+| noise | 240 | 190.0 (38) | 25.0 (5) | 25.0 (5) |
+| speech_som | 36 | 28.8 (143) | 3.6 (18) | 3.6 (17) |
+| speech_msom | 24 | 19.2 (390) | 2.5 (50) | 2.4 (52) |
+| speech_noisy | 96 | 77.0 (366) | 9.7 (48) | 9.8 (48) |
+
+### Full tier (6000 min / 100 hours)
+
+Rescaled from 12000 min to 6000 min so FMA genres (~393 min/genre available) fit within the 375 min/genre target. Proportions: 40% speech / 40% music / 20% inactive.
+
+| Subclass | Target (min) |
+|----------|-------------|
+| speech_clean | 960 |
+| speech_dirty | 480 |
+| speech_multispeaker | 180 (synthetic, LibriMix-style) |
+| speech_som | 180 (synthetic) |
+| speech_msom | 120 (synthetic) |
+| speech_noisy | 480 (synthetic) |
+| Each FMA genre (×6) | 375 |
+| music_acapella | 150 |
+| noise | 1200 |
+
 - Frame-level labels (`start`/`end` keys in ms, not `start_ms`/`end_ms`)
 
 ## Critical Known Issues
@@ -53,6 +88,12 @@ HuggingFace: `Marek324/speech-music-classification`
 
 ### Dataset label keys (fixed)
 Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `dataset.py`.
+
+### Full-tier test split missing subclasses (fixed)
+`process.py` previously used per-source cumulative minutes to assign clips to train/val/test sequentially. Sources that exhausted their HF data before reaching `val_cutoff_min` (92% of `target_minutes`) never wrote any clips to the test split. Affected sources in the full tier: `bel_canto` (acapella, 300 min target — small dataset), all FMA genres (750 min each — limited clips per genre on HF), and `DEMAND` noise (2400 min — dataset likely too small). Augmented subclasses (`speech_som`, `speech_msom`, `speech_noisy`) cascaded to zero test clips if their base subclasses had none. Full-tier test split had only ~3 subclasses with data.
+
+**Fixed** by replacing sequential cutoffs and the block cycle with a Bresenham-style interleaving generator (`_bresenham_split_iter` in `process.py`). Each clip is assigned to the split with the highest error accumulator, guaranteeing val and test receive clips from the first few rows regardless of how few clips a source provides.
+
 
 ## File Map
 
@@ -107,9 +148,9 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `build.py` | CLI entry point: parses args, orchestrates sources → augmentation |
 | `dataloader.py` | `load_source()` — streams and filters a HF dataset for one `SourceEntry` |
 | `process.py` | `process_source()` — labels and writes one source to parquet shards |
-| `sources.py` | `SOURCES` dict — per-tier `SourceEntry` list with target minutes; `make_entries()` |
-| `source_config.py` | `SourceEntry` / `TierConfig` dataclasses; `AUGMENT_SOURCES` per tier; FMA config |
-| `augmentation.py` | Speech-over-music mixes — reads base speech parquet, mixes with FMA pool, writes synthetic clips |
+| `source_config.py` | `SourceEntry` / `TierConfig` dataclasses; `AUGMENT_SOURCES`, `MULTISPEAKER_AUG_SOURCES`, `NOISE_AUG_SOURCES` per tier; FMA config; loads `sources.toml` |
+| `sources.toml` | Per-tier HF source definitions (target minutes, HF IDs, filters) |
+| `augmentation.py` | Synthetic augmentations: multi-speaker (LibriMix-style), speech-over-music, speech-over-noise |
 | `labeling.py` | `VADLabeler`, `MusicLabeler`, `SilenceLabeler` — produce frame-level labels for each clip |
 | `split_writer.py` | LibriSpeech-style path: `{staging}/{mini\|mid\|full}/{train\|validation\|test}/{speech\|music\|inactive}/part_*.parquet` |
 | `notes.md` | Dataset spec: tier totals, subclass targets per tier |
@@ -154,4 +195,6 @@ Labels: `-1` = speech, `1` = music, `2` = inactive
 ## Status
 - **TCN**: done — 2-class F1=0.9504, 3-class F1=0.9033 (both targets met)
 - **Classic baselines**: DT done; SVM and GMM retrained pending — both updated to closer match paper (SVM: SGDClassifier→SVC RBF C=1 γ=3; both: lt_len_ms 600→1000; GMM: smoothing buffer 20→66 frames)
-- **Next**: new module (TBD)
+- **Dataset (mid tier)**: successfully built and uploaded; numbers in table above reflect actual mid-tier dataset
+- **Dataset (full tier)**: rescaled to 6000 min (100h); AMI replaced with LibriMix-style synthetic multispeaker; all subclasses should now hit 100% of target
+- **Next**: rebuild full tier; retrain SVM/GMM

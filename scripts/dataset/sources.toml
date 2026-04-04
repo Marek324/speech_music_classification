@@ -1,0 +1,209 @@
+[mid.librispeech_clean]
+hf_id          = "openslr/librispeech_asr"
+cls            = "speech"
+subclass       = "clean"
+target_minutes = 192.0
+detector       = "vad"
+split          = "train.360"
+audio_decode   = true
+extra_kwargs   = {name = "clean"}
+
+[mid.librispeech_other]
+hf_id          = "openslr/librispeech_asr"
+cls            = "speech"
+subclass       = "dirty"
+target_minutes = 96.0
+detector       = "vad"
+split          = "train.500"
+audio_decode   = true
+extra_kwargs   = {name = "other"}
+
+[mid.fma_instrumental]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "instrumental"
+target_minutes = 72.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 4
+
+[mid.fma_electronic]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "electronic"
+target_minutes = 72.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 0
+
+[mid.fma_pop]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "pop"
+target_minutes = 72.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 6
+
+[mid.fma_rock]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "rock"
+target_minutes = 72.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 7
+
+[mid.bel_canto]
+hf_id          = "ccmusic-database/bel_canto"
+cls            = "music"
+subclass       = "acapella"
+target_minutes = 48.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+
+[mid.fma_hip_hop]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "hip-hop"
+target_minutes = 72.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 3
+
+[mid.fma_folk]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "folk"
+target_minutes = 72.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 2
+
+[mid.demand]
+hf_id          = "voice-biomarkers/DEMAND-acoustic-noise"
+cls            = "inactive"
+subclass       = ""
+target_minutes = 240.0
+detector       = "silence"
+split          = "train"
+audio_decode   = true
+
+
+
+[full.librispeech_clean]
+hf_id          = "openslr/librispeech_asr"
+cls            = "speech"
+subclass       = "clean"
+target_minutes = 960.0
+detector       = "vad"
+split          = "train.360"
+audio_decode   = true
+extra_kwargs   = {name = "clean"}
+
+[full.librispeech_other]
+hf_id          = "openslr/librispeech_asr"
+cls            = "speech"
+subclass       = "dirty"
+target_minutes = 480.0
+detector       = "vad"
+split          = "train.500"
+audio_decode   = true
+extra_kwargs   = {name = "other"}
+
+[full.fma_instrumental]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "instrumental"
+target_minutes = 375.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 4
+
+[full.fma_electronic]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "electronic"
+target_minutes = 375.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 0
+
+[full.fma_pop]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "pop"
+target_minutes = 375.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 6
+
+[full.fma_rock]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "rock"
+target_minutes = 375.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 7
+
+[full.bel_canto]
+hf_id          = "ccmusic-database/bel_canto"
+cls            = "music"
+subclass       = "acapella"
+target_minutes = 150.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+
+[full.fma_hip_hop]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "hip-hop"
+target_minutes = 375.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 3
+
+[full.fma_folk]
+hf_id          = "rpmon/fma-genre-classification"
+cls            = "music"
+subclass       = "folk"
+target_minutes = 375.0
+detector       = "music"
+split          = "train"
+audio_decode   = false
+filter_col     = "genre"
+filter_val     = 2
+
+[full.demand]
+hf_id          = "voice-biomarkers/DEMAND-acoustic-noise"
+cls            = "inactive"
+subclass       = ""
+target_minutes = 1200.0
+detector       = "silence"
+split          = "train"
+audio_decode   = true
