@@ -54,7 +54,8 @@ class InputHandler:
         feat_extractor: FeatExtractor,
         ds_link: str = "",
         ds_split: str = "train",
-        ds_revision: str = "main"
+        ds_revision: str = "main",
+        ds_name: Optional[str] = None,
     ):
         if mode not in ("dataset", "microphone"):
             raise ValueError(f"Invalid mode: {mode}")
@@ -73,16 +74,17 @@ class InputHandler:
         self.extract_duration_ns: int = 0
 
         if mode == "dataset":
-            self._init_dataset_mode(ds_link, ds_split, ds_revision)
+            self._init_dataset_mode(ds_link, ds_split, ds_revision, ds_name)
         else:
             self._init_microphone_mode()
 
-    def _cache_key(self, ds_link: str, ds_split: str, ds_revision: str) -> str:
+    def _cache_key(self, ds_link: str, ds_split: str, ds_revision: str, ds_name: Optional[str] = None) -> str:
         cfg = config.get_config()
         fingerprint = json.dumps({
             "ds_link": ds_link,
             "ds_split": ds_split,
             "ds_revision": ds_revision,
+            "ds_name": ds_name,
             "model": cfg["model"]["name"],
             "sample_rate": cfg["sample_rate"],
             "n_fft": cfg["n_fft"],
@@ -91,14 +93,14 @@ class InputHandler:
         }, sort_keys=True)
         return hashlib.md5(fingerprint.encode()).hexdigest()
 
-    def _cache_path(self, ds_link: str, ds_split: str, ds_revision: str) -> "Path":
+    def _cache_path(self, ds_link: str, ds_split: str, ds_revision: str, ds_name: Optional[str] = None) -> "Path":
         from pathlib import Path
         cache_dir = Path(__file__).resolve().parent.parent / "cache"
         cache_dir.mkdir(exist_ok=True)
-        return cache_dir / f"{self._cache_key(ds_link, ds_split, ds_revision)}.npz"
+        return cache_dir / f"{self._cache_key(ds_link, ds_split, ds_revision, ds_name)}.npz"
 
     def _init_dataset_mode(
-            self, ds_link: str, ds_split: str, ds_revision: str
+            self, ds_link: str, ds_split: str, ds_revision: str, ds_name: Optional[str] = None
     ) -> None:
         if not ds_link:
             raise ValueError("Dataset mode requires ds_link")
@@ -109,7 +111,7 @@ class InputHandler:
             "subclasses": Counter(),
         }
 
-        cache_path = self._cache_path(ds_link, ds_split, ds_revision)
+        cache_path = self._cache_path(ds_link, ds_split, ds_revision, ds_name)
         if cache_path.exists():
             log.info("Loading features from cache: %s", cache_path)
             data = np.load(cache_path, allow_pickle=False)
@@ -121,7 +123,7 @@ class InputHandler:
             return
 
         dataset = load_dataset(
-            ds_link, split=ds_split, revision=ds_revision
+            ds_link, name=ds_name, split=ds_split, revision=ds_revision
         ).cast_column(
             "audio",
             Audio(sampling_rate=self.sr, num_channels=self.channels),

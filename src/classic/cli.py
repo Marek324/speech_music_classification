@@ -28,7 +28,7 @@ def _train_classic(model_name: str):
         feat_extractor=fe,
         ds_link=train_cfg["url"],
         ds_split="train",
-        ds_revision=train_cfg["revision"],
+        ds_name=train_cfg.get("name"),
     )
 
     X = ih.getX()
@@ -94,7 +94,7 @@ def _dataset_stats_classic():
         feat_extractor=DummyFeatExtractor(),
         ds_link=cfg["dataset"]["stats"]["url"],
         ds_split="train",
-        ds_revision=cfg["dataset"]["stats"]["revision"],
+        ds_name=cfg["dataset"]["stats"].get("name"),
     )
 
     ih.summary()

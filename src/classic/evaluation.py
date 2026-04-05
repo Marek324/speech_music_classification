@@ -33,7 +33,7 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
         feat_extractor=fe,
         ds_link=eval_cfg["url"],
         ds_split="test",
-        ds_revision=eval_cfg["revision"],
+        ds_name=eval_cfg.get("name"),
     )
 
     X = ih.getX()

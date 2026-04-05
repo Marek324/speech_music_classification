@@ -278,6 +278,19 @@ TIER_TOTAL_MINUTES: Dict[TierName, float] = {
 }
 
 
+def tier_total_nominal_minutes(tier: TierName) -> float:
+    """``SOURCES`` (HF) plus all synthetic augmentation targets — full dataset size."""
+    ms = sum(e.target_minutes for e in MULTISPEAKER_AUG_SOURCES[tier])
+    aug = sum(e.target_minutes for e in AUGMENT_SOURCES[tier])
+    nz = sum(e.target_minutes for e in NOISE_AUG_SOURCES[tier])
+    return TIER_TOTAL_MINUTES[tier] + ms + aug + nz
+
+
+TIER_TOTAL_NOMINAL_MINUTES: Dict[TierName, float] = {
+    t: tier_total_nominal_minutes(t) for t in TierName
+}
+
+
 def make_entries(tier: TierName) -> list[SourceEntry]:
     entries = SOURCES[tier].entries
     if not entries or sum(e.target_minutes for e in entries) <= 0:

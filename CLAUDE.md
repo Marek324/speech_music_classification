@@ -62,7 +62,7 @@ HuggingFace: `Marek324/speech-music-classification` — **mid tier** (config nam
 
 ### Full tier (6000 min / 100 hours)
 
-Rescaled from 12000 min to 6000 min so FMA genres (~393 min/genre available) fit within the 375 min/genre target. Proportions: 40% speech / 40% music / 20% inactive.
+40% speech / 40% music / 20% inactive. Music is **seven equal HF sources** (six FMA genres + bel_canto acapella), each **2400/7 ≈ 342.86 min**. Mid tier music is the same split at **480/7 ≈ 68.57 min** per genre.
 
 | Subclass | Target (min) |
 |----------|-------------|
@@ -72,8 +72,7 @@ Rescaled from 12000 min to 6000 min so FMA genres (~393 min/genre available) fit
 | speech_som | 180 (synthetic) |
 | speech_msom | 120 (synthetic) |
 | speech_noisy | 480 (synthetic) |
-| Each FMA genre (×6) | 375 |
-| music_acapella | 150 |
+| Each music genre (×7, equal) | 2400/7 each |
 | noise | 1200 |
 
 - Frame-level labels (`start`/`end` keys in ms, not `start_ms`/`end_ms`)

@@ -1,4 +1,4 @@
-"""Build clips from Hugging Face sources (see notes.md, sources.py).
+"""Build clips from Hugging Face sources (see notes.md, sources.toml).
 
 Music sources use pyannote voice activity + internal RMS gating; set HF_TOKEN and
 accept https://hf.co/pyannote/voice-activity-detection .
@@ -33,7 +33,7 @@ from source_config import (
     seed_all,
     tier_dataset_dir,
 )
-from source_config import TIER_TOTAL_MINUTES, make_entries
+from source_config import TIER_TOTAL_NOMINAL_MINUTES, make_entries
 from split_writer import SplitWriter
 
 
@@ -41,7 +41,9 @@ def main():
     seed_all()
 
     tier_choices = [t.value for t in TierName]
-    tier_help = ", ".join(f"{t.value}≈{TIER_TOTAL_MINUTES[t]:.0f}min" for t in TierName)
+    tier_help = ", ".join(
+        f"{t.value}≈{TIER_TOTAL_NOMINAL_MINUTES[t]:.0f}min (HF+synth)" for t in TierName
+    )
     parser = argparse.ArgumentParser(description="Speech/music dataset builder")
     parser.add_argument(
         "tier",
@@ -69,14 +71,19 @@ def main():
             shutil.rmtree(data_dir)
 
     entries = make_entries(tier_key)
-    nominal_total_min = sum(e.target_minutes for e in entries)
+    base_total_min = sum(e.target_minutes for e in entries)
+    tier_nominal_min = TIER_TOTAL_NOMINAL_MINUTES[tier_key]
+    synth_min = tier_nominal_min - base_total_min
     m_speech = sum(e.target_minutes for e in entries if e.cls == "speech")
     m_music = sum(e.target_minutes for e in entries if e.cls == "music")
     m_inact = sum(e.target_minutes for e in entries if e.cls == "inactive")
 
     print("=" * 60)
     mode = "SMOKE (1 row/source)" if args.smoke else "full"
-    print(f"Dataset build  [{args.tier}]  {mode}  →  {nominal_total_min:.0f} min nominal target")
+    print(
+        f"Dataset build  [{args.tier}]  {mode}  →  {tier_nominal_min:.0f} min tier target "
+        f"({base_total_min:.0f} min HF + {synth_min:.0f} min synthetic)"
+    )
     print(f"Output  : {data_dir.resolve()}")
     print(f"Sources : {len(entries)}")
     print(f"Speech  : {m_speech:.0f} min   Music: {m_music:.0f} min   Inactive: {m_inact:.0f} min")
