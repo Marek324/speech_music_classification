@@ -1,0 +1,25 @@
+# TCN ablation experiment config.
+# Edit `name` and model knobs, then run:
+#   uv run smclassifier exp tcn-ablation train
+#   uv run smclassifier exp tcn-ablation eval
+
+[exp]
+name = "baseline"          # drives output paths: weights/exp_tcn_ablation_{name}.*
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+f_min = 27.5
+f_max = 8000.0
+optimizer = "adam"         # "adam" | "sgd" (sgd uses momentum=0.9, paper §3.5)
+lr = 1e-3
+seq_len = 128              # chunk length in frames (~3 s at 512 hop / 22050 sr)
+
+[exp.model]
+n_filters = 16             # paper search space: 8, 16, 32
+kernel_size = 5            # paper search space: 3, 5, 7, ..., 19
+n_layers = 4               # paper search space: 1–4 (dilation doubles each layer)
+n_stacks = 3               # paper search space: 3–10
+dropout = 0.5              # paper search space: 0.05–0.5
+n_classes = 3
+use_weight_norm = false    # false = BatchNorm (current impl), true = WeightNorm (paper ref)
