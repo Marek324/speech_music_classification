@@ -1,36 +1,35 @@
-Evaluation report — 2026-03-18 01:36:48 UTC
+Evaluation report — 2026-04-07 09:03:46 UTC
 
 ── 3-class evaluation ────────────────────────────
-  Time/frame : 1.1151 ms
-  Macro F1   : 0.6322
+  Time/frame : 0.3407 ms
+  Macro F1   : 0.8673
 
                     F1       P       R
-  Speech        0.8370  0.8364  0.8376
-  Music         0.8628  0.8774  0.8486
-  Inactive      0.1968  0.1469  0.2977
+  Speech        0.8452  0.8468  0.8436
+  Music         0.8771  0.8750  0.8791
+  Inactive      0.8795  0.8802  0.8788
   ─────────────────────────────────────
-  Macro         0.6322  0.6202  0.6613
+  Macro         0.8673  0.8674  0.8672
 
   Confusion matrix (rows=true, cols=pred):
                     Speech     Music  Inactive
-  Speech      [    191732     30274      6892  ]
-  Music       [     34420    237767      7987  ]
-  Inactive    [      3084      2962      2563  ]
+  Speech      [    969284    128675     51026  ]
+  Music       [    119692    994994     17128  ]
+  Inactive    [     55666     13436    500879  ]
 
 ── By subclass ────────────────────────────────────
   Subclass                      F1       P       R     Acc
-  music_country             0.5642  0.4277  0.8286  0.8286
-  music_electronic          0.6393  0.4834  0.9435  0.9435
-  music_folk                0.6161  0.4700  0.8940  0.8940
-  music_hiphop              0.6344  0.4806  0.9330  0.9330
-  music_instrumental        0.6054  0.4637  0.8716  0.8716
-  music_pop                 0.6221  0.4735  0.9068  0.9068
-  music_rock                0.6028  0.4622  0.8663  0.8663
-  music_vocal               0.5733  0.5087  0.6567  0.6567
-  noise                     0.1968  0.1469  0.2977  0.2977
-  speech_clean              0.7791  0.7015  0.8758  0.8758
-  speech_corrupted          0.6512  0.5302  0.8438  0.8438
-  speech_multispeaker       0.3132  0.1908  0.8734  0.8734
-  speech_multispeaker_over_music  0.1817  0.1016  0.8548  0.8548
-  speech_noisy              0.5664  0.4506  0.7625  0.7625
-  speech_over_music         0.4489  0.3171  0.7682  0.7682
+  music_acapella            0.5616  0.4390  0.7792  0.7792
+  music_electronic          0.6659  0.5188  0.9294  0.9294
+  music_folk                0.6110  0.4872  0.8191  0.8191
+  music_hip-hop             0.6611  0.5161  0.9195  0.9195
+  music_instrumental        0.6240  0.4948  0.8444  0.8444
+  music_pop                 0.6561  0.5133  0.9091  0.9091
+  music_rock                0.6708  0.5216  0.9397  0.9397
+  noise                     0.8795  0.8802  0.8788  0.8788
+  speech_clean              0.7782  0.6981  0.8792  0.8792
+  speech_dirty              0.6488  0.5230  0.8541  0.8541
+  speech_msom               0.2989  0.1894  0.7077  0.7077
+  speech_multispeaker       0.4403  0.2969  0.8516  0.8516
+  speech_noisy              0.6273  0.5139  0.8050  0.8050
+  speech_som                0.4261  0.2887  0.8127  0.8127
