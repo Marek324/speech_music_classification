@@ -162,10 +162,8 @@ def train_tcn(
 
     cfg = get_config()
     save_path = Path(weights_path) if weights_path is not None else get_weights_path()
+    ds_rev = cfg["dataset"]["train"].get("revision")
     stats_path = get_preprocess_stats_path(revision=ds_rev)
-
-    ds_url = cfg["dataset"]["url"]
-    ds_rev = cfg["dataset"].get("revision")
 
     train_cfg = cfg["dataset"]["train"]
     eval_cfg = cfg["dataset"]["eval"]
