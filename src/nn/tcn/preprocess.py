@@ -11,6 +11,7 @@ import torch.nn as nn
 import torchaudio.transforms as T
 
 from .config import get_config, get_preprocess_stats_path
+from ..dataset import get_nn_dataset, iter_nn_rows
 
 log = logging.getLogger(__name__)
 
@@ -182,14 +183,16 @@ def compute_and_save_preprocess_stats(
     )
     fe.eval()
 
-    from .dataset import get_tcn_dataset, iter_tcn_rows
+    sr = cfg["sample_rate"]
+    hop = cfg["hop_length"]
+    n_fft = cfg["n_fft"]
 
-    ds = get_tcn_dataset(ds_link, "train", name=name)
+    ds = get_nn_dataset(ds_link, "train", sr, name=name)
     sums = None
     sumsq = None
     count = 0
 
-    for wav, _ in iter_tcn_rows(ds, max_rows, "Computing preprocess stats"):
+    for wav, _ in iter_nn_rows(ds, max_rows, "Computing preprocess stats", sr, hop, n_fft):
         with torch.no_grad():
             wav_mono = wav
             if wav.ndim == 1:

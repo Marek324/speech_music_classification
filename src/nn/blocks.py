@@ -1,5 +1,5 @@
-# tcn/blocks.py
-# Causal dilated convolution building blocks.
+# nn/blocks.py
+# Causal dilated convolution building blocks — shared across all NN models.
 
 import torch
 import torch.nn as nn

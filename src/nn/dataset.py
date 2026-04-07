@@ -1,12 +1,11 @@
-# tcn/dataset.py
-# Dataset loading and iteration for TCN train/eval.
+# nn/dataset.py
+# Dataset loading and iteration for NN models — shared across TCN and future models.
+# Config params (sr, hop, n_fft) are passed explicitly; no model-specific config dependency.
 
 import numpy as np
 import torch
 from datasets import Audio, load_dataset
 from tqdm import tqdm
-
-from .config import get_config
 
 LABEL_MAP = {"speech": 0, "music": 1, "noise": 2, "inactive": 2}
 
@@ -40,24 +39,28 @@ def _timestamps_to_frame_labels(labels_list, n_frames, sample_rate, hop_length) 
     return frame_labels
 
 
-def get_tcn_dataset(ds_link: str, split: str, name: str = "full"):
-    """Load HF dataset once. Resample to TCN sample_rate."""
-    cfg = get_config()
+def get_nn_dataset(ds_link: str, split: str, sample_rate: int, name: str = "full"):
+    """Load HF dataset once. Resample to given sample_rate."""
     return load_dataset(ds_link, name=name, split=split).cast_column(
         "audio",
-        Audio(sampling_rate=cfg["sample_rate"], num_channels=1),
+        Audio(sampling_rate=sample_rate, num_channels=1),
     )
 
 
-def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = False):
+def iter_nn_rows(
+    ds,
+    max_rows: int | None,
+    desc: str,
+    sr: int,
+    hop: int,
+    n_fft: int,
+    yield_subclass: bool = False,
+):
     """Iterate over HF dataset, yield (waveform, targets) or (waveform, targets, subclass) per row.
 
     Uses per-frame timestamp labels when available (row["labels"]), otherwise falls back to
     clip-level row["class"]. Noise/inactive clips yield [0,0] targets instead of being skipped.
     """
-    cfg = get_config()
-    hop = cfg["hop_length"]
-    sr = cfg["sample_rate"]
     for i, row in enumerate(tqdm(ds, desc=desc)):
         if max_rows and i >= max_rows:
             break
@@ -75,7 +78,7 @@ def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = Fa
             audio = audio.mean(axis=1)
 
         wav = torch.from_numpy(audio.astype(np.float32)).unsqueeze(0)  # (1, samples)
-        n_frames = (wav.shape[-1] - cfg["n_fft"]) // hop + 1
+        n_frames = (wav.shape[-1] - n_fft) // hop + 1
         if n_frames < 1:
             continue
 
@@ -108,11 +111,17 @@ def iter_tcn_rows(ds, max_rows: int | None, desc: str, yield_subclass: bool = Fa
             yield wav, targets
 
 
-def load_tcn_dataset(
-    ds_link: str, split: str, max_rows: int | None = None, yield_subclass: bool = False,
+def load_nn_dataset(
+    ds_link: str,
+    split: str,
+    sr: int,
+    hop: int,
+    n_fft: int,
+    max_rows: int | None = None,
+    yield_subclass: bool = False,
     name: str = "full",
 ):
     """Load HF dataset, yield (waveform, targets) or (waveform, targets, subclass) per row.
     max_rows=None loads full dataset."""
-    ds = get_tcn_dataset(ds_link, split, name=name)
-    yield from iter_tcn_rows(ds, max_rows, f"Loading {split}", yield_subclass=yield_subclass)
+    ds = get_nn_dataset(ds_link, split, sr, name=name)
+    yield from iter_nn_rows(ds, max_rows, f"Loading {split}", sr, hop, n_fft, yield_subclass=yield_subclass)

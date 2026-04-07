@@ -25,12 +25,12 @@ _DEFAULT: Dict[str, Any] = {
 
 def get_weights_path() -> Path:
     """Path to saved TCN weights (safetensors format)."""
-    return Path(__file__).resolve().parent.parent.parent / "weights" / "tcn.safetensors"
+    return Path(__file__).resolve().parent.parent.parent.parent / "weights" / "tcn.safetensors"
 
 
 def get_preprocess_stats_path(revision: str | None = None) -> Path:
     """Path to precomputed normalization stats (mean, std) for log-mel spectrograms."""
-    weights = Path(__file__).resolve().parent.parent.parent / "weights"
+    weights = Path(__file__).resolve().parent.parent.parent.parent / "weights"
     if revision:
         return weights / f"tcn_preprocess_stats_{revision}.pt"
     return weights / "tcn_preprocess_stats.pt"
@@ -39,7 +39,7 @@ def get_preprocess_stats_path(revision: str | None = None) -> Path:
 def get_config(config_path: Path | None = None) -> Dict[str, Any]:
     """Load TCN config from config.toml [tcn] and [dataset] sections."""
     if config_path is None:
-        config_path = Path(__file__).resolve().parent.parent.parent / "config.toml"
+        config_path = Path(__file__).resolve().parent.parent.parent.parent / "config.toml"
 
     _empty_ds = {"url": None, "name": "full"}
     cfg = dict(_DEFAULT)

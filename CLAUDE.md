@@ -5,10 +5,12 @@ Beat the existing DT/GMM/SVM baselines (≥ **0.88 macro F1 on 2-class evaluatio
 
 ## CLI
 ```
-uv run smclassifier tcn <command>          # TCN model
+uv run smclassifier nn tcn <command>          # TCN model
+uv run smclassifier nn own <command>          # custom model (placeholder)
 uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
 ```
-TCN commands: `train`, `eval`, `smoke-test-online`
+TCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
+Own commands: `train`, `eval`, `smoke-test` (all NotImplementedError placeholders)
 Classic commands: `train`, `eval`, `smoke-test`, `mic` (placeholder)
 
 ## Architecture
@@ -106,21 +108,34 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `config.toml` | All hyperparameters — `[buffers.*]`, `[features.*]`, `[tcn]`, `[tcn.model]` |
 | `results/*.eval` | Evaluation reports for each model |
 
-### TCN (`src/tcn/`)
+### NN models (`src/nn/`)
 | File | Purpose |
 |------|---------|
-| `blocks.py` | `CausalConv1d` + `TCNResidualBlock` — causal dilated conv building blocks |
+| `blocks.py` | `CausalConv1d` + `TCNResidualBlock` — **shared** causal dilated conv building blocks |
+| `dataset.py` | **Shared** HF dataset loader, frame-label builder; params (sr/hop/n_fft) passed explicitly |
+| `evaluation.py` | **Shared** `run_nn_inference()` — generic inference loop for any `(1,3,T)`-output model |
+| `modelclass.py` | Abstract `NNModelClass` base: `train()`, `evaluate()`, `smoke_test()` |
+| `cli.py` | `nn_group` — dispatches to `tcn` and `own` subgroups |
+
+#### TCN (`src/nn/tcn/`)
+| File | Purpose |
+|------|---------|
 | `model.py` | `SpeechMusicDetector` (waveform → probs) + `CausalTCN` |
 | `preprocess.py` | `LogMelSpectrogram` — 22050Hz, 1024/512 STFT, 80-mel, z-norm |
-| `dataset.py` | HF dataset loader, frame-label builder |
 | `training.py` | Training loop, chunk iterator, optimizer |
-| `evaluation.py` | Inference + metrics for full test split |
+| `evaluation.py` | Thin wrapper: loads TCN model, calls `nn/evaluation.run_nn_inference` |
 | `streaming.py` | `StreamingInference` — online chunk-by-chunk inference |
 | `augmentation.py` | `augment()` — random gain ±6dB + Gaussian noise |
-| `cli.py` | Click CLI: train, eval, smoke-test-online |
+| `cli.py` | Click CLI: train, eval, smoke-test, smoke-test-online |
 | `config.py` | Config loader; reads `[tcn]` section of `config.toml` |
 | `weights/tcn.safetensors` | Trained model weights *(not in git — download via HF)* |
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
+
+#### Own (`src/nn/own/`) — placeholder
+| File | Purpose |
+|------|---------|
+| `model.py` | `OwnModel` stub (raises `NotImplementedError`) |
+| `cli.py` | Placeholder CLI: train/eval/smoke-test (all raise `NotImplementedError`) |
 
 ### Classic models (`src/classic/`)
 | File | Purpose |

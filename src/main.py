@@ -7,7 +7,7 @@ import click
 
 from .classic.cli import classic_group
 from .logging_config import setup_logging
-from .tcn.cli import tcn_group
+from .nn.cli import nn_group
 
 
 @click.group()
@@ -18,4 +18,4 @@ def cli(verbose: bool):
 
 
 cli.add_command(classic_group)
-cli.add_command(tcn_group)
+cli.add_command(nn_group)

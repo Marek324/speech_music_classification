@@ -9,11 +9,11 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from ..wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
+from ...wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
 from .augmentation import augment
 from .config import get_config, get_preprocess_stats_path, get_weights_path
-from .dataset import get_tcn_dataset, iter_tcn_rows
+from ..dataset import get_nn_dataset, iter_nn_rows
 from .model import SpeechMusicDetector
 from .preprocess import compute_and_save_preprocess_stats
 
@@ -63,12 +63,13 @@ def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=BATCH_SIZE, seq_len
     """
     hop = cfg["hop_length"]
     n_fft = cfg["n_fft"]
+    sr = cfg["sample_rate"]
     chunk_samples = (seq_len - 1) * hop + n_fft
     stride_samples = seq_len * hop
 
     all_wav_chunks, all_tgt_chunks = [], []
 
-    for wav, targets in iter_tcn_rows(ds, max_rows, desc):
+    for wav, targets in iter_nn_rows(ds, max_rows, desc, sr, hop, n_fft):
         N = wav.shape[-1]
         M = targets.shape[-1]
 
@@ -121,15 +122,18 @@ def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch
     return total_loss / max(n_batches, 1)
 
 
-def _validation_loss(model, loss_fn, ds_link: str, name: str = "full") -> float:
+def _validation_loss(model, loss_fn, ds_link: str, cfg: dict, name: str = "full") -> float:
     """Compute mean BCE loss on validation split (no gradient)."""
     device = next(model.parameters()).device
     model.eval()
-    ds = get_tcn_dataset(ds_link, "validation", name=name)
+    sr = cfg["sample_rate"]
+    hop = cfg["hop_length"]
+    n_fft = cfg["n_fft"]
+    ds = get_nn_dataset(ds_link, "validation", sr, name=name)
     total_loss = 0.0
     n_batches = 0
     with torch.no_grad():
-        for wav, targets in iter_tcn_rows(ds, None, "Validation"):
+        for wav, targets in iter_nn_rows(ds, None, "Validation", sr, hop, n_fft):
             wav = wav.to(device)
             targets = targets.unsqueeze(0).to(device)
             probs = model(wav)
@@ -190,7 +194,7 @@ def train_tcn(
     if use_wandb:
         wandb_init(config={"model": "tcn", "epochs": epochs, "patience": patience, **cfg})
 
-    ds = get_tcn_dataset(train_cfg["url"], "train", name=train_cfg["name"])
+    ds = get_nn_dataset(train_cfg["url"], "train", cfg["sample_rate"], name=train_cfg["name"])
     ds_link = eval_cfg["url"]
     eval_name = eval_cfg["name"]
 
@@ -202,7 +206,7 @@ def train_tcn(
         loss = _train_epoch(model, optimizer, loss_fn, ds, cfg, max_train_rows, ep + 1)
         metrics = {"train/loss": loss, "epoch": ep + 1}
 
-        val_loss = _validation_loss(model, loss_fn, ds_link, name=eval_name)
+        val_loss = _validation_loss(model, loss_fn, ds_link, cfg, name=eval_name)
         current_lr = optimizer.param_groups[0]["lr"]
         log.info(
             "Epoch %d train loss: %.4f validation loss: %.4f lr: %.2e",

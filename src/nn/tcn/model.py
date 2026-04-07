@@ -4,7 +4,7 @@
 import torch
 import torch.nn as nn
 
-from .blocks import TCNResidualBlock
+from ..blocks import TCNResidualBlock
 from .config import get_config, get_preprocess_stats_path
 from .preprocess import LogMelSpectrogram
 

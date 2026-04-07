@@ -80,10 +80,10 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
     """Evaluate TCN on limited test rows. Used by smoke-test-online. Does not save to results/."""
     from pathlib import Path
 
-    from .dataset import load_tcn_dataset
     from .config import get_config, get_weights_path
     from .preprocess import validate_preprocess_stats
-    from ..evaluator import run_evaluation
+    from ...evaluator import run_evaluation
+    from ..evaluation import run_nn_inference
 
     path = Path(weights_path) if weights_path is not None else get_weights_path()
     cfg = get_config()
@@ -97,41 +97,11 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
 
     state = load_file(path, device="cpu")
     model.load_state_dict(state)
-    model.eval()
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = model.to(device)
 
-    import time
-    y_true_list, y_pred_list, subclasses_list = [], [], []
-    total_frames = 0
-    t0 = time.perf_counter_ns()
     eval_cfg = cfg["dataset"]["eval"]
-    for wav, targets, subclass in load_tcn_dataset(
-        eval_cfg["url"], "test", max_rows=max_rows, yield_subclass=True, name=eval_cfg["name"]
-    ):
-        with torch.no_grad():
-            wav = wav.to(device)
-            probs = model(wav)
-        T = probs.shape[-1]
-        tgt = targets[:, :T]
-        T_actual = tgt.shape[-1]
-        speech_mask = tgt[0, :] == 1.0
-        music_mask = tgt[1, :] == 1.0
-        y_true_frames = torch.where(music_mask, 1, torch.where(speech_mask, -1, 2)).cpu().numpy()
-        class_probs = probs[0, :, :T_actual]
-        pred_idx = class_probs.argmax(dim=0)
-        label_map = torch.tensor([-1, 1, 2], device=pred_idx.device)
-        y_pred_frames = label_map[pred_idx].cpu().numpy()
-        y_true_list.extend(y_true_frames.tolist())
-        y_pred_list.extend(y_pred_frames.tolist())
-        subclasses_list.extend([subclass] * T_actual)
-        total_frames += T_actual
-    time_per_sample_ns = (time.perf_counter_ns() - t0) / max(total_frames, 1)
-
-    import numpy as np
-    y_true = np.array(y_true_list, dtype=np.int64)
-    y_pred = np.array(y_pred_list, dtype=np.int64)
-    y_sub = np.array(subclasses_list, dtype="U40")
+    y_true, y_pred, y_sub, time_per_sample_ns = run_nn_inference(
+        model, eval_cfg, cfg, max_rows=max_rows
+    )
 
     run_evaluation(
         y_true, y_pred, y_sub, time_per_sample_ns,
