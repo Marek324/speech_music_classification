@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from .dataset import load_nn_dataset
+from ..evaluator import _device_label
 
 log = logging.getLogger(__name__)
 
@@ -17,7 +18,7 @@ def run_nn_inference(
     eval_cfg: dict,
     cfg: dict,
     max_rows: int | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, str]:
     """Run inference for any model producing (1, 3, T) probs per clip.
 
     Args:
@@ -42,15 +43,17 @@ def run_nn_inference(
     y_pred_list: list[int] = []
     subclasses_list: list[str] = []
 
-    t0 = time.perf_counter_ns()
+    classify_ns = 0
     total_frames = 0
     for wav, targets, subclass in load_nn_dataset(
         eval_cfg["url"], "test", sr, hop, n_fft,
         max_rows=max_rows, yield_subclass=True, name=eval_cfg["name"],
     ):
+        wav_gpu = wav.to(device)
+        t0 = time.perf_counter_ns()
         with torch.no_grad():
-            wav = wav.to(device)
-            probs = model(wav)  # (1, 3, T)
+            probs = model(wav_gpu)  # (1, 3, T) — includes mel preprocessing
+        classify_ns += time.perf_counter_ns() - t0
         T = probs.shape[-1]
         tgt = targets[:, :T]      # align to model output length
         T_actual = tgt.shape[-1]  # may be less than T due to center-padding in STFT
@@ -71,11 +74,11 @@ def run_nn_inference(
         subclasses_list.extend([subclass] * T_actual)
         total_frames += T_actual
 
-    classify_ns = time.perf_counter_ns() - t0
     time_per_sample_ns = classify_ns / total_frames if total_frames else 0.0
+    device_str = _device_label(device.type == "cuda")
 
     y_true = np.array(y_true_list, dtype=np.int64)
     y_pred = np.array(y_pred_list, dtype=np.int64)
     y_sub = np.array(subclasses_list, dtype="U40")
 
-    return y_true, y_pred, y_sub, time_per_sample_ns
+    return y_true, y_pred, y_sub, time_per_sample_ns, device_str

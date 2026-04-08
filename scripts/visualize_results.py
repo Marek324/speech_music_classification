@@ -18,11 +18,11 @@ SPEECH_SUBS = [
     "speech_msom", "speech_noisy", "speech_som",
 ]
 MUSIC_SUBS = [
-    "music_country", "music_electronic", "music_folk", "music_hiphop",
-    "music_instrumental", "music_pop", "music_rock", "music_vocal",
+    "music_acapella", "music_electronic", "music_folk", "music_hip-hop",
+    "music_instrumental", "music_pop", "music_rock",
 ]
 SPEECH_SHORT = ["clean", "dirty", "multi", "msom", "noisy", "som"]
-MUSIC_SHORT = ["country", "electronic", "folk", "hiphop", "instrumental", "pop", "rock", "vocal"]
+MUSIC_SHORT = ["acapella", "electronic", "folk", "hip-hop", "instrumental", "pop", "rock"]
 
 
 def parse_eval(path: Path) -> dict:
@@ -32,11 +32,14 @@ def parse_eval(path: Path) -> dict:
         m = re.search(r"Macro\s+([\d.]+)", section)
         return float(m.group(1)) if m else None
 
-    eval_section = re.search(r"── 3-class.*?── By subclass", text, re.DOTALL)
+    eval_section = re.search(r"──.*?valuation.*?── By subclass", text, re.DOTALL)
     subclass_section = re.search(r"── By subclass.*", text, re.DOTALL)
 
-    time_m = re.search(r"Time/frame\s*:\s*([\d.]+)", text)
+    time_m = re.search(r"(?:ms/frame|Time/frame)\s*:\s*([\d.]+)", text)
     time_per_frame = float(time_m.group(1)) if time_m else None
+
+    device_m = re.search(r"Device\s*:\s*(.+)", text)
+    device = device_m.group(1).strip() if device_m else None
 
     per_class = {}
     if eval_section:
@@ -71,6 +74,7 @@ def parse_eval(path: Path) -> dict:
         "per_class": per_class,
         "cm": cm,
         "time_per_frame": time_per_frame,
+        "device": device,
         "subclasses": subclasses,
     }
 
@@ -84,26 +88,36 @@ def plot_macro_f1(ax, data):
     ax.set_xticklabels([MODEL_SHORT[m] for m in labels])
     ax.set_ylim(0, 1.05)
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
-    ax.set_title("Macro F1 (3-class)")
+    ax.set_title("Macro F1")
     ax.set_ylabel("Macro F1")
     for bar in bars:
         h = bar.get_height()
         if h > 0.02:
-            ax.text(bar.get_x() + bar.get_width() / 2, h + 0.01, f"{h:.2f}", ha="center", va="bottom", fontsize=7)
+            ax.text(bar.get_x() + bar.get_width() / 2, h + 0.01, f"{h:.2f}",
+                    ha="center", va="bottom", fontsize=7)
 
 
 def plot_pr_scatter(ax, data):
-    # Iso-F1 curves
-    r_range = np.linspace(0.5, 1.0, 300)
-    for f1_val in [0.75, 0.85, 0.90, 0.95]:
-        with np.errstate(invalid="ignore", divide="ignore"):
-            p_curve = f1_val * r_range / (2 * r_range - f1_val)
-        valid = (p_curve >= 0.5) & (p_curve <= 1.02)
-        ax.plot(r_range[valid], p_curve[valid], color="lightgray", linewidth=0.8, zorder=0)
-        mid = np.searchsorted(r_range[valid], (r_range[valid].min() + r_range[valid].max()) / 2)
-        if mid < len(r_range[valid]):
-            ax.text(r_range[valid][mid], p_curve[valid][mid] + 0.005, f"F1={f1_val}",
-                    fontsize=6, color="gray", ha="center")
+    # Determine axis range from actual data
+    all_r = [pt["r"] for m in data.values() for pt in m["per_class"].values()]
+    all_p = [pt["p"] for m in data.values() for pt in m["per_class"].values()]
+    lo = max(0.0, min(min(all_r), min(all_p)) - 0.05)
+    lo = round(lo * 10) / 10  # snap to 0.1
+
+    r_grid = np.linspace(lo, 1.0, 400)
+    p_grid = np.linspace(lo, 1.0, 400)
+    R, P = np.meshgrid(r_grid, p_grid)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        F1 = np.where((P + R) > 0, 2 * P * R / (P + R), 0.0)
+
+    # Filled F1 contour background
+    levels = np.linspace(lo, 1.0, 200)
+    ax.contourf(R, P, F1, levels=levels, cmap="YlOrRd_r", alpha=0.25, zorder=0)
+
+    # Labeled iso-F1 lines
+    iso_vals = [v for v in [0.70, 0.75, 0.80, 0.85, 0.90, 0.95, 0.99] if v >= lo]
+    cs = ax.contour(R, P, F1, levels=iso_vals, colors="gray", linewidths=0.7, zorder=1, alpha=0.6)
+    ax.clabel(cs, fmt=lambda v: f"F1={v:.2f}", fontsize=6, inline=True)
 
     markers = {"speech": "o", "music": "s", "inactive": "^"}
     for model in data:
@@ -112,38 +126,62 @@ def plot_pr_scatter(ax, data):
             if pt:
                 ax.scatter(pt["r"], pt["p"], color=COLORS[model], marker=marker,
                            s=70, zorder=3, edgecolors="white", linewidths=0.5)
-                ax.annotate(f"{MODEL_SHORT[model]}", (pt["r"], pt["p"]),
-                            textcoords="offset points", xytext=(4, 2), fontsize=6, color=COLORS[model])
+                ax.annotate(MODEL_SHORT[model], (pt["r"], pt["p"]),
+                            textcoords="offset points", xytext=(4, 2),
+                            fontsize=6, color=COLORS[model])
 
     from matplotlib.lines import Line2D
     legend_els = [
         Line2D([0], [0], color=COLORS[m], marker="o", linestyle="None", markersize=6, label=MODEL_SHORT[m])
         for m in data
     ] + [
-        Line2D([0], [0], color="gray", marker="o", linestyle="None", markersize=6, label="Speech (circle)"),
-        Line2D([0], [0], color="gray", marker="s", linestyle="None", markersize=6, label="Music (square)"),
-        Line2D([0], [0], color="gray", marker="^", linestyle="None", markersize=6, label="Inactive (triangle)"),
+        Line2D([0], [0], color="gray", marker="o", linestyle="None", markersize=6, label="Speech"),
+        Line2D([0], [0], color="gray", marker="s", linestyle="None", markersize=6, label="Music"),
+        Line2D([0], [0], color="gray", marker="^", linestyle="None", markersize=6, label="Inactive"),
     ]
     ax.legend(handles=legend_els, fontsize=6, ncol=1)
-    ax.set_xlim(0.5, 1.02)
-    ax.set_ylim(0.5, 1.02)
+    ax.set_xlim(lo, 1.01)
+    ax.set_ylim(lo, 1.01)
     ax.set_xlabel("Recall")
     ax.set_ylabel("Precision")
-    ax.set_title("Precision vs Recall (3-class)")
+    ax.set_title("Precision vs Recall")
+
+
+def _is_gpu(device: str | None) -> bool:
+    if not device:
+        return False
+    low = device.lower()
+    return any(k in low for k in ("nvidia", "cuda", "geforce", "quadro", "tesla", "amd instinct", "radeon"))
 
 
 def plot_inference_time(ax, data):
     labels = list(data.keys())
     times = [data[m]["time_per_frame"] or 0 for m in labels]
-    bars = ax.bar(range(len(labels)), times, color=[COLORS[m] for m in labels], alpha=0.85)
+    devices = [data[m].get("device") for m in labels]
+    gpu_flags = [_is_gpu(d) for d in devices]
+
+    bars = ax.bar(
+        range(len(labels)), times,
+        color=[COLORS[m] for m in labels],
+        hatch=[None if gpu else "//" for gpu in gpu_flags],
+        alpha=0.85, edgecolor="white", linewidth=0.5,
+    )
+    ax.set_yscale("log")
     ax.set_xticks(range(len(labels)))
     ax.set_xticklabels([MODEL_SHORT[m] for m in labels])
-    ax.set_ylabel("ms / frame")
+    ax.set_ylabel("ms / frame (log scale)")
     ax.set_title("Inference Time per Frame")
     for bar, t in zip(bars, times):
         if t > 0:
-            ax.text(bar.get_x() + bar.get_width() / 2, bar.get_height() + 0.02,
-                    f"{t:.2f}", ha="center", va="bottom", fontsize=8)
+            ax.text(bar.get_x() + bar.get_width() / 2, t * 1.15,
+                    f"{t:.3f}", ha="center", va="bottom", fontsize=8)
+
+    from matplotlib.patches import Patch
+    legend_els = [
+        Patch(facecolor="gray", alpha=0.85, label="GPU"),
+        Patch(facecolor="gray", alpha=0.85, hatch="//", label="CPU"),
+    ]
+    ax.legend(handles=legend_els, fontsize=7)
 
 
 def plot_confusion_matrix(ax, cm, classes, title):
@@ -185,6 +223,14 @@ def plot_subclass_group(ax, data, subclass_keys, short_names, title):
     ax.legend(fontsize=7)
 
 
+def _save_solo(plot_fn, *args, path, figsize=(8, 6), **kwargs):
+    fig, ax = plt.subplots(figsize=figsize)
+    plot_fn(ax, *args, **kwargs)
+    fig.savefig(path, dpi=150, bbox_inches="tight")
+    plt.close(fig)
+    print(f"Saved → {path}")
+
+
 def main():
     data = {}
     for model in MODELS:
@@ -192,31 +238,48 @@ def main():
         if path.exists():
             data[model] = parse_eval(path)
 
+    cm_classes = ["Speech", "Music", "Inactive"]
+
+    # Solo saves
+    graphs_dir = RESULTS_DIR / "graphs"
+    graphs_dir.mkdir(exist_ok=True)
+    _save_solo(plot_macro_f1, data, path=graphs_dir / "macro_f1.png", figsize=(7, 5))
+    _save_solo(plot_pr_scatter, data, path=graphs_dir / "pr_scatter.png")
+    _save_solo(plot_inference_time, data, path=graphs_dir / "inference_time.png", figsize=(6, 5))
+    for model in data:
+        _save_solo(
+            plot_confusion_matrix, data[model]["cm"], cm_classes,
+            f"{MODEL_SHORT[model]} — Confusion Matrix",
+            path=graphs_dir / f"cm_{model}.png", figsize=(5, 4),
+        )
+    _save_solo(plot_subclass_group, data, SPEECH_SUBS, SPEECH_SHORT,
+               "Speech Subclasses — F1 by Model", path=graphs_dir / "speech_subclasses.png", figsize=(9, 6))
+    _save_solo(plot_subclass_group, data, MUSIC_SUBS, MUSIC_SHORT,
+               "Music Subclasses — F1 by Model", path=graphs_dir / "music_subclasses.png", figsize=(9, 6))
+
+    # Combined
     fig = plt.figure(figsize=(18, 16))
     fig.suptitle("Model Evaluation Results", fontsize=14, fontweight="bold")
     gs = GridSpec(3, 4, figure=fig, hspace=0.50, wspace=0.38)
 
-    # Row 1: Macro F1 | P/R scatter | Inference time
     plot_macro_f1(fig.add_subplot(gs[0, :2]), data)
     plot_pr_scatter(fig.add_subplot(gs[0, 2]), data)
     plot_inference_time(fig.add_subplot(gs[0, 3]), data)
 
-    # Row 2: 3-class confusion matrices, one per model
-    cm_classes = ["Speech", "Music", "Inactive"]
     for i, model in enumerate(data):
         plot_confusion_matrix(
             fig.add_subplot(gs[1, i]),
             data[model]["cm"],
             cm_classes,
-            f"{MODEL_SHORT[model]} — 3-class CM",
+            f"{MODEL_SHORT[model]} — Confusion Matrix",
         )
 
-    # Row 3: Speech subclasses | Music subclasses
     plot_subclass_group(fig.add_subplot(gs[2, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
     plot_subclass_group(fig.add_subplot(gs[2, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
 
     out = RESULTS_DIR / "results.png"
     plt.savefig(out, dpi=150, bbox_inches="tight")
+    plt.close()
     print(f"Saved → {out}")
 
 

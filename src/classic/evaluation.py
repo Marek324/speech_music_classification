@@ -6,7 +6,7 @@ import time
 
 import numpy as np
 
-from ..evaluator import run_evaluation
+from ..evaluator import run_evaluation, _device_label
 from ..input_handler import InputHandler
 
 from . import MODELS, FeatExtractor
@@ -39,7 +39,17 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     X = ih.getX()
     y = ih.getY()
     subclasses = ih.getSubclasses()
-    extract_time_ns = ih.get_extract_time_per_frame_ns()
+
+    # Sequential extraction benchmark: time fe.extract() on a dummy frame
+    # (avoids parallel-timing underestimate from dataset.map(num_proc=N))
+    fe.reset()
+    dummy_frame = np.zeros(fe.fl, dtype=np.float32)
+    _bench = []
+    for _ in range(200):
+        t0 = time.perf_counter_ns()
+        fe.extract(dummy_frame)
+        _bench.append(time.perf_counter_ns() - t0)
+    extract_time_ns = float(np.median(_bench))
 
     t0 = time.perf_counter_ns()
     y_pred = model.predict_batch(X)
@@ -60,4 +70,5 @@ def eval_classic(model_name: str, save_to_file: bool = True):
         time_per_sample_ns,
         output_name=model_name,
         save_to_file=save_to_file,
+        device=_device_label(False),
     )

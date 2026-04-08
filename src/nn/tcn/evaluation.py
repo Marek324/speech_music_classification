@@ -39,7 +39,7 @@ def eval_tcn(save_to_file: bool = True, weights_path=None) -> EvalResults:
     cfg = get_config()
     model = _load_tcn_model(weights_path=weights_path)
 
-    y_true, y_pred, subclasses, time_per_sample_ns = run_nn_inference(
+    y_true, y_pred, subclasses, time_per_sample_ns, device = run_nn_inference(
         model, cfg["dataset"]["eval"], cfg
     )
     res = run_evaluation(
@@ -49,6 +49,7 @@ def eval_tcn(save_to_file: bool = True, weights_path=None) -> EvalResults:
         time_per_sample_ns,
         output_name="tcn",
         save_to_file=save_to_file,
+        device=device,
     )
 
     n = len(y_true)

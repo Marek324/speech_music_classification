@@ -41,6 +41,17 @@ class SubclassMetrics:
     conf_mat: np.ndarray
 
 
+def _device_label(is_cuda: bool) -> str:
+    import platform
+    if is_cuda:
+        try:
+            import torch
+            return torch.cuda.get_device_name()
+        except Exception:
+            return "cuda"
+    return platform.processor() or platform.machine() or "cpu"
+
+
 @dataclass
 class EvalResults:
     n_classes: int
@@ -50,6 +61,7 @@ class EvalResults:
     by_subclass: Dict[str, SubclassMetrics]
     labels: list
     per_class: Dict[int, PerClassMetrics]
+    device: str = "cpu"
 
     @property
     def f1(self) -> float:
@@ -70,13 +82,14 @@ class EvalResults:
 
 def _fmt_eval(res: EvalResults) -> str:
     lines = []
-    title = f"── {res.n_classes}-class evaluation "
+    title = "── Evaluation "
     lines.append(title + "─" * max(0, 50 - len(title)))
-    lines.append(f"  Time/frame : {res.time_per_frame_ns * 1e-6:.4f} ms")
+    lines.append(f"  Device     : {res.device}")
+    lines.append(f"  ms/frame   : {res.time_per_frame_ns * 1e-6:.4f}")
     lines.append(f"  Macro F1   : {res.f1:.4f}")
     lines.append("")
 
-    lines.append(f"  {'':12s}  {'F1':>6}  {'P':>6}  {'R':>6}")
+    lines.append(f"  {'Class':<12s}  {'F1':>6}  {'P':>6}  {'R':>6}")
     for lbl in res.labels:
         name = LABEL_NAMES.get(lbl, str(lbl))
         pc = res.per_class[lbl]
@@ -137,29 +150,27 @@ def _compute_subclass_metrics(
     y_sub: np.ndarray,
     eval_labels: list,
 ) -> Dict[str, SubclassMetrics]:
-    global_fp = {c: int(np.sum((y_pred == c) & (y_true != c))) for c in eval_labels}
-
     by_sub = {}
     for sub in np.unique(y_sub):
         mask = y_sub == sub
         y_t, y_p = y_true[mask], y_pred[mask]
-        sub_labels = [l for l in eval_labels if l in set(y_t.tolist())]
 
-        prec_vals, rec_vals, f1_vals = [], [], []
-        for c in sub_labels:
-            tp = int(np.sum((y_t == c) & (y_p == c)))
-            fn = int(np.sum((y_t == c) & (y_p != c)))
-            p, r, f1 = _prf(tp, global_fp[c], fn)
-            prec_vals.append(p)
-            rec_vals.append(r)
-            f1_vals.append(f1)
+        # Primary class = most frequent true label in this subclass
+        values, counts = np.unique(y_t, return_counts=True)
+        primary = int(values[np.argmax(counts)])
+
+        # Local one-vs-rest binary F1 for the primary class
+        tp = int(np.sum((y_t == primary) & (y_p == primary)))
+        fp = int(np.sum((y_t != primary) & (y_p == primary)))
+        fn = int(np.sum((y_t == primary) & (y_p != primary)))
+        p, r, f1 = _prf(tp, fp, fn)
 
         by_sub[str(sub)] = SubclassMetrics(
-            f1=float(np.mean(f1_vals)) if f1_vals else 0.0,
-            precision=float(np.mean(prec_vals)) if prec_vals else 0.0,
-            recall=float(np.mean(rec_vals)) if rec_vals else 0.0,
-            accuracy=accuracy_score(y_t, y_p),
-            conf_mat=confusion_matrix(y_t, y_p, labels=sub_labels),
+            f1=f1,
+            precision=p,
+            recall=r,
+            accuracy=float(accuracy_score(y_t, y_p)),
+            conf_mat=confusion_matrix(y_t, y_p, labels=[primary]),
         )
 
     return by_sub
@@ -171,6 +182,7 @@ def _compute_metrics(
     eval_labels: list,
     time_per_sample_ns: float,
     by_subclass: Dict[str, SubclassMetrics],
+    device: str = "cpu",
 ) -> EvalResults:
     f1_per = f1_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
     prec_per = precision_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
@@ -189,6 +201,7 @@ def _compute_metrics(
         by_subclass=by_subclass,
         labels=eval_labels,
         per_class=per_class,
+        device=device,
     )
 
 
@@ -199,6 +212,7 @@ def run_evaluation(
     time_per_sample_ns: float,
     output_name: str,
     save_to_file: bool = True,
+    device: str = "cpu",
 ) -> EvalResults:
     """
     Main evaluation entry point. Computes metrics and optionally saves report.
@@ -208,7 +222,7 @@ def run_evaluation(
         raise ValueError("y_true, y_pred and subclasses must have the same length")
 
     by_subclass = _compute_subclass_metrics(y_true, y_pred, subclasses, [-1, 1, 2])
-    res = _compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass)
+    res = _compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass, device=device)
 
     report = format_report(res)
     if save_to_file:
