@@ -208,7 +208,7 @@ class InputHandler:
             fd = self._process_frame(frame, frame_start, labels, cls_name, subclass)
 
             feats.append(_safe_feats(fd.feats))
-            labels_out.append(cls_name)
+            labels_out.append(fd.metadata.label)
             assert fd.metadata is not None
             subclasses_out.append(fd.metadata.subclass)
             frame_start += self.hop_len
