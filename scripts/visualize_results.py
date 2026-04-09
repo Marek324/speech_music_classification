@@ -63,11 +63,9 @@ def parse_eval(path: Path) -> dict:
     subclasses = {}
     if subclass_section:
         for line in subclass_section.group().splitlines()[1:]:
-            m = re.match(r"\s+(\S+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)", line)
+            m = re.match(r"\s+(\S+)\s+([\d.]+)\s*$", line)
             if m:
-                subclasses[m.group(1)] = {
-                    "f1": float(m.group(2)), "p": float(m.group(3)), "r": float(m.group(4)),
-                }
+                subclasses[m.group(1)] = {"r": float(m.group(2))}
 
     return {
         "macro_f1": macro_f1(eval_section.group()) if eval_section else None,
@@ -212,13 +210,13 @@ def plot_subclass_group(ax, data, subclass_keys, short_names, title):
     bar_h = total_height / n_models
     y = np.arange(n_subs)
     for i, model in enumerate(models):
-        vals = [data[model]["subclasses"].get(s, {}).get("f1", 0) for s in subclass_keys]
+        vals = [data[model]["subclasses"].get(s, {}).get("r", 0) for s in subclass_keys]
         offset = (i - n_models / 2 + 0.5) * bar_h
         ax.barh(y + offset, vals, bar_h * 0.9, color=COLORS[model], alpha=0.85, label=MODEL_SHORT[model])
     ax.set_yticks(y)
     ax.set_yticklabels(short_names, fontsize=8)
     ax.set_xlim(0, 1.05)
-    ax.set_xlabel("F1")
+    ax.set_xlabel("Recall")
     ax.set_title(title)
     ax.legend(fontsize=7)
 
@@ -253,9 +251,9 @@ def main():
             path=graphs_dir / f"cm_{model}.png", figsize=(5, 4),
         )
     _save_solo(plot_subclass_group, data, SPEECH_SUBS, SPEECH_SHORT,
-               "Speech Subclasses — F1 by Model", path=graphs_dir / "speech_subclasses.png", figsize=(9, 6))
+               "Speech Subclasses — Recall by Model", path=graphs_dir / "speech_subclasses.png", figsize=(9, 6))
     _save_solo(plot_subclass_group, data, MUSIC_SUBS, MUSIC_SHORT,
-               "Music Subclasses — F1 by Model", path=graphs_dir / "music_subclasses.png", figsize=(9, 6))
+               "Music Subclasses — Recall by Model", path=graphs_dir / "music_subclasses.png", figsize=(9, 6))
 
     # Combined
     fig = plt.figure(figsize=(18, 16))
@@ -274,8 +272,8 @@ def main():
             f"{MODEL_SHORT[model]} — Confusion Matrix",
         )
 
-    plot_subclass_group(fig.add_subplot(gs[2, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
-    plot_subclass_group(fig.add_subplot(gs[2, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
+    plot_subclass_group(fig.add_subplot(gs[2, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — Recall by Model")
+    plot_subclass_group(fig.add_subplot(gs[2, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — Recall by Model")
 
     out = RESULTS_DIR / "results.png"
     plt.savefig(out, dpi=150, bbox_inches="tight")

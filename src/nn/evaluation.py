@@ -8,6 +8,7 @@ import numpy as np
 import torch
 
 from .dataset import load_nn_dataset
+from ..common import LABEL_MAP
 from ..evaluator import _device_label
 
 log = logging.getLogger(__name__)
@@ -45,7 +46,7 @@ def run_nn_inference(
 
     classify_ns = 0
     total_frames = 0
-    for wav, targets, subclass in load_nn_dataset(
+    for wav, targets, cls_name, subclass in load_nn_dataset(
         eval_cfg["url"], "test", sr, hop, n_fft,
         max_rows=max_rows, yield_subclass=True, name=eval_cfg["name"],
     ):
@@ -55,19 +56,17 @@ def run_nn_inference(
             probs = model(wav_gpu)  # (1, 3, T) — includes mel preprocessing
         classify_ns += time.perf_counter_ns() - t0
         T = probs.shape[-1]
-        tgt = targets[:, :T]      # align to model output length
-        T_actual = tgt.shape[-1]  # may be less than T due to center-padding in STFT
-
-        # Per-frame y_true: -1=speech, 1=music, 2=inactive
-        speech_mask = tgt[0, :] == 1.0
-        music_mask = tgt[1, :] == 1.0
-        y_true_frames = torch.where(music_mask, 1, torch.where(speech_mask, -1, 2)).cpu().numpy()
+        T_actual = min(T, targets.shape[-1])  # may be less than T due to center-padding in STFT
 
         # Per-frame y_pred: argmax across (speech, music, inactive) channels
         class_probs = probs[0, :, :T_actual]          # (3, T)
         pred_idx = class_probs.argmax(dim=0)           # 0=speech, 1=music, 2=inactive
         label_map = torch.tensor([-1, 1, 2], device=pred_idx.device)
         y_pred_frames = label_map[pred_idx].cpu().numpy()
+
+        # Per-frame y_true: clip-uniform, sourced from the dataset `class` column.
+        clip_label = LABEL_MAP[cls_name]
+        y_true_frames = np.full(T_actual, clip_label, dtype=np.int64)
 
         y_true_list.extend(y_true_frames.tolist())
         y_pred_list.extend(y_pred_frames.tolist())

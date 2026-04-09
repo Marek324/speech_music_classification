@@ -7,7 +7,7 @@ import logging
 import os
 import time
 from collections import Counter
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 import numpy as np
 from datasets import Audio, Dataset, load_dataset
@@ -18,7 +18,6 @@ from .common import (
     FrameDataStrLabel,
     FrameMetadataStrLabel,
     LABEL_MAP,
-    frame_label_str,
 )
 from .classic.feat_extractor import FeatExtractor
 
@@ -186,15 +185,6 @@ class InputHandler:
 
         cls_name = row["class"]
         subclass = row["subclass"]
-        labels_raw = row["labels"] or []
-        if isinstance(labels_raw, dict):
-            keys = list(labels_raw.keys())
-            labels = [
-                {k: labels_raw[k][i] for k in keys}
-                for i in range(len(labels_raw[keys[0]]))
-            ]
-        else:
-            labels = labels_raw
 
         feats, labels_out, subclasses_out = [], [], []
         frame_start = 0
@@ -205,7 +195,7 @@ class InputHandler:
                 audio[frame_start : frame_start + self.frame_len],
                 self.frame_len,
             )
-            fd = self._process_frame(frame, frame_start, labels, cls_name, subclass)
+            fd = self._process_frame(frame, cls_name, subclass)
 
             feats.append(_safe_feats(fd.feats))
             labels_out.append(fd.metadata.label)
@@ -218,16 +208,11 @@ class InputHandler:
     def _process_frame(
         self,
         frame: np.ndarray,
-        frame_start: int,
-        labels: List[Dict],
         cls_name: str,
         subclass: str,
     ) -> FrameDataStrLabel:
         feats = self.fextractor.extract(frame)
-        label = frame_label_str(
-            labels, frame_start, frame_start + self.frame_len
-        )
-        meta = FrameMetadataStrLabel(label=label, rec_class=cls_name, subclass=subclass)
+        meta = FrameMetadataStrLabel(label=cls_name, rec_class=cls_name, subclass=subclass)
         return FrameDataStrLabel(frame, feats, meta)
 
     def getX(self) -> np.ndarray:

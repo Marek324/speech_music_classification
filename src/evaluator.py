@@ -34,11 +34,11 @@ class PerClassMetrics:
 
 @dataclass
 class SubclassMetrics:
-    f1: float
-    precision: float
+    # y_true is clip-uniform within a subclass (sourced from the dataset `class`
+    # column), so fp is structurally 0 inside the mask. Precision collapses to
+    # 1.0/0.0, accuracy equals recall, and F1 = 2R/(1+R) — only recall carries
+    # independent information.
     recall: float
-    accuracy: float
-    conf_mat: np.ndarray
 
 
 def _device_label(is_cuda: bool) -> str:
@@ -116,11 +116,9 @@ def _fmt_subclass_table(by_subclass: Dict[str, SubclassMetrics]) -> str:
     if not by_subclass:
         return ""
     lines = ["── By subclass " + "─" * 36]
-    lines.append(f"  {'Subclass':<24}  {'F1':>6}  {'P':>6}  {'R':>6}  {'Acc':>6}")
+    lines.append(f"  {'Subclass':<24}  {'R':>6}")
     for sub, res in sorted(by_subclass.items()):
-        lines.append(
-            f"  {sub:<24}  {res.f1:>6.4f}  {res.precision:>6.4f}  {res.recall:>6.4f}  {res.accuracy:>6.4f}"
-        )
+        lines.append(f"  {sub:<24}  {res.recall:>6.4f}")
     return "\n".join(lines)
 
 
@@ -137,41 +135,21 @@ def format_report(res: EvalResults) -> str:
 # Computation
 # ---------------------------------------------------------------------------
 
-def _prf(tp: int, fp: int, fn: int) -> tuple[float, float, float]:
-    p = tp / (tp + fp) if (tp + fp) > 0 else 0.0
-    r = tp / (tp + fn) if (tp + fn) > 0 else 0.0
-    f1 = 2 * tp / (2 * tp + fp + fn) if (2 * tp + fp + fn) > 0 else 0.0
-    return p, r, f1
-
-
 def _compute_subclass_metrics(
     y_true: np.ndarray,
     y_pred: np.ndarray,
     y_sub: np.ndarray,
-    eval_labels: list,
 ) -> Dict[str, SubclassMetrics]:
     by_sub = {}
     for sub in np.unique(y_sub):
         mask = y_sub == sub
         y_t, y_p = y_true[mask], y_pred[mask]
 
-        # Primary class = most frequent true label in this subclass
-        values, counts = np.unique(y_t, return_counts=True)
-        primary = int(values[np.argmax(counts)])
+        # y_true is clip-uniform within a subclass — primary is any frame's label.
+        primary = int(y_t[0])
+        recall = float(np.mean(y_p == primary)) if len(y_t) else 0.0
 
-        # Local one-vs-rest binary F1 for the primary class
-        tp = int(np.sum((y_t == primary) & (y_p == primary)))
-        fp = int(np.sum((y_t != primary) & (y_p == primary)))
-        fn = int(np.sum((y_t == primary) & (y_p != primary)))
-        p, r, f1 = _prf(tp, fp, fn)
-
-        by_sub[str(sub)] = SubclassMetrics(
-            f1=f1,
-            precision=p,
-            recall=r,
-            accuracy=float(accuracy_score(y_t, y_p)),
-            conf_mat=confusion_matrix(y_t, y_p, labels=[primary]),
-        )
+        by_sub[str(sub)] = SubclassMetrics(recall=recall)
 
     return by_sub
 
@@ -221,7 +199,7 @@ def run_evaluation(
     if len(y_true) != len(y_pred) or len(y_true) != len(subclasses):
         raise ValueError("y_true, y_pred and subclasses must have the same length")
 
-    by_subclass = _compute_subclass_metrics(y_true, y_pred, subclasses, [-1, 1, 2])
+    by_subclass = _compute_subclass_metrics(y_true, y_pred, subclasses)
     res = _compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass, device=device)
 
     report = format_report(res)

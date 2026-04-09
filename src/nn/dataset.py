@@ -106,7 +106,7 @@ def iter_nn_rows(
         cls_name = row["class"]
         if yield_subclass:
             subclass = row.get("subclass", cls_name)
-            yield wav, targets, subclass
+            yield wav, targets, cls_name, subclass
         else:
             yield wav, targets
 
