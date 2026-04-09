@@ -42,14 +42,20 @@ class SubclassMetrics:
 
 
 def _device_label(is_cuda: bool) -> str:
-    import platform
     if is_cuda:
         try:
             import torch
             return torch.cuda.get_device_name()
         except Exception:
             return "cuda"
-    return platform.processor() or platform.machine() or "cpu"
+    try:
+        with open("/proc/cpuinfo") as f:
+            for line in f:
+                if line.startswith("model name"):
+                    return line.split(":", 1)[1].strip()
+    except OSError:
+        pass
+    return "cpu"
 
 
 @dataclass

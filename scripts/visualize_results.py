@@ -6,7 +6,7 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import matplotlib.ticker as mticker
 import numpy as np
-from matplotlib.gridspec import GridSpec
+from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 MODELS = ["tcn", "decision_tree", "svm", "gmm"]
@@ -158,28 +158,71 @@ def plot_inference_time(ax, data):
     devices = [data[m].get("device") for m in labels]
     gpu_flags = [_is_gpu(d) for d in devices]
 
-    bars = ax.bar(
-        range(len(labels)), times,
-        color=[COLORS[m] for m in labels],
-        hatch=[None if gpu else "//" for gpu in gpu_flags],
-        alpha=0.85, edgecolor="white", linewidth=0.5,
-    )
-    ax.set_yscale("log")
-    ax.set_xticks(range(len(labels)))
-    ax.set_xticklabels([MODEL_SHORT[m] for m in labels])
-    ax.set_ylabel("ms / frame (log scale)")
-    ax.set_title("Inference Time per Frame")
-    for bar, t in zip(bars, times):
-        if t > 0:
-            ax.text(bar.get_x() + bar.get_width() / 2, t * 1.15,
-                    f"{t:.3f}", ha="center", va="bottom", fontsize=8)
+    gpu_items = [(m, times[i]) for i, m in enumerate(labels) if gpu_flags[i] and times[i] > 0]
+    cpu_items = [(m, times[i]) for i, m in enumerate(labels) if not gpu_flags[i] and times[i] > 0]
 
-    from matplotlib.patches import Patch
-    legend_els = [
-        Patch(facecolor="gray", alpha=0.85, label="GPU"),
-        Patch(facecolor="gray", alpha=0.85, hatch="//", label="CPU"),
-    ]
-    ax.legend(handles=legend_els, fontsize=7)
+    fig = ax.figure
+    spec = ax.get_subplotspec()
+    # Re-purpose `ax` as an invisible container for the title and device caption.
+    ax.set_xticks([])
+    ax.set_yticks([])
+    for s in ax.spines.values():
+        s.set_visible(False)
+    ax.set_facecolor("none")
+    ax.set_title("Process Time per Frame")
+
+    inner = GridSpecFromSubplotSpec(1, 2, subplot_spec=spec, wspace=0.0)
+    ax_gpu = fig.add_subplot(inner[0, 0])
+    ax_cpu = fig.add_subplot(inner[0, 1])
+
+    def _draw(sub_ax, items, group_label):
+        if not items:
+            sub_ax.set_visible(False)
+            return
+        idx = list(range(len(items)))
+        ts = [t for _, t in items]
+        bars = sub_ax.bar(
+            idx, ts,
+            color=[COLORS[m] for m, _ in items],
+            alpha=0.85, edgecolor="white", linewidth=0.5,
+        )
+        sub_ax.set_xticks(idx)
+        sub_ax.set_xticklabels([MODEL_SHORT[m] for m, _ in items])
+        sub_ax.set_ylim(0, max(ts) * 1.25)
+        sub_ax.text(
+            0.5, 0.97, group_label,
+            transform=sub_ax.transAxes, ha="center", va="top",
+            fontsize=8, color="gray",
+        )
+        for bar, t in zip(bars, ts):
+            sub_ax.text(bar.get_x() + bar.get_width() / 2, t,
+                        f"{t:.3f}", ha="center", va="bottom", fontsize=8)
+
+    _draw(ax_gpu, gpu_items, "GPU")
+    _draw(ax_cpu, cpu_items, "CPU")
+
+    ax_gpu.set_ylabel("ms / frame")
+    ax_cpu.set_ylabel("ms / frame")
+    ax_cpu.yaxis.set_label_position("right")
+    ax_cpu.yaxis.tick_right()
+    ax_gpu.spines["right"].set_visible(False)
+    ax_cpu.spines["left"].set_visible(False)
+    # Dashed separator at the shared edge between the two subplots.
+    from matplotlib.lines import Line2D
+    ax_gpu.add_line(Line2D(
+        [1, 1], [0, 1], transform=ax_gpu.transAxes,
+        color="gray", linestyle="--", linewidth=1, clip_on=False, zorder=10,
+    ))
+
+    caption = "\n".join(
+        f"{MODEL_SHORT[m]}: {devices[i] or 'unknown'}"
+        for i, m in enumerate(labels)
+    )
+    ax.text(
+        0.5, -0.18, caption,
+        transform=ax.transAxes, ha="center", va="top",
+        fontsize=6, color="gray",
+    )
 
 
 def plot_confusion_matrix(ax, cm, classes, title):
