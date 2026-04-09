@@ -2,6 +2,7 @@
 # Evaluation interface for TCN model.
 
 import logging
+from pathlib import Path
 
 import torch
 
@@ -9,24 +10,30 @@ from ...evaluator import EvalResults, run_evaluation
 from ...wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
 from ..evaluation import run_nn_inference
-from .config import get_config, get_weights_path
+from .config import get_config, get_weights_path, get_preprocess_stats_path
 from .model import SpeechMusicDetector
 from .preprocess import validate_preprocess_stats
 
 log = logging.getLogger(__name__)
 
 
-def _load_tcn_model(weights_path=None) -> SpeechMusicDetector:
+def _load_tcn_model(weights_path=None, cfg: dict | None = None, stats_path=None) -> SpeechMusicDetector:
     """Load TCN model from weights file."""
-    cfg = get_config()
-    path = weights_path if weights_path is not None else get_weights_path()
+    if cfg is None:
+        cfg = get_config()
+    path = Path(weights_path) if weights_path is not None else get_weights_path()
 
     if not path.exists():
         raise FileNotFoundError(f"TCN weights not found at {path}. Run train first.")
 
-    validate_preprocess_stats()
+    if stats_path is None:
+        validate_preprocess_stats()
+    else:
+        stats_path = Path(stats_path)
+        if not stats_path.exists():
+            raise FileNotFoundError(f"Preprocess stats not found at {stats_path}. Run train first.")
 
-    model = SpeechMusicDetector(sample_rate=cfg["sample_rate"])
+    model = SpeechMusicDetector(cfg=cfg, stats_path=stats_path)
     from safetensors.torch import load_file
 
     state = load_file(path, device="cpu")
@@ -34,20 +41,27 @@ def _load_tcn_model(weights_path=None) -> SpeechMusicDetector:
     return model
 
 
-def eval_tcn(save_to_file: bool = True, weights_path=None) -> EvalResults:
+def eval_tcn(
+    save_to_file: bool = True,
+    weights_path=None,
+    cfg: dict | None = None,
+    stats_path=None,
+    output_name: str | None = None,
+) -> EvalResults:
     """Evaluate TCN model on full test split. Uses main evaluator for metrics and output."""
-    cfg = get_config()
-    model = _load_tcn_model(weights_path=weights_path)
+    if cfg is None:
+        cfg = get_config()
+    model = _load_tcn_model(weights_path=weights_path, cfg=cfg, stats_path=stats_path)
 
     y_true, y_pred, subclasses, time_per_sample_ns, device = run_nn_inference(
-        model, cfg["dataset"]["eval"], cfg
+        model, cfg["dataset"], cfg
     )
     res = run_evaluation(
         y_true,
         y_pred,
         subclasses,
         time_per_sample_ns,
-        output_name="tcn",
+        output_name=output_name or "tcn",
         save_to_file=save_to_file,
         device=device,
     )

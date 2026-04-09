@@ -2,15 +2,7 @@ sample_rate = 16000
 channels = 1
 n_fft = 512
 
-[dataset.train]
-url = "Marek324/speech-music-classification"
-name = "full"
-
-[dataset.eval]
-url = "Marek324/speech-music-classification"
-name = "full"
-
-[dataset.stats]
+[dataset]
 url = "Marek324/speech-music-classification"
 name = "full"
 
@@ -55,6 +47,9 @@ hop_length = 512
 n_mels = 80
 f_min = 27.5
 f_max = 8000.0
+optimizer = "adam"    # "adam" | "sgd" (sgd uses momentum=0.9, paper §3.5)
+lr = 1e-3
+seq_len = 128         # chunk length in frames (~3 s at 512 hop / 22050 sr)
 
 [tcn.model]
 n_filters = 16
@@ -63,3 +58,4 @@ n_layers = 4
 n_stacks = 3
 dropout = 0.5
 n_classes = 3
+use_weight_norm = false   # false = BatchNorm (current impl), true = WeightNorm (paper ref)

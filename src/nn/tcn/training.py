@@ -53,7 +53,9 @@ def train_step(model, optimizer, loss_fn, waveform, targets):
     return loss.item()
 
 
-def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=BATCH_SIZE, seq_len=SEQ_LEN, training=False):
+def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=BATCH_SIZE, seq_len=None, training=False):
+    if seq_len is None:
+        seq_len = cfg.get("seq_len", SEQ_LEN)
     """Slice clips into fixed-length chunks and yield mini-batches (paper §3.5).
 
     chunk_samples = (seq_len - 1) * hop + n_fft  →  exactly seq_len target frames.
@@ -113,7 +115,7 @@ def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch
     device = next(model.parameters()).device
     total_loss = 0.0
     n_batches = 0
-    for wav_batch, tgt_batch in _iter_batched_chunks(ds, cfg, max_rows, f"Epoch {epoch}", training=True):
+    for wav_batch, tgt_batch in _iter_batched_chunks(ds, cfg, max_rows, f"Epoch {epoch}", seq_len=cfg.get("seq_len", SEQ_LEN), training=True):
         wav_batch = wav_batch.to(device)
         tgt_batch = tgt_batch.to(device)
         loss = train_step(model, optimizer, loss_fn, wav_batch, tgt_batch)
@@ -155,48 +157,58 @@ def train_tcn(
     weights_path=None,
     use_wandb: bool = True,
     patience: int = 5,
+    cfg: dict | None = None,
+    stats_path=None,
 ):
-    """Train TCN with SGD+momentum, ReduceLROnPlateau, and early stopping (paper §3.5).
+    """Train TCN with ReduceLROnPlateau and early stopping (paper §3.5).
 
-    Optimizer : SGD, momentum=0.9
-    LR schedule: divide by 10 when val loss doesn't improve for 3 consecutive epochs
-    Early stop : stop when val loss doesn't improve for `patience` consecutive epochs
+    Optimizer: read from cfg["optimizer"] — "adam" (default) or "sgd" (momentum=0.9).
+    LR schedule: divide by 10 when val loss doesn't improve for 3 consecutive epochs.
+    Early stop: stop when val loss doesn't improve for `patience` consecutive epochs.
     """
     from pathlib import Path
 
-    cfg = get_config()
+    if cfg is None:
+        cfg = get_config()
     save_path = Path(weights_path) if weights_path is not None else get_weights_path()
-    ds_rev = cfg["dataset"]["train"].get("revision")
-    stats_path = get_preprocess_stats_path(revision=ds_rev)
-
-    train_cfg = cfg["dataset"]["train"]
-    eval_cfg = cfg["dataset"]["eval"]
+    ds_cfg = cfg["dataset"]
+    ds_rev = ds_cfg.get("revision")
+    if stats_path is None:
+        stats_path = get_preprocess_stats_path(revision=ds_rev)
+    else:
+        stats_path = Path(stats_path)
 
     if not stats_path.exists():
         compute_and_save_preprocess_stats(
-            ds_link=train_cfg["url"],
-            name=train_cfg["name"],
+            ds_link=ds_cfg["url"],
+            name=ds_cfg["name"],
             max_rows=max_train_rows,
             stats_path=stats_path,
             revision=ds_rev,
         )
 
-    model = SpeechMusicDetector(sample_rate=cfg["sample_rate"])
+    model = SpeechMusicDetector(cfg=cfg, stats_path=stats_path)
     if torch.cuda.is_available():
         model = model.cuda()
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3, weight_decay=1e-4)
+    opt_name = cfg.get("optimizer", "adam").lower()
+    lr = cfg.get("lr", 1e-3)
+    if opt_name == "sgd":
+        optimizer = torch.optim.SGD(model.parameters(), lr=lr, momentum=0.9)
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.1, patience=3
     )
     loss_fn = build_loss()
 
+    run_name = cfg.get("name", "tcn")
     if use_wandb:
-        wandb_init(config={"model": "tcn", "epochs": epochs, "patience": patience, **cfg})
+        wandb_init(config={"model": run_name, "epochs": epochs, "patience": patience, **cfg})
 
-    ds = get_nn_dataset(train_cfg["url"], "train", cfg["sample_rate"], name=train_cfg["name"])
-    ds_link = eval_cfg["url"]
-    eval_name = eval_cfg["name"]
+    ds = get_nn_dataset(ds_cfg["url"], "train", cfg["sample_rate"], name=ds_cfg["name"])
+    ds_link = ds_cfg["url"]
+    eval_name = ds_cfg["name"]
 
     best_val_loss = float("inf")
     best_state = None

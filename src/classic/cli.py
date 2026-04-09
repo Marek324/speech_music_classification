@@ -21,14 +21,13 @@ CLASSIC_MODELS = ("decision_tree", "gmm", "svm")
 def _train_classic(model_name: str):
     config.init_config(None, model_name=model_name)
     cfg = config.get_config()
-    train_cfg = cfg["dataset"]["train"]
     fe = FeatExtractor()
     ih = InputHandler(
         mode="dataset",
         feat_extractor=fe,
-        ds_link=train_cfg["url"],
+        ds_link=cfg["dataset"]["url"],
         ds_split="train",
-        ds_name=train_cfg.get("name"),
+        ds_name=cfg["dataset"].get("name"),
     )
 
     X = ih.getX()
@@ -92,9 +91,9 @@ def _dataset_stats_classic():
     ih = InputHandler(
         mode="dataset",
         feat_extractor=DummyFeatExtractor(),
-        ds_link=cfg["dataset"]["stats"]["url"],
+        ds_link=cfg["dataset"]["url"],
         ds_split="train",
-        ds_name=cfg["dataset"]["stats"].get("name"),
+        ds_name=cfg["dataset"].get("name"),
     )
 
     ih.summary()

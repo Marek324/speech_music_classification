@@ -35,12 +35,21 @@ class TCNResidualBlock(nn.Module):
         kernel_size: int,
         dilation: int,
         dropout: float = 0.2,
+        use_weight_norm: bool = False,
     ):
         super().__init__()
         self.conv1 = CausalConv1d(in_channels, out_channels, kernel_size, dilation)
         self.conv2 = CausalConv1d(out_channels, out_channels, kernel_size, dilation)
-        self.bn1 = nn.BatchNorm1d(out_channels)
-        self.bn2 = nn.BatchNorm1d(out_channels)
+
+        if use_weight_norm:
+            nn.utils.weight_norm(self.conv1.conv)
+            nn.utils.weight_norm(self.conv2.conv)
+            self.bn1 = None
+            self.bn2 = None
+        else:
+            self.bn1 = nn.BatchNorm1d(out_channels)
+            self.bn2 = nn.BatchNorm1d(out_channels)
+
         self.drop = nn.Dropout(dropout)
 
         self.downsample = (
@@ -51,8 +60,12 @@ class TCNResidualBlock(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x if self.downsample is None else self.downsample(x)
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.drop(out)
-        out = F.relu(self.bn2(self.conv2(out)))
-        out = self.drop(out)
+        out = self.conv1(x)
+        if self.bn1 is not None:
+            out = self.bn1(out)
+        out = self.drop(F.relu(out))
+        out = self.conv2(out)
+        if self.bn2 is not None:
+            out = self.bn2(out)
+        out = self.drop(F.relu(out))
         return F.relu(out + residual)

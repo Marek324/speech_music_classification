@@ -24,9 +24,11 @@ class CausalTCN(nn.Module):
         n_stacks: int | None = None,
         dropout: float | None = None,
         n_classes: int | None = None,
+        cfg: dict | None = None,
     ):
         super().__init__()
-        cfg = get_config()
+        if cfg is None:
+            cfg = get_config()
         m = cfg["model"]
         n_mels = n_mels or cfg["n_mels"]
         n_filters = n_filters or m["n_filters"]
@@ -35,6 +37,7 @@ class CausalTCN(nn.Module):
         n_stacks = n_stacks or m["n_stacks"]
         dropout = dropout if dropout is not None else m["dropout"]
         n_classes = n_classes or m["n_classes"]
+        use_weight_norm = m.get("use_weight_norm", False)
 
         self.input_proj = nn.Conv1d(n_mels, n_filters, kernel_size=1)
 
@@ -44,7 +47,7 @@ class CausalTCN(nn.Module):
             for layer_idx in range(n_layers):
                 dilation = 2**layer_idx
                 blocks.append(
-                    TCNResidualBlock(in_ch, n_filters, kernel_size, dilation, dropout)
+                    TCNResidualBlock(in_ch, n_filters, kernel_size, dilation, dropout, use_weight_norm)
                 )
                 in_ch = n_filters
         self.tcn = nn.Sequential(*blocks)
@@ -73,13 +76,17 @@ class SpeechMusicDetector(nn.Module):
     def __init__(
         self,
         sample_rate: int | None = None,
+        cfg: dict | None = None,
+        stats_path=None,
         **tcn_kwargs,
     ):
         super().__init__()
-        cfg = get_config()
+        if cfg is None:
+            cfg = get_config()
         sr = sample_rate or cfg["sample_rate"]
-        rev = cfg["dataset"].get("revision")
-        stats_path = get_preprocess_stats_path(revision=rev)
+        if stats_path is None:
+            rev = cfg["dataset"].get("revision")
+            stats_path = get_preprocess_stats_path(revision=rev)
         self.fe = LogMelSpectrogram(
             sample_rate=sr,
             n_fft=cfg["n_fft"],
@@ -89,7 +96,7 @@ class SpeechMusicDetector(nn.Module):
             f_max=cfg["f_max"],
             stats_path=stats_path,
         )
-        self.model = CausalTCN(**tcn_kwargs)
+        self.model = CausalTCN(cfg=cfg, **tcn_kwargs)
 
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:
         """

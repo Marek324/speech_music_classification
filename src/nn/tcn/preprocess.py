@@ -166,7 +166,7 @@ def compute_and_save_preprocess_stats(
 ) -> Path:
     """Compute preprocess stats from training set and save. Returns path to saved file."""
     cfg = get_config()
-    ds_link = ds_link or cfg["dataset"]["train"]["url"]
+    ds_link = ds_link or cfg["dataset"]["url"]
     if ds_link is None:
         raise ValueError("No dataset link; set [dataset] url in config or pass ds_link.")
     if revision is None:

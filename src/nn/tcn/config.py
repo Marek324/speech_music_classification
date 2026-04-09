@@ -12,6 +12,9 @@ _DEFAULT: Dict[str, Any] = {
     "n_mels": 80,
     "f_min": 27.5,
     "f_max": 8000.0,
+    "optimizer": "adam",
+    "lr": 1e-3,
+    "seq_len": 128,
     "model": {
         "n_filters": 32,
         "kernel_size": 5,
@@ -19,18 +22,33 @@ _DEFAULT: Dict[str, Any] = {
         "n_stacks": 2,
         "dropout": 0.2,
         "n_classes": 3,
+        "use_weight_norm": False,
     },
 }
 
 
-def get_weights_path() -> Path:
-    """Path to saved TCN weights (safetensors format)."""
-    return Path(__file__).resolve().parent.parent.parent.parent / "weights" / "tcn.safetensors"
+def get_weights_path(name: str | None = None) -> Path:
+    """Path to saved TCN weights (safetensors format).
 
-
-def get_preprocess_stats_path(revision: str | None = None) -> Path:
-    """Path to precomputed normalization stats (mean, std) for log-mel spectrograms."""
+    When *name* is provided, returns a per-experiment path
+    ``weights/tcn_{name}.safetensors`` so ablation runs don't overwrite the
+    production checkpoint.
+    """
     weights = Path(__file__).resolve().parent.parent.parent.parent / "weights"
+    if name:
+        return weights / f"tcn_{name}.safetensors"
+    return weights / "tcn.safetensors"
+
+
+def get_preprocess_stats_path(revision: str | None = None, name: str | None = None) -> Path:
+    """Path to precomputed normalization stats (mean, std) for log-mel spectrograms.
+
+    *name* is checked first (per-experiment path); *revision* is the legacy
+    dataset-revision suffix used by the production TCN.
+    """
+    weights = Path(__file__).resolve().parent.parent.parent.parent / "weights"
+    if name:
+        return weights / f"tcn_{name}_preprocess_stats.pt"
     if revision:
         return weights / f"tcn_preprocess_stats_{revision}.pt"
     return weights / "tcn_preprocess_stats.pt"
@@ -41,13 +59,8 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
     if config_path is None:
         config_path = Path(__file__).resolve().parent.parent.parent.parent / "config.toml"
 
-    _empty_ds = {"url": None, "name": "full"}
     cfg = dict(_DEFAULT)
-    cfg["dataset"] = {
-        "train": dict(_empty_ds),
-        "eval": dict(_empty_ds),
-        "stats": dict(_empty_ds),
-    }
+    cfg["dataset"] = {"url": None, "name": "full"}
 
     if not config_path.exists():
         return cfg
@@ -56,7 +69,7 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
         raw = tomli.load(f)
 
     tcn = raw.get("tcn", {})
-    for k in ("sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max"):
+    for k in ("sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max", "optimizer", "lr", "seq_len", "name"):
         if k in tcn:
             cfg[k] = tcn[k]
     cfg["model"] = {**_DEFAULT["model"], **raw.get("tcn", {}).get("model", {})}

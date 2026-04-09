@@ -98,9 +98,8 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
     state = load_file(path, device="cpu")
     model.load_state_dict(state)
 
-    eval_cfg = cfg["dataset"]["eval"]
     y_true, y_pred, y_sub, time_per_sample_ns = run_nn_inference(
-        model, eval_cfg, cfg, max_rows=max_rows
+        model, cfg["dataset"], cfg, max_rows=max_rows
     )
 
     run_evaluation(
