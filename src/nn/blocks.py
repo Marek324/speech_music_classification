@@ -36,6 +36,7 @@ class TCNResidualBlock(nn.Module):
         dilation: int,
         dropout: float = 0.2,
         use_weight_norm: bool = False,
+        skip_connections: bool = True,
     ):
         super().__init__()
         self.conv1 = CausalConv1d(in_channels, out_channels, kernel_size, dilation)
@@ -50,6 +51,7 @@ class TCNResidualBlock(nn.Module):
             self.bn1 = nn.BatchNorm1d(out_channels)
             self.bn2 = nn.BatchNorm1d(out_channels)
 
+        self.skip_connections = skip_connections
         self.drop = nn.Dropout(dropout)
 
         self.downsample = (
@@ -68,4 +70,4 @@ class TCNResidualBlock(nn.Module):
         if self.bn2 is not None:
             out = self.bn2(out)
         out = self.drop(F.relu(out))
-        return F.relu(out + residual)
+        return F.relu(out + residual) if self.skip_connections else F.relu(out)

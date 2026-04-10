@@ -39,6 +39,8 @@ use_weight_norm = false
 optimizer = "adam"
 lr = 1e-3
 use_weight_norm = false
+[tcn.ablations.optimizer.sgd_batchnorm]
+use_weight_norm = false     # SGD + BatchNorm — completes 2×2 factorial
 
 # capacity: number of filters
 [tcn.ablations.capacity.baseline]
@@ -57,6 +59,12 @@ n_layers = 2            # RF = 3×3×4+1 = 37 frames
 n_layers = 3            # RF = 3×7×4+1 = 85 frames
 [tcn.ablations.depth.stacks_5]
 n_stacks = 5            # RF = 5×15×4+1 = 301 frames
+[tcn.ablations.depth.layers_1]
+n_layers = 1            # RF = 3×1×4+1 = 13 frames (paper minimum)
+[tcn.ablations.depth.kernel_3]
+kernel_size = 3         # RF = 3×15×2+1 = 91 frames (paper minimum)
+[tcn.ablations.depth.kernel_7]
+kernel_size = 7         # RF = 3×15×6+1 = 271 frames (fills gap 5→9)
 [tcn.ablations.depth.kernel_9]
 kernel_size = 9         # RF = 3×15×8+1 = 361 frames
 
@@ -71,3 +79,10 @@ dropout = 0.25
 [tcn.ablations.training.baseline]
 [tcn.ablations.training.seq_len_256]
 seq_len = 256           # chunks now exceed full RF (181 frames)
+[tcn.ablations.training.seq_len_270]
+seq_len = 270           # paper's original value; just above full RF (181 frames)
+
+# skip connections: paper hyperparameter (Table 2)
+[tcn.ablations.skip_connections.baseline]
+[tcn.ablations.skip_connections.no_skip]
+skip_connections = false  # removes residual add; plain dilated conv stack

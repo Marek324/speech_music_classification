@@ -56,7 +56,7 @@ def get_preprocess_stats_path(revision: str | None = None, name: str | None = No
 
 _MODEL_KEYS = frozenset([
     "n_filters", "kernel_size", "n_layers", "n_stacks",
-    "dropout", "n_classes", "use_weight_norm",
+    "dropout", "n_classes", "use_weight_norm", "skip_connections",
 ])
 _TOP_KEYS = frozenset([
     "sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",

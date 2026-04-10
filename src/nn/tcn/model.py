@@ -38,6 +38,7 @@ class CausalTCN(nn.Module):
         dropout = dropout if dropout is not None else m["dropout"]
         n_classes = n_classes or m["n_classes"]
         use_weight_norm = m.get("use_weight_norm", False)
+        skip_connections = m.get("skip_connections", True)
 
         self.input_proj = nn.Conv1d(n_mels, n_filters, kernel_size=1)
 
@@ -47,7 +48,7 @@ class CausalTCN(nn.Module):
             for layer_idx in range(n_layers):
                 dilation = 2**layer_idx
                 blocks.append(
-                    TCNResidualBlock(in_ch, n_filters, kernel_size, dilation, dropout, use_weight_norm)
+                    TCNResidualBlock(in_ch, n_filters, kernel_size, dilation, dropout, use_weight_norm, skip_connections)
                 )
                 in_ch = n_filters
         self.tcn = nn.Sequential(*blocks)
