@@ -54,6 +54,62 @@ def get_preprocess_stats_path(revision: str | None = None, name: str | None = No
     return weights / "tcn_preprocess_stats.pt"
 
 
+_MODEL_KEYS = frozenset([
+    "n_filters", "kernel_size", "n_layers", "n_stacks",
+    "dropout", "n_classes", "use_weight_norm",
+])
+_TOP_KEYS = frozenset([
+    "sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
+    "optimizer", "lr", "seq_len",
+])
+_VARIANT_OVERRIDE_KEYS = _TOP_KEYS | _MODEL_KEYS | frozenset(["name"])
+
+
+def _is_subgroup(val: dict) -> bool:
+    """True if val looks like a subgroup dict (keys are variant names, not override keys)."""
+    if not val:
+        return False
+    return not any(k in _VARIANT_OVERRIDE_KEYS for k in val)
+
+
+def get_ablation_config(
+    name: str,
+    config_path: Path | None = None,
+    subgroup: str | None = None,
+) -> Dict[str, Any]:
+    """Base [tcn] config merged with [tcn.ablations[.<subgroup>].<name>] overrides."""
+    cfg = get_config(config_path)
+    if config_path is None:
+        config_path = Path(__file__).resolve().parent.parent.parent.parent / "config.toml"
+    with open(config_path, "rb") as f:
+        raw = tomli.load(f)
+    ablations = raw.get("tcn", {}).get("ablations", {})
+    source = ablations.get(subgroup, {}) if subgroup else ablations
+    overrides = source.get(name, {})
+    for k in _TOP_KEYS:
+        if k in overrides:
+            cfg[k] = overrides[k]
+    cfg["model"] = {**cfg["model"], **{k: overrides[k] for k in _MODEL_KEYS if k in overrides}}
+    cfg["name"] = name
+    return cfg
+
+
+def list_ablations(config_path: Path | None = None) -> Dict[str, list]:
+    """Return {subgroup: [name, ...]} for grouped ablations, or {"": [name, ...]} for flat."""
+    if config_path is None:
+        config_path = Path(__file__).resolve().parent.parent.parent.parent / "config.toml"
+    with open(config_path, "rb") as f:
+        raw = tomli.load(f)
+    ablations = raw.get("tcn", {}).get("ablations", {})
+    result: Dict[str, list] = {}
+    for key, val in ablations.items():
+        if _is_subgroup(val):
+            result[key] = list(val.keys())
+        else:
+            result.setdefault("", []).append(key)
+    return result
+
+
 def get_config(config_path: Path | None = None) -> Dict[str, Any]:
     """Load TCN config from config.toml [tcn] and [dataset] sections."""
     if config_path is None:

@@ -8,7 +8,13 @@ from pathlib import Path
 import click
 import torch
 
-from ...nn.tcn.config import get_config, get_preprocess_stats_path, get_weights_path
+from ...nn.tcn.config import (
+    get_ablation_config,
+    get_config,
+    get_preprocess_stats_path,
+    get_weights_path,
+    list_ablations,
+)
 from ...nn.tcn.evaluation import eval_tcn
 from ...nn.tcn.model import SpeechMusicDetector
 from ...nn.tcn.training import train_tcn
@@ -18,67 +24,117 @@ log = logging.getLogger(__name__)
 _CFG_PATH = Path(__file__).parent / "config.toml"
 
 
-def _load():
-    cfg = get_config(_CFG_PATH)
-    name = cfg.get("name", "ablation")
-    return cfg, name, get_weights_path(name=name), get_preprocess_stats_path(name=name)
+def _load(name: str | None = None, subgroup: str | None = None):
+    if name:
+        cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=subgroup)
+    else:
+        cfg = get_config(_CFG_PATH)
+    variant_name = cfg.get("name", "ablation")
+    return cfg, variant_name, get_weights_path(name=variant_name), get_preprocess_stats_path(name=variant_name)
 
 
 @click.group("tcn-ablation")
 def tcn_ablation_group():
-    """TCN ablation experiments — edit src/exp/tcn_ablation/config.toml to change knobs."""
+    """TCN ablation experiments — subgroups and variants defined in src/exp/tcn_ablation/config.toml."""
     pass
 
 
 @tcn_ablation_group.command("train")
-@click.option("--epochs", "-e", default=50, help="Max training epochs")
-@click.option("--patience", "-p", default=5, help="Early stopping patience")
+@click.option("--name", "-n", default=None, help="Variant name (e.g. adam, filters_8)")
+@click.option("--subgroup", "-s", default=None, help="Subgroup (optimizer, capacity, depth, regularization, training)")
 @click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
-def train_cmd(epochs, patience, no_wandb):
-    """Train the experiment model defined in config.toml."""
-    cfg, name, weights_path, stats_path = _load()
-    train_tcn(
-        epochs=epochs,
-        patience=patience,
-        use_wandb=not no_wandb,
-        cfg=cfg,
-        weights_path=weights_path,
-        stats_path=stats_path,
-    )
+def train_cmd(name, subgroup, no_wandb):
+    """Train a single experiment variant."""
+    cfg, _, weights_path, stats_path = _load(name, subgroup)
+    train_tcn(use_wandb=not no_wandb, cfg=cfg, weights_path=weights_path, stats_path=stats_path)
 
 
 @tcn_ablation_group.command("eval")
-def eval_cmd():
-    """Evaluate the experiment model on the test split."""
-    cfg, name, weights_path, stats_path = _load()
+@click.option("--name", "-n", default=None, help="Variant name")
+@click.option("--subgroup", "-s", default=None, help="Subgroup name")
+def eval_cmd(name, subgroup):
+    """Evaluate a single experiment variant on the test split."""
+    cfg, variant_name, weights_path, stats_path = _load(name, subgroup)
     eval_tcn(
         cfg=cfg,
         weights_path=weights_path,
         stats_path=stats_path,
-        output_name=f"tcn_{name}",
+        output_name=f"tcn_{variant_name}",
     )
 
 
 @tcn_ablation_group.command("smoke-test")
-def smoke_test_cmd():
+@click.option("--name", "-n", default=None, help="Variant name (default: base config)")
+@click.option("--subgroup", "-s", default=None)
+def smoke_test_cmd(name, subgroup):
     """Smoke test: forward pass with synthetic audio (no weights or dataset needed)."""
-    cfg, name, _, stats_path = _load()
+    cfg, variant_name, _, stats_path = _load(name, subgroup)
     n_mels = cfg["n_mels"]
 
     model = SpeechMusicDetector(cfg=cfg, stats_path=stats_path)
-    # Inject identity norm stats so the forward pass works without a real stats file
     model.fe.norm_mean = torch.zeros(1, n_mels, 1)
     model.fe.norm_std = torch.ones(1, n_mels, 1)
 
-    dummy = torch.randn(2, cfg["sample_rate"] * 3)  # 2-item batch, 3 seconds
+    dummy = torch.randn(2, cfg["sample_rate"] * 3)
     probs = model(dummy)
 
     assert probs.shape[0] == 2 and probs.shape[1] == cfg["model"]["n_classes"], (
         f"Unexpected output shape: {probs.shape}"
     )
     assert 0 <= probs.min().item() <= 1 and 0 <= probs.max().item() <= 1
-    log.info(
-        "Smoke-test passed. Experiment: %s  Output shape: %s",
-        name,
-        tuple(probs.shape),
-    )
+    log.info("Smoke-test passed. Variant: %s  Output shape: %s", variant_name, tuple(probs.shape))
+
+
+@tcn_ablation_group.command("ablation")
+@click.option("--subgroup", "-s", default=None, help="Run only this subgroup (default: all)")
+@click.option("--skip-existing/--no-skip-existing", default=True,
+              help="Skip variants whose weights already exist (default: on)")
+def ablation_cmd(subgroup, skip_existing):
+    """Train + eval all variants across all subgroups (or a single subgroup) sequentially.
+
+    Shared variants (e.g. 'baseline') are trained and evaluated only once.
+    """
+    groups = list_ablations(_CFG_PATH)
+    if subgroup:
+        if subgroup not in groups:
+            raise click.BadParameter(f"Unknown subgroup '{subgroup}'. Available: {list(groups)}")
+        groups = {subgroup: groups[subgroup]}
+
+    done: set[str] = set()
+    total = sum(len(names) for names in groups.values())
+    log.info("Running ablation: %d variant(s) across subgroup(s): %s", total, list(groups))
+
+    for grp, names in groups.items():
+        log.info("── Subgroup: %s ──", grp)
+        for name in names:
+            if name in done:
+                log.info("[%s] already processed — skipping", name)
+                continue
+            weights = get_weights_path(name=name)
+            if skip_existing and weights.exists():
+                log.info("[%s] weights exist — skipping train", name)
+            else:
+                log.info("[%s] training...", name)
+                cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
+                train_tcn(cfg=cfg)
+            log.info("[%s] evaluating...", name)
+            cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
+            stats = get_preprocess_stats_path(name=name)
+            eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats, output_name=f"tcn_{name}")
+            done.add(name)
+
+    log.info("Ablation complete. %d variant(s) processed.", len(done))
+
+
+@tcn_ablation_group.command("visualize")
+@click.option("--subgroup", "-s", default=None, help="Plot only this subgroup (default: all + summary)")
+def visualize_cmd(subgroup):
+    """Plot ablation results grouped by subgroup. Reads results/tcn_<name>.eval files."""
+    import importlib.util
+    import sys
+
+    viz_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "visualize_ablation.py"
+    spec = importlib.util.spec_from_file_location("visualize_ablation", viz_path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    mod.main(subgroup_filter=subgroup)

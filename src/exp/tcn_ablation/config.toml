@@ -1,32 +1,73 @@
-# TCN ablation experiment config.
-# Edit the knobs below, then run:
-#   uv run smclassifier exp tcn-ablation train
-#   uv run smclassifier exp tcn-ablation eval
-#
-# All keys mirror [tcn] / [tcn.model] from the root config.toml — the
-# canonical get_config() loader reads this file directly.
+# Marek Hric
 
 [tcn]
-name = "baseline"         # drives output paths: weights/tcn_{name}.*
+name = "baseline"
 sample_rate = 22050
 n_fft = 1024
 hop_length = 512
 n_mels = 80
 f_min = 27.5
 f_max = 8000.0
-optimizer = "adam"        # "adam" | "sgd" (sgd uses momentum=0.9, paper §3.5)
-lr = 1e-3
-seq_len = 128             # chunk length in frames (~3 s at 512 hop / 22050 sr)
+optimizer = "sgd"
+lr = 1e-2
+seq_len = 128
 
 [tcn.model]
-n_filters = 16            # paper search space: 8, 16, 32
-kernel_size = 5           # paper search space: 3, 5, 7, ..., 19
-n_layers = 4              # paper search space: 1–4 (dilation doubles each layer)
-n_stacks = 3              # paper search space: 3–10
-dropout = 0.5             # paper search space: 0.05–0.5
+n_filters = 16          # paper search space: 8, 16, 32
+kernel_size = 5         # paper search space: 3, 5, 7, ..., 19
+n_layers = 4            # paper search space: 1–4
+n_stacks = 3            # paper search space: 3–10
+dropout = 0.5           # paper search space: 0.05–0.5
 n_classes = 3
-use_weight_norm = false   # false = BatchNorm (current impl), true = WeightNorm (paper ref)
+use_weight_norm = true
 
 [dataset]
 url = "Marek324/speech-music-classification"
 name = "full"
+
+# ── Ablation subgroups ────────────────────────────────────────────────────────
+# Each entry overrides only what it tests; everything else = baseline above.
+
+# optimizer/normalization: paper choices vs our production choices
+[tcn.ablations.optimizer.baseline]
+[tcn.ablations.optimizer.adam]
+optimizer = "adam"
+lr = 1e-3
+[tcn.ablations.optimizer.batch_norm]
+use_weight_norm = false
+[tcn.ablations.optimizer.adam_batchnorm]
+optimizer = "adam"
+lr = 1e-3
+use_weight_norm = false
+
+# capacity: number of filters
+[tcn.ablations.capacity.baseline]
+[tcn.ablations.capacity.filters_8]
+n_filters = 8
+[tcn.ablations.capacity.filters_32]
+n_filters = 32
+
+# depth/receptive field: layers, stacks, kernel size
+# RF = n_stacks × (sum 2^i for i in 0..n_layers-1) × (kernel_size-1) + 1
+# baseline: 3 × 15 × 4 + 1 = 181 frames
+[tcn.ablations.depth.baseline]
+[tcn.ablations.depth.layers_2]
+n_layers = 2            # RF = 3×3×4+1 = 37 frames
+[tcn.ablations.depth.layers_3]
+n_layers = 3            # RF = 3×7×4+1 = 85 frames
+[tcn.ablations.depth.stacks_5]
+n_stacks = 5            # RF = 5×15×4+1 = 301 frames
+[tcn.ablations.depth.kernel_9]
+kernel_size = 9         # RF = 3×15×8+1 = 361 frames
+
+# regularization: dropout
+[tcn.ablations.regularization.baseline]
+[tcn.ablations.regularization.dropout_low]
+dropout = 0.1
+[tcn.ablations.regularization.dropout_medium]
+dropout = 0.25
+
+# training: chunk length relative to receptive field
+[tcn.ablations.training.baseline]
+[tcn.ablations.training.seq_len_256]
+seq_len = 256           # chunks now exceed full RF (181 frames)

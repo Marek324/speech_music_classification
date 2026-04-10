@@ -127,7 +127,7 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `streaming.py` | `StreamingInference` — online chunk-by-chunk inference |
 | `augmentation.py` | `augment()` — random gain ±6dB + Gaussian noise |
 | `cli.py` | Click CLI: train, eval, smoke-test, smoke-test-online |
-| `config.py` | Config loader; reads `[tcn]` section of `config.toml` |
+| `config.py` | Config loader; reads `[tcn]` section of `config.toml`; `_MODEL_KEYS` / `_TOP_KEYS` split ablation overrides into model vs top-level buckets |
 | `weights/tcn.safetensors` | Trained model weights *(not in git — download via HF)* |
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
 
@@ -148,6 +148,23 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
 | `cli.py` | Click CLI per model: train, eval, smoke-test |
 | `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights *(not in git — download via HF)* |
+
+### Experiments (`src/exp/tcn_ablation/`)
+| File | Purpose |
+|------|---------|
+| `config.toml` | Ablation variants — each `[tcn.ablations.<subgroup>.<name>]` section is a flat set of overrides; top-level keys (`optimizer`, `lr`, `seq_len`, …) and model keys (`n_filters`, `n_layers`, …) are written directly without a `.model` sub-section |
+| `cli.py` | `train`, `eval`, `ablation` (batch all variants in a subgroup) commands |
+
+**Ablation config format** — keys are split automatically by `_MODEL_KEYS` / `_TOP_KEYS` in `config.py`:
+```toml
+[tcn.ablations.capacity.filters_8]
+n_filters = 8                        # model key — no [….model] sub-section needed
+
+[tcn.ablations.optimizer.adam_batchnorm]
+optimizer = "adam"                   # top-level key
+lr = 1e-3
+use_weight_norm = false              # model key — mixed overrides work in one section
+```
 
 ### Scripts (`scripts/`) — uv subproject
 | File | Purpose |

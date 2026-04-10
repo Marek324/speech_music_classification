@@ -2,7 +2,6 @@
 
 debug/
 debug*.*
-test*.*
 
 __pycache__/
 uv.lock

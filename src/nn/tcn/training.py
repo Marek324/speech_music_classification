@@ -170,11 +170,12 @@ def train_tcn(
 
     if cfg is None:
         cfg = get_config()
-    save_path = Path(weights_path) if weights_path is not None else get_weights_path()
+    exp_name = cfg.get("name")
+    save_path = Path(weights_path) if weights_path is not None else get_weights_path(exp_name)
     ds_cfg = cfg["dataset"]
     ds_rev = ds_cfg.get("revision")
     if stats_path is None:
-        stats_path = get_preprocess_stats_path(revision=ds_rev)
+        stats_path = get_preprocess_stats_path(name=exp_name, revision=ds_rev if not exp_name else None)
     else:
         stats_path = Path(stats_path)
 
