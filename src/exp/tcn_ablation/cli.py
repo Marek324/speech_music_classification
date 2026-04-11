@@ -101,8 +101,11 @@ def ablation_cmd(subgroup, skip_existing):
         groups = {subgroup: groups[subgroup]}
 
     done: set[str] = set()
+    results: dict[str, tuple[int, float]] = {}  # name -> (n_classes, macro_f1)
     total = sum(len(names) for names in groups.values())
     log.info("Running ablation: %d variant(s) across subgroup(s): %s", total, list(groups))
+
+    import time
 
     for grp, names in groups.items():
         log.info("── Subgroup: %s ──", grp)
@@ -115,15 +118,24 @@ def ablation_cmd(subgroup, skip_existing):
                 log.info("[%s] weights exist — skipping train", name)
             else:
                 log.info("[%s] training...", name)
+                t0 = time.monotonic()
                 cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
                 train_tcn(cfg=cfg)
+                log.info("[%s] training done in %.1fs", name, time.monotonic() - t0)
             log.info("[%s] evaluating...", name)
             cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
             stats = get_preprocess_stats_path(name=name)
-            eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats, output_name=f"tcn_{name}")
+            res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats, output_name=f"tcn_{name}")
+            results[name] = (res.n_classes, res.f1)
+            log.info("[%s] eval done — %d-class macro F1: %.4f", name, res.n_classes, res.f1)
             done.add(name)
 
     log.info("Ablation complete. %d variant(s) processed.", len(done))
+    if results:
+        log.info("── Results summary ──")
+        log.info("  %-32s  %s", "variant", "macro F1")
+        for n, (n_cls, f1) in results.items():
+            log.info("  %-32s  %.4f  (%d-class)", n, f1, n_cls)
 
 
 @tcn_ablation_group.command("visualize")

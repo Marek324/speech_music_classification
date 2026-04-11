@@ -211,11 +211,19 @@ def train_tcn(
     ds_link = ds_cfg["url"]
     eval_name = ds_cfg["name"]
 
+    device_str = "cuda" if torch.cuda.is_available() else "cpu"
+    n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    log.info(
+        "Starting training: variant=%s  epochs=%d  optimizer=%s  lr=%.2e  device=%s  params=%d",
+        run_name, epochs, opt_name, lr, device_str, n_params,
+    )
+
     best_val_loss = float("inf")
     best_state = None
     val_checks_without_improvement = 0
 
     for ep in range(epochs):
+        log.info("Epoch %d/%d — loading + chunking data...", ep + 1, epochs)
         loss = _train_epoch(model, optimizer, loss_fn, ds, cfg, max_train_rows, ep + 1)
         metrics = {"train/loss": loss, "epoch": ep + 1}
 
