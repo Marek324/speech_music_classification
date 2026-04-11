@@ -61,12 +61,15 @@ class CausalTCN(nn.Module):
         Args:
             x: log-mel spectrogram (batch, n_mels, time_frames)
         Returns:
-            probs: (batch, n_classes, time_frames)
+            logits: (batch, n_classes, time_frames) — raw (pre-sigmoid) logits.
+            Apply torch.sigmoid externally to obtain probabilities. Training
+            uses BCEWithLogitsLoss directly on these logits; inference paths
+            apply sigmoid in SpeechMusicDetector.forward.
         """
         x = self.input_proj(x)
         x = self.tcn(x)
         x = self.classifier(x)
-        return torch.sigmoid(x)
+        return x
 
 
 class SpeechMusicDetector(nn.Module):
@@ -100,13 +103,16 @@ class SpeechMusicDetector(nn.Module):
         )
         self.model = CausalTCN(cfg=cfg, **tcn_kwargs)
 
+    def forward_logits(self, waveform: torch.Tensor) -> torch.Tensor:
+        """Raw logits — used by training with BCEWithLogitsLoss."""
+        spec = self.fe(waveform)
+        return self.model(spec)
+
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:
         """
         Args:
             waveform: (batch, samples) mono at sample_rate
         Returns:
-            probs: (batch, 3, time_frames)
+            probs: (batch, 3, time_frames) — sigmoid applied for inference.
         """
-        spec = self.fe(waveform)
-        probs = self.model(spec)
-        return probs
+        return torch.sigmoid(self.forward_logits(waveform))

@@ -9,8 +9,10 @@ n_mels = 80
 f_min = 27.5
 f_max = 8000.0
 optimizer = "sgd"
-lr = 1e-2
+lr = 1e-3              # paper does not specify an initial LR; 1e-2 crashed most ablations
+                       # via the WeightNorm ‖v‖→0 pathway — see [tcn.ablations.optimizer.sgd_lr_1e-2]
 seq_len = 128
+loss = "bce_with_logits"  # numerically stable; [tcn.ablations.loss.bce_sigmoid] reverts to paper-literal BCE(sigmoid(x))
 
 [tcn.model]
 n_filters = 16          # paper search space: 8, 16, 32
@@ -28,6 +30,19 @@ name = "full"
 # ── Ablation subgroups ────────────────────────────────────────────────────────
 # Each entry overrides only what it tests; everything else = baseline above.
 
+# loss function: paper-literal BCE(sigmoid) reversion + alternatives to baseline BCEWithLogits
+[tcn.ablations.loss.baseline]
+[tcn.ablations.loss.bce_sigmoid]
+loss = "bce"                 # reverts to nn.BCELoss(sigmoid(x)); expected to DIVERGE (CUDA assert)
+[tcn.ablations.loss.focal]
+loss = "focal"               # focal BCE, gamma=2 — downweights easy frames
+[tcn.ablations.loss.weighted_bce]
+loss = "weighted_bce"        # BCEWithLogits with per-class pos_weight (inactive rare)
+[tcn.ablations.loss.mse]
+loss = "mse"                 # MSE on sigmoid(logits) — classical regression baseline
+[tcn.ablations.loss.label_smoothing]
+loss = "label_smoothing_bce" # BCEWithLogits with target smoothing 0.1
+
 # optimizer/normalization: paper choices vs our production choices
 [tcn.ablations.optimizer.baseline]
 [tcn.ablations.optimizer.adam]
@@ -41,6 +56,8 @@ lr = 1e-3
 use_weight_norm = false
 [tcn.ablations.optimizer.sgd_batchnorm]
 use_weight_norm = false     # SGD + BatchNorm — completes 2×2 factorial
+[tcn.ablations.optimizer.sgd_lr_1e-2]
+lr = 1e-2                   # paper-adjacent LR; SGD+WeightNorm is knife-edge at this LR — expected to DIVERGE
 
 # capacity: number of filters
 [tcn.ablations.capacity.baseline]
@@ -122,10 +139,11 @@ batch_size = 64
 augment = false
 
 # ── Coordinate-ascent search order ───────────────────────────────────────────
-# Optimizer/normalization settled first so capacity/depth choices train stably.
+# Loss and optimizer/normalization are settled first so capacity/depth choices
+# train under a stable numerical recipe.
 [tcn.coord_ascent]
 subgroup_order = [
-    "optimizer", "capacity", "layers", "stacks", "kernel", "activation",
+    "loss", "optimizer", "capacity", "layers", "stacks", "kernel", "activation",
     "regularization", "training", "batch_size", "n_mels",
     "augmentation", "skip_connections",
 ]

@@ -17,6 +17,7 @@ _DEFAULT: Dict[str, Any] = {
     "seq_len": 128,
     "batch_size": 32,
     "augment": True,
+    "loss": "bce_with_logits",
     "model": {
         "n_filters": 32,
         "kernel_size": 5,
@@ -64,6 +65,7 @@ _MODEL_KEYS = frozenset([
 _TOP_KEYS = frozenset([
     "sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
     "optimizer", "lr", "seq_len", "batch_size", "augment",
+    "loss", "focal_gamma", "label_smoothing",
 ])
 _VARIANT_OVERRIDE_KEYS = _TOP_KEYS | _MODEL_KEYS | frozenset(["name"])
 
@@ -153,7 +155,8 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
 
     tcn = raw.get("tcn", {})
     for k in ("sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
-              "optimizer", "lr", "seq_len", "batch_size", "augment", "name"):
+              "optimizer", "lr", "seq_len", "batch_size", "augment", "name",
+              "loss", "focal_gamma", "label_smoothing"):
         if k in tcn:
             cfg[k] = tcn[k]
     cfg["model"] = {**_DEFAULT["model"], **raw.get("tcn", {}).get("model", {})}

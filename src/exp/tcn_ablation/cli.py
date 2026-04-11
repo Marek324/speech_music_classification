@@ -89,8 +89,9 @@ def smoke_test_cmd(name, subgroup):
 
 @tcn_ablation_group.command("ablation")
 @click.option("--subgroup", "-s", default=None, help="Run only this subgroup (default: all)")
-@click.option("--skip-existing/--no-skip-existing", default=True,
-              help="Skip variants whose weights already exist (default: on)")
+@click.option("--skip-existing/--no-skip-existing", default=False,
+              help="Skip variants whose weights already exist (default: off — always retrain "
+                   "from scratch to avoid stale cached baselines)")
 def ablation_cmd(subgroup, skip_existing):
     """Train + eval all variants across all subgroups (or a single subgroup) sequentially.
 

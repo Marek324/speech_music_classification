@@ -23,30 +23,107 @@ log = logging.getLogger(__name__)
 SEQ_LEN = 128   # 128 frames × 512 hop / 22050 sr ≈ 3 s; fits median speech clip (165 frames)
 
 
-def build_loss() -> nn.Module:
-    """BCE loss for multi-label frame-level classification."""
-    return nn.BCELoss()
+class _FocalBCE(nn.Module):
+    """Focal BCE computed from logits. Loss = -(1-p_t)^gamma * log p_t.
+
+    p_t = sigmoid(x) when target=1, 1-sigmoid(x) when target=0. Computed via
+    logsigmoid for numerical stability.
+    """
+    def __init__(self, gamma: float = 2.0):
+        super().__init__()
+        self.gamma = gamma
+
+    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        log_p  = F.logsigmoid(logits)           # log sigmoid(x)
+        log_1p = F.logsigmoid(-logits)          # log (1-sigmoid(x))
+        p  = torch.exp(log_p)
+        one_minus_p = torch.exp(log_1p)
+        loss_pos = -((one_minus_p) ** self.gamma) * log_p   # when y=1
+        loss_neg = -((p)          ** self.gamma) * log_1p   # when y=0
+        loss = target * loss_pos + (1.0 - target) * loss_neg
+        return loss.mean()
 
 
-def train_step(model, optimizer, loss_fn, waveform, targets):
+class _LabelSmoothingBCE(nn.Module):
+    """BCEWithLogits with target smoothing: y' = y*(1-eps) + 0.5*eps."""
+    def __init__(self, eps: float = 0.1):
+        super().__init__()
+        self.eps = eps
+        self.bce = nn.BCEWithLogitsLoss()
+
+    def forward(self, logits: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
+        smoothed = target * (1.0 - self.eps) + 0.5 * self.eps
+        return self.bce(logits, smoothed)
+
+
+def build_loss(cfg: dict | None = None) -> tuple[nn.Module, str]:
+    """Build the loss module and its input mode.
+
+    Returns:
+        (loss_fn, mode) where mode is "logits" (training uses
+        SpeechMusicDetector.forward_logits) or "probs" (training uses the
+        sigmoid-applied SpeechMusicDetector.forward).
+
+    Supported cfg["loss"] values:
+        bce_with_logits  — nn.BCEWithLogitsLoss on raw logits                 (default, stable)
+        bce              — nn.BCELoss on sigmoid(logits)                      (paper-literal, unstable)
+        focal            — focal BCE on logits, gamma from cfg["focal_gamma"] (default 2.0)
+        weighted_bce     — BCEWithLogitsLoss with per-class pos_weight
+        mse              — nn.MSELoss on sigmoid(logits)
+        label_smoothing_bce — BCEWithLogits with target smoothing cfg["label_smoothing"] (default 0.1)
+    """
+    cfg = cfg or {}
+    name = str(cfg.get("loss", "bce_with_logits")).lower()
+    if name == "bce_with_logits":
+        return nn.BCEWithLogitsLoss(), "logits"
+    if name == "bce":
+        return nn.BCELoss(), "probs"
+    if name == "mse":
+        return nn.MSELoss(), "probs"
+    if name == "focal":
+        gamma = float(cfg.get("focal_gamma", 2.0))
+        return _FocalBCE(gamma), "logits"
+    if name == "label_smoothing_bce":
+        eps = float(cfg.get("label_smoothing", 0.1))
+        return _LabelSmoothingBCE(eps), "logits"
+    if name == "weighted_bce":
+        # Rough mid-tier class balance: inactive is ~1/3 the size of speech/music.
+        # pos_weight has shape (C, 1) so it broadcasts over (B, C, T).
+        pw = torch.tensor([1.0, 1.0, 3.0]).view(-1, 1)
+        return nn.BCEWithLogitsLoss(pos_weight=pw), "logits"
+    raise ValueError(f"Unknown loss '{name}'")
+
+
+def train_step(model, optimizer, loss_fn, waveform, targets, loss_mode: str = "logits"):
     """
     Single training step.
 
     Args:
-        waveform: (B, samples)
-        targets:  (B, 3, T) float 0/1 labels for [speech, music, inactive] per frame
+        waveform:  (B, samples)
+        targets:   (B, 3, T) float 0/1 labels for [speech, music, inactive] per frame
+        loss_mode: "logits" (use forward_logits, stable losses) or
+                   "probs"  (apply sigmoid, required for nn.BCELoss / nn.MSELoss)
+
     Returns:
-        scalar loss
+        scalar loss (float) or None if the batch was skipped due to a
+        non-finite loss (guard against occasional WeightNorm blowups).
     """
     model.train()
     optimizer.zero_grad()
-    probs = model(waveform)
-    T_probs, T_target = probs.shape[-1], targets.shape[-1]
-    if T_probs != T_target:
-        T = min(T_probs, T_target)
-        probs = probs[..., :T]
+    if loss_mode == "probs":
+        output = model(waveform)                # probs
+    else:
+        output = model.forward_logits(waveform) # logits
+    T_out, T_target = output.shape[-1], targets.shape[-1]
+    if T_out != T_target:
+        T = min(T_out, T_target)
+        output = output[..., :T]
         targets = targets[..., :T]
-    loss = loss_fn(probs, targets)
+    loss = loss_fn(output, targets)
+    if not torch.isfinite(loss):
+        log.warning("non-finite loss (%s); skipping batch", loss.item())
+        optimizer.zero_grad()
+        return None
     loss.backward()
     # Clip gradients to prevent explosion (weight norm can shrink ||v|| → 0 over
     # many epochs, causing g/||v|| → ∞ and NaN activations in subsequent batches).
@@ -114,7 +191,8 @@ def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=None, seq_len=None,
         yield wav_batch, torch.stack(tgt_chunks, dim=0)
 
 
-def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch: int):
+def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch: int,
+                 loss_mode: str = "logits"):
     """Train one epoch using mini-batches of fixed-length chunks (paper §3.5)."""
     device = next(model.parameters()).device
     total_loss = 0.0
@@ -122,14 +200,17 @@ def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch
     for wav_batch, tgt_batch in _iter_batched_chunks(ds, cfg, max_rows, f"Epoch {epoch}", training=True):
         wav_batch = wav_batch.to(device)
         tgt_batch = tgt_batch.to(device)
-        loss = train_step(model, optimizer, loss_fn, wav_batch, tgt_batch)
+        loss = train_step(model, optimizer, loss_fn, wav_batch, tgt_batch, loss_mode=loss_mode)
+        if loss is None:
+            continue
         total_loss += loss
         n_batches += 1
     return total_loss / max(n_batches, 1)
 
 
-def _validation_loss(model, loss_fn, ds_link: str, cfg: dict, name: str = "full") -> float:
-    """Compute mean BCE loss on validation split (no gradient)."""
+def _validation_loss(model, loss_fn, ds_link: str, cfg: dict, name: str = "full",
+                     loss_mode: str = "logits") -> float:
+    """Compute mean loss on validation split (no gradient)."""
     device = next(model.parameters()).device
     model.eval()
     sr = cfg["sample_rate"]
@@ -142,15 +223,19 @@ def _validation_loss(model, loss_fn, ds_link: str, cfg: dict, name: str = "full"
         for wav, targets in iter_nn_rows(ds, None, "Validation", sr, hop, n_fft):
             wav = wav.to(device)
             targets = targets.unsqueeze(0).to(device)
-            probs = model(wav)
-            T_probs, T_target = probs.shape[-1], targets.shape[-1]
-            if T_probs != T_target:
-                T = min(T_probs, T_target)
-                probs = probs[..., :T]
+            if loss_mode == "probs":
+                output = model(wav)
+            else:
+                output = model.forward_logits(wav)
+            T_out, T_target = output.shape[-1], targets.shape[-1]
+            if T_out != T_target:
+                T = min(T_out, T_target)
+                output = output[..., :T]
                 targets = targets[..., :T]
-            loss = loss_fn(probs, targets)
-            total_loss += loss.item()
-            n_batches += 1
+            loss = loss_fn(output, targets)
+            if torch.isfinite(loss):
+                total_loss += loss.item()
+                n_batches += 1
     model.train()
     return total_loss / max(n_batches, 1)
 
@@ -205,7 +290,10 @@ def train_tcn(
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
         optimizer, mode="min", factor=0.1, patience=3
     )
-    loss_fn = build_loss()
+    loss_fn, loss_mode = build_loss(cfg)
+    if torch.cuda.is_available() and hasattr(loss_fn, "cuda"):
+        loss_fn = loss_fn.cuda()
+    log.info("Loss: %s  (mode=%s)", cfg.get("loss", "bce_with_logits"), loss_mode)
 
     run_name = cfg.get("name", "tcn")
     if use_wandb:
@@ -228,10 +316,11 @@ def train_tcn(
 
     for ep in range(epochs):
         log.info("Epoch %d/%d — loading + chunking data...", ep + 1, epochs)
-        loss = _train_epoch(model, optimizer, loss_fn, ds, cfg, max_train_rows, ep + 1)
+        loss = _train_epoch(model, optimizer, loss_fn, ds, cfg, max_train_rows, ep + 1,
+                            loss_mode=loss_mode)
         metrics = {"train/loss": loss, "epoch": ep + 1}
 
-        val_loss = _validation_loss(model, loss_fn, ds_link, cfg, name=eval_name)
+        val_loss = _validation_loss(model, loss_fn, ds_link, cfg, name=eval_name, loss_mode=loss_mode)
         current_lr = optimizer.param_groups[0]["lr"]
         log.info(
             "Epoch %d train loss: %.4f validation loss: %.4f lr: %.2e",
