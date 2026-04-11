@@ -100,3 +100,48 @@ def test_residual_block_causality():
         out_masked = block(x_masked)
 
     assert torch.allclose(out_full[:, :, :t], out_masked[:, :, :t], atol=1e-5)
+
+
+# ── Activation variants ───────────────────────────────────────────────────────
+
+@pytest.mark.parametrize("activation", ["relu", "leaky_relu", "elu", "gelu"])
+def test_residual_block_activation_output_shape(activation):
+    block = TCNResidualBlock(8, 8, kernel_size=3, dilation=1, dropout=0.0,
+                             activation=activation)
+    x = torch.randn(2, 8, 50)
+    out = block(x)
+    assert out.shape == (2, 8, 50)
+
+
+@pytest.mark.parametrize("activation", ["relu", "leaky_relu", "elu", "gelu"])
+def test_residual_block_activation_output_finite(activation):
+    block = TCNResidualBlock(8, 8, kernel_size=3, dilation=1, dropout=0.0,
+                             activation=activation)
+    block.eval()
+    x = torch.randn(2, 8, 50)
+    with torch.no_grad():
+        out = block(x)
+    assert torch.isfinite(out).all(), f"non-finite output with activation={activation}"
+
+
+def test_residual_block_default_activation_is_relu():
+    """Default activation must behave identically to explicit relu."""
+    torch.manual_seed(42)
+    block_default = TCNResidualBlock(8, 8, kernel_size=3, dilation=1, dropout=0.0)
+    torch.manual_seed(42)
+    block_relu = TCNResidualBlock(8, 8, kernel_size=3, dilation=1, dropout=0.0,
+                                  activation="relu")
+    block_default.eval()
+    block_relu.eval()
+    x = torch.randn(1, 8, 30)
+    with torch.no_grad():
+        assert torch.allclose(block_default(x), block_relu(x))
+
+
+def test_residual_block_unknown_activation_falls_back_to_relu():
+    """Unknown activation string should fall back to relu without raising."""
+    block = TCNResidualBlock(8, 8, kernel_size=3, dilation=1, dropout=0.0,
+                             activation="unknown_act")
+    x = torch.randn(1, 8, 20)
+    out = block(x)
+    assert out.shape == (1, 8, 20)

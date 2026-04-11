@@ -15,6 +15,8 @@ _DEFAULT: Dict[str, Any] = {
     "optimizer": "adam",
     "lr": 1e-3,
     "seq_len": 128,
+    "batch_size": 32,
+    "augment": True,
     "model": {
         "n_filters": 32,
         "kernel_size": 5,
@@ -23,6 +25,7 @@ _DEFAULT: Dict[str, Any] = {
         "dropout": 0.2,
         "n_classes": 3,
         "use_weight_norm": False,
+        "activation": "relu",
     },
 }
 
@@ -56,11 +59,11 @@ def get_preprocess_stats_path(revision: str | None = None, name: str | None = No
 
 _MODEL_KEYS = frozenset([
     "n_filters", "kernel_size", "n_layers", "n_stacks",
-    "dropout", "n_classes", "use_weight_norm", "skip_connections",
+    "dropout", "n_classes", "use_weight_norm", "skip_connections", "activation",
 ])
 _TOP_KEYS = frozenset([
     "sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
-    "optimizer", "lr", "seq_len",
+    "optimizer", "lr", "seq_len", "batch_size", "augment",
 ])
 _VARIANT_OVERRIDE_KEYS = _TOP_KEYS | _MODEL_KEYS | frozenset(["name"])
 
@@ -76,22 +79,46 @@ def get_ablation_config(
     name: str,
     config_path: Path | None = None,
     subgroup: str | None = None,
+    carried_overrides: Dict[str, Any] | None = None,
 ) -> Dict[str, Any]:
-    """Base [tcn] config merged with [tcn.ablations[.<subgroup>].<name>] overrides."""
+    """Base [tcn] config merged with optional carried overrides, then variant overrides.
+
+    *carried_overrides* is a flat dict (same format as variant entries in config.toml,
+    mixing top-level and model keys) used by coordinate-ascent mode to carry the
+    winning config from a previous subgroup into the next one.
+    """
     cfg = get_config(config_path)
     if config_path is None:
         config_path = Path(__file__).resolve().parent.parent.parent.parent / "config.toml"
     with open(config_path, "rb") as f:
         raw = tomli.load(f)
+
+    def _apply(src: dict) -> None:
+        for k in _TOP_KEYS:
+            if k in src:
+                cfg[k] = src[k]
+        cfg["model"] = {**cfg["model"], **{k: src[k] for k in _MODEL_KEYS if k in src}}
+
+    if carried_overrides:
+        _apply(carried_overrides)
+
     ablations = raw.get("tcn", {}).get("ablations", {})
     source = ablations.get(subgroup, {}) if subgroup else ablations
-    overrides = source.get(name, {})
-    for k in _TOP_KEYS:
-        if k in overrides:
-            cfg[k] = overrides[k]
-    cfg["model"] = {**cfg["model"], **{k: overrides[k] for k in _MODEL_KEYS if k in overrides}}
+    _apply(source.get(name, {}))
+
     cfg["name"] = name
     return cfg
+
+
+def extract_overrides(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    """Extract all variant-controllable keys from a fully-built config as a flat dict.
+
+    Used by coordinate-ascent mode to carry the winning variant's settings into
+    the next subgroup as the new baseline.
+    """
+    out = {k: cfg[k] for k in _TOP_KEYS if k in cfg}
+    out.update({k: cfg["model"][k] for k in _MODEL_KEYS if k in cfg.get("model", {})})
+    return out
 
 
 def list_ablations(config_path: Path | None = None) -> Dict[str, list]:
@@ -125,7 +152,8 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
         raw = tomli.load(f)
 
     tcn = raw.get("tcn", {})
-    for k in ("sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max", "optimizer", "lr", "seq_len", "name"):
+    for k in ("sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
+              "optimizer", "lr", "seq_len", "batch_size", "augment", "name"):
         if k in tcn:
             cfg[k] = tcn[k]
     cfg["model"] = {**_DEFAULT["model"], **raw.get("tcn", {}).get("model", {})}

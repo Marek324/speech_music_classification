@@ -5,6 +5,13 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+_ACTIVATIONS = {
+    "relu":       F.relu,
+    "leaky_relu": F.leaky_relu,
+    "elu":        F.elu,
+    "gelu":       F.gelu,
+}
+
 
 class CausalConv1d(nn.Module):
     """
@@ -37,6 +44,7 @@ class TCNResidualBlock(nn.Module):
         dropout: float = 0.2,
         use_weight_norm: bool = False,
         skip_connections: bool = True,
+        activation: str = "relu",
     ):
         super().__init__()
         self.conv1 = CausalConv1d(in_channels, out_channels, kernel_size, dilation)
@@ -52,6 +60,7 @@ class TCNResidualBlock(nn.Module):
             self.bn2 = nn.BatchNorm1d(out_channels)
 
         self.skip_connections = skip_connections
+        self.act = _ACTIVATIONS.get(activation, F.relu)
         self.drop = nn.Dropout(dropout)
 
         self.downsample = (
@@ -65,9 +74,9 @@ class TCNResidualBlock(nn.Module):
         out = self.conv1(x)
         if self.bn1 is not None:
             out = self.bn1(out)
-        out = self.drop(F.relu(out))
+        out = self.drop(self.act(out))
         out = self.conv2(out)
         if self.bn2 is not None:
             out = self.bn2(out)
-        out = self.drop(F.relu(out))
-        return F.relu(out + residual) if self.skip_connections else F.relu(out)
+        out = self.drop(self.act(out))
+        return self.act(out + residual) if self.skip_connections else self.act(out)

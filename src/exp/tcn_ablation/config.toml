@@ -86,3 +86,40 @@ seq_len = 270           # paper's original value; just above full RF (181 frames
 [tcn.ablations.skip_connections.baseline]
 [tcn.ablations.skip_connections.no_skip]
 skip_connections = false  # removes residual add; plain dilated conv stack
+
+# activation function
+[tcn.ablations.activation.baseline]
+[tcn.ablations.activation.leaky_relu]
+activation = "leaky_relu"
+[tcn.ablations.activation.elu]
+activation = "elu"
+[tcn.ablations.activation.gelu]
+activation = "gelu"
+
+# feature resolution: number of mel filterbanks
+[tcn.ablations.n_mels.baseline]
+[tcn.ablations.n_mels.mels_40]
+n_mels = 40
+[tcn.ablations.n_mels.mels_128]
+n_mels = 128
+
+# training batch size
+[tcn.ablations.batch_size.baseline]
+[tcn.ablations.batch_size.batch_16]
+batch_size = 16
+[tcn.ablations.batch_size.batch_64]
+batch_size = 64
+
+# data augmentation (gain ±6dB + Gaussian noise)
+[tcn.ablations.augmentation.baseline]
+[tcn.ablations.augmentation.no_augment]
+augment = false
+
+# ── Coordinate-ascent search order ───────────────────────────────────────────
+# Optimizer/normalization settled first so capacity/depth choices train stably.
+[tcn.coord_ascent]
+subgroup_order = [
+    "optimizer", "capacity", "depth", "activation",
+    "regularization", "training", "batch_size", "n_mels",
+    "augmentation", "skip_connections",
+]

@@ -3,6 +3,7 @@
 import pytest
 from pathlib import Path
 from src.nn.tcn.config import (
+    extract_overrides,
     get_config,
     get_ablation_config,
     list_ablations,
@@ -179,3 +180,142 @@ def test_get_preprocess_stats_path_default():
 def test_get_preprocess_stats_path_named():
     p = get_preprocess_stats_path(name="foo")
     assert p.name == "tcn_foo_preprocess_stats.pt"
+
+
+# ── New config keys: batch_size, augment, activation ─────────────────────────
+
+def test_get_config_has_batch_size():
+    cfg = get_config(ABLATION_CFG)
+    assert "batch_size" in cfg
+    assert isinstance(cfg["batch_size"], int)
+
+
+def test_get_config_has_augment():
+    cfg = get_config(ABLATION_CFG)
+    assert "augment" in cfg
+    assert isinstance(cfg["augment"], bool)
+
+
+def test_get_config_model_has_activation():
+    cfg = get_config(ABLATION_CFG)
+    assert "activation" in cfg["model"]
+    assert cfg["model"]["activation"] == "relu"
+
+
+def test_ablation_activation_leaky_relu():
+    cfg = get_ablation_config("leaky_relu", config_path=ABLATION_CFG, subgroup="activation")
+    assert cfg["model"]["activation"] == "leaky_relu"
+
+
+def test_ablation_activation_gelu():
+    cfg = get_ablation_config("gelu", config_path=ABLATION_CFG, subgroup="activation")
+    assert cfg["model"]["activation"] == "gelu"
+
+
+def test_ablation_no_augment():
+    cfg = get_ablation_config("no_augment", config_path=ABLATION_CFG, subgroup="augmentation")
+    assert cfg["augment"] is False
+
+
+def test_ablation_batch_size_16():
+    cfg = get_ablation_config("batch_16", config_path=ABLATION_CFG, subgroup="batch_size")
+    assert cfg["batch_size"] == 16
+
+
+def test_ablation_batch_size_64():
+    cfg = get_ablation_config("batch_64", config_path=ABLATION_CFG, subgroup="batch_size")
+    assert cfg["batch_size"] == 64
+
+
+def test_ablation_n_mels_40():
+    cfg = get_ablation_config("mels_40", config_path=ABLATION_CFG, subgroup="n_mels")
+    assert cfg["n_mels"] == 40
+
+
+def test_ablation_n_mels_128():
+    cfg = get_ablation_config("mels_128", config_path=ABLATION_CFG, subgroup="n_mels")
+    assert cfg["n_mels"] == 128
+
+
+# ── carried_overrides ─────────────────────────────────────────────────────────
+
+def test_carried_overrides_top_key():
+    carried = {"optimizer": "adam", "lr": 1e-3}
+    cfg = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+                              carried_overrides=carried)
+    assert cfg["optimizer"] == "adam"
+    assert cfg["lr"] == pytest.approx(1e-3)
+
+
+def test_carried_overrides_model_key():
+    carried = {"n_filters": 32}
+    cfg = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+                              carried_overrides=carried)
+    assert cfg["model"]["n_filters"] == 32
+
+
+def test_carried_overrides_variant_wins_over_carried():
+    """Variant-specific overrides take precedence over carried config."""
+    carried = {"n_filters": 32}
+    cfg = get_ablation_config("filters_8", config_path=ABLATION_CFG, subgroup="capacity",
+                              carried_overrides=carried)
+    assert cfg["model"]["n_filters"] == 8
+
+
+def test_carried_overrides_none_unchanged():
+    base = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity")
+    carried_none = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+                                       carried_overrides=None)
+    assert base["model"] == carried_none["model"]
+
+
+# ── extract_overrides ─────────────────────────────────────────────────────────
+
+def test_extract_overrides_returns_flat_dict():
+    cfg = get_config(ABLATION_CFG)
+    out = extract_overrides(cfg)
+    assert isinstance(out, dict)
+    # Must not contain nested dicts
+    assert not any(isinstance(v, dict) for v in out.values())
+
+
+def test_extract_overrides_contains_top_keys():
+    cfg = get_config(ABLATION_CFG)
+    out = extract_overrides(cfg)
+    for k in ("optimizer", "lr", "batch_size", "augment", "n_mels"):
+        assert k in out, f"missing key: {k}"
+
+
+def test_extract_overrides_contains_model_keys():
+    cfg = get_config(ABLATION_CFG)
+    out = extract_overrides(cfg)
+    for k in ("n_filters", "dropout", "activation"):
+        assert k in out, f"missing model key: {k}"
+
+
+def test_extract_overrides_roundtrip():
+    """Overrides extracted from a variant config should reproduce that config when carried."""
+    cfg1 = get_ablation_config("adam", config_path=ABLATION_CFG, subgroup="optimizer")
+    overrides = extract_overrides(cfg1)
+    cfg2 = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+                               carried_overrides=overrides)
+    assert cfg2["optimizer"] == "adam"
+    assert cfg2["lr"] == pytest.approx(1e-3)
+
+
+# ── New subgroups present in list_ablations ───────────────────────────────────
+
+def test_list_ablations_new_subgroups():
+    result = list_ablations(ABLATION_CFG)
+    for sg in ("activation", "n_mels", "batch_size", "augmentation"):
+        assert sg in result, f"subgroup '{sg}' missing from list_ablations"
+
+
+def test_list_ablations_activation_variants():
+    result = list_ablations(ABLATION_CFG)
+    assert set(result["activation"]) == {"baseline", "leaky_relu", "elu", "gelu"}
+
+
+def test_list_ablations_augmentation_variants():
+    result = list_ablations(ABLATION_CFG)
+    assert set(result["augmentation"]) == {"baseline", "no_augment"}

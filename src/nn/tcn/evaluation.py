@@ -47,8 +47,13 @@ def eval_tcn(
     cfg: dict | None = None,
     stats_path=None,
     output_name: str | None = None,
+    output_dir: Path | None = None,
 ) -> EvalResults:
-    """Evaluate TCN model on full test split. Uses main evaluator for metrics and output."""
+    """Evaluate TCN model on full test split. Uses main evaluator for metrics and output.
+
+    *output_dir* is forwarded to ``run_evaluation()`` to route the saved ``.eval`` file
+    into an experiment-specific directory instead of the default ``repo_root/results/``.
+    """
     if cfg is None:
         cfg = get_config()
     model = _load_tcn_model(weights_path=weights_path, cfg=cfg, stats_path=stats_path)
@@ -64,6 +69,7 @@ def eval_tcn(
         output_name=output_name or "tcn",
         save_to_file=save_to_file,
         device=device,
+        output_dir=output_dir,
     )
 
     n = len(y_true)

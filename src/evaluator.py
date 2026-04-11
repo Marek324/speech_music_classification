@@ -197,10 +197,14 @@ def run_evaluation(
     output_name: str,
     save_to_file: bool = True,
     device: str = "cpu",
+    output_dir: Path | None = None,
 ) -> EvalResults:
     """
     Main evaluation entry point. Computes metrics and optionally saves report.
     Labels: -1=speech, 1=music, 2=inactive.
+
+    *output_dir* overrides the default ``repo_root/results/`` save location.
+    Pass it to route experiment results into experiment-specific subdirectories.
     """
     if len(y_true) != len(y_pred) or len(y_true) != len(subclasses):
         raise ValueError("y_true, y_pred and subclasses must have the same length")
@@ -210,7 +214,9 @@ def run_evaluation(
 
     report = format_report(res)
     if save_to_file:
-        results_dir = Path(__file__).resolve().parent.parent / "results"
+        results_dir = output_dir if output_dir is not None else (
+            Path(__file__).resolve().parent.parent / "results"
+        )
         results_dir.mkdir(parents=True, exist_ok=True)
         out_path = results_dir / f"{output_name}.eval"
         out_path.write_text(report)

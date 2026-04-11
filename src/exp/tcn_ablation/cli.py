@@ -9,6 +9,7 @@ import click
 import torch
 
 from ...nn.tcn.config import (
+    extract_overrides,
     get_ablation_config,
     get_config,
     get_preprocess_stats_path,
@@ -22,6 +23,7 @@ from ...nn.tcn.training import train_tcn
 log = logging.getLogger(__name__)
 
 _CFG_PATH = Path(__file__).parent / "config.toml"
+_results_dir = Path(__file__).resolve().parent / "results"
 
 
 def _load(name: str | None = None, subgroup: str | None = None):
@@ -102,6 +104,7 @@ def ablation_cmd(subgroup, skip_existing):
 
     done: set[str] = set()
     results: dict[str, tuple[int, float]] = {}  # name -> (n_classes, macro_f1)
+    diverged: set[str] = set()
     total = sum(len(names) for names in groups.values())
     log.info("Running ablation: %d variant(s) across subgroup(s): %s", total, list(groups))
 
@@ -114,34 +117,159 @@ def ablation_cmd(subgroup, skip_existing):
                 log.info("[%s] already processed — skipping", name)
                 continue
             weights = get_weights_path(name=name)
+            diverged_path = _results_dir / f"tcn_{name}.diverged"
             if skip_existing and weights.exists():
                 log.info("[%s] weights exist — skipping train", name)
             else:
                 log.info("[%s] training...", name)
                 t0 = time.monotonic()
                 cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
-                train_tcn(cfg=cfg)
-                log.info("[%s] training done in %.1fs", name, time.monotonic() - t0)
+                try:
+                    train_tcn(cfg=cfg)
+                    log.info("[%s] training done in %.1fs", name, time.monotonic() - t0)
+                    if diverged_path.exists():
+                        diverged_path.unlink()
+                except Exception as exc:
+                    log.error("[%s] training DIVERGED: %s", name, exc)
+                    _results_dir.mkdir(parents=True, exist_ok=True)
+                    diverged_path.write_text(f"DIVERGED\n{type(exc).__name__}: {exc}\n")
+                    diverged.add(name)
+                    done.add(name)
+                    continue
             log.info("[%s] evaluating...", name)
             cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
             stats = get_preprocess_stats_path(name=name)
-            res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats, output_name=f"tcn_{name}")
+            res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats,
+                           output_name=f"tcn_{name}", output_dir=_results_dir)
             results[name] = (res.n_classes, res.f1)
             log.info("[%s] eval done — %d-class macro F1: %.4f", name, res.n_classes, res.f1)
             done.add(name)
 
     log.info("Ablation complete. %d variant(s) processed.", len(done))
-    if results:
+    if results or diverged:
         log.info("── Results summary ──")
         log.info("  %-32s  %s", "variant", "macro F1")
         for n, (n_cls, f1) in results.items():
             log.info("  %-32s  %.4f  (%d-class)", n, f1, n_cls)
+        for n in diverged:
+            log.info("  %-32s  DIVERGED", n)
+
+
+@tcn_ablation_group.command("coord-ascent")
+@click.option("--skip-existing/--no-skip-existing", default=True,
+              help="Skip variants whose weights already exist (default: on)")
+def coord_ascent_cmd(skip_existing):
+    """Greedy coordinate-ascent search: winner of each subgroup becomes the baseline for the next.
+
+    Subgroup order is defined in [tcn.coord_ascent] in src/exp/tcn_ablation/config.toml.
+    All file artifacts use a '_ca' suffix to avoid colliding with OFAT results.
+    """
+    import json
+    import time
+    import tomli
+
+    with open(_CFG_PATH, "rb") as f:
+        raw = tomli.load(f)
+    subgroup_order = raw.get("tcn", {}).get("coord_ascent", {}).get("subgroup_order", [])
+    if not subgroup_order:
+        raise click.UsageError("No subgroup_order defined in [tcn.coord_ascent] in config.toml")
+
+    all_groups = list_ablations(_CFG_PATH)
+    missing = [g for g in subgroup_order if g not in all_groups]
+    if missing:
+        raise click.UsageError(f"Subgroups in coord_ascent.subgroup_order not found in ablations: {missing}")
+
+    done: set[str] = set()
+    results: dict[str, tuple[int, float]] = {}
+    diverged: set[str] = set()
+    carried: dict = {}
+    trajectory: dict = {}
+
+    log.info("Coordinate-ascent: %d subgroup(s) in order: %s", len(subgroup_order), subgroup_order)
+
+    for grp in subgroup_order:
+        names = all_groups[grp]
+        log.info("── Subgroup: %s ──", grp)
+        grp_results: dict[str, tuple[int, float]] = {}
+
+        for name in names:
+            if name in done:
+                log.info("[%s] already processed — skipping", name)
+                continue
+            full_name = f"{name}_ca"
+            weights = get_weights_path(name=full_name)
+            diverged_path = _results_dir / f"tcn_{full_name}.diverged"
+
+            if skip_existing and weights.exists():
+                log.info("[%s] weights exist — skipping train", full_name)
+            else:
+                log.info("[%s] training...", full_name)
+                t0 = time.monotonic()
+                cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp,
+                                          carried_overrides=carried or None)
+                cfg["name"] = full_name
+                try:
+                    train_tcn(cfg=cfg)
+                    log.info("[%s] training done in %.1fs", full_name, time.monotonic() - t0)
+                    if diverged_path.exists():
+                        diverged_path.unlink()
+                except Exception as exc:
+                    log.error("[%s] training DIVERGED: %s", full_name, exc)
+                    _results_dir.mkdir(parents=True, exist_ok=True)
+                    diverged_path.write_text(f"DIVERGED\n{type(exc).__name__}: {exc}\n")
+                    diverged.add(name)
+                    done.add(name)
+                    continue
+
+            log.info("[%s] evaluating...", full_name)
+            cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp,
+                                      carried_overrides=carried or None)
+            cfg["name"] = full_name
+            stats = get_preprocess_stats_path(name=full_name)
+            res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats,
+                           output_name=f"tcn_{full_name}", output_dir=_results_dir)
+            results[name] = (res.n_classes, res.f1)
+            grp_results[name] = (res.n_classes, res.f1)
+            log.info("[%s] eval done — %d-class macro F1: %.4f", full_name, res.n_classes, res.f1)
+            done.add(name)
+
+        # Pick best variant in this subgroup and update carried config
+        converged = {n: grp_results[n] for n in names if n in grp_results}
+        if converged:
+            winner = max(converged, key=lambda n: converged[n][1])
+            winner_cfg = get_ablation_config(winner, config_path=_CFG_PATH, subgroup=grp,
+                                             carried_overrides=carried or None)
+            carried = extract_overrides(winner_cfg)
+            trajectory[grp] = {
+                "winner": winner,
+                "f1": converged[winner][1],
+                "carried": carried,
+            }
+            log.info("[coord-ascent] %s winner: %s  F1=%.4f", grp, winner, converged[winner][1])
+        else:
+            log.warning("[coord-ascent] %s — no converged variants, carried config unchanged", grp)
+
+    log.info("Coord-ascent complete. %d variant(s) processed.", len(done))
+    if results or diverged:
+        log.info("── Results summary ──")
+        log.info("  %-36s  %s", "variant", "macro F1")
+        for n, (n_cls, f1) in results.items():
+            log.info("  %-36s  %.4f  (%d-class)", f"{n}_ca", f1, n_cls)
+        for n in diverged:
+            log.info("  %-36s  DIVERGED", f"{n}_ca")
+
+    if trajectory:
+        traj_path = _results_dir / "coord_ascent_trajectory.json"
+        traj_path.write_text(json.dumps(trajectory, indent=2))
+        log.info("Trajectory saved → %s", traj_path)
 
 
 @tcn_ablation_group.command("visualize")
 @click.option("--subgroup", "-s", default=None, help="Plot only this subgroup (default: all + summary)")
-def visualize_cmd(subgroup):
-    """Plot ablation results grouped by subgroup. Reads results/tcn_<name>.eval files."""
+@click.option("--mode", type=click.Choice(["ofat", "coord-ascent"]), default="ofat",
+              help="Which study to visualize (default: ofat)")
+def visualize_cmd(subgroup, mode):
+    """Plot ablation results grouped by subgroup. Reads results/tcn_<name>[_ca].eval files."""
     import importlib.util
     import sys
 
@@ -149,4 +277,5 @@ def visualize_cmd(subgroup):
     spec = importlib.util.spec_from_file_location("visualize_ablation", viz_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    mod.main(subgroup_filter=subgroup)
+    suffix = "_ca" if mode == "coord-ascent" else ""
+    mod.main(subgroup_filter=subgroup, suffix=suffix)

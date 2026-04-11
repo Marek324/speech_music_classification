@@ -19,9 +19,8 @@ from .preprocess import compute_and_save_preprocess_stats
 
 log = logging.getLogger(__name__)
 
-# Paper §3.5: mini-batch sequence length (frames) and batch size
+# Paper §3.5: mini-batch sequence length (frames) — default, overridden by cfg["seq_len"]
 SEQ_LEN = 128   # 128 frames × 512 hop / 22050 sr ≈ 3 s; fits median speech clip (165 frames)
-BATCH_SIZE = 32
 
 
 def build_loss() -> nn.Module:
@@ -53,7 +52,9 @@ def train_step(model, optimizer, loss_fn, waveform, targets):
     return loss.item()
 
 
-def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=BATCH_SIZE, seq_len=None, training=False):
+def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=None, seq_len=None, training=False):
+    if batch_size is None:
+        batch_size = cfg.get("batch_size", 32)
     if seq_len is None:
         seq_len = cfg.get("seq_len", SEQ_LEN)
     """Slice clips into fixed-length chunks and yield mini-batches (paper §3.5).
@@ -105,7 +106,7 @@ def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=BATCH_SIZE, seq_len
         wav_chunks = all_wav_chunks[i:i + batch_size]
         tgt_chunks = all_tgt_chunks[i:i + batch_size]
         wav_batch = torch.cat(wav_chunks, dim=0)
-        if training:
+        if training and cfg.get("augment", True):
             wav_batch = augment(wav_batch)
         yield wav_batch, torch.stack(tgt_chunks, dim=0)
 
@@ -115,7 +116,7 @@ def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch
     device = next(model.parameters()).device
     total_loss = 0.0
     n_batches = 0
-    for wav_batch, tgt_batch in _iter_batched_chunks(ds, cfg, max_rows, f"Epoch {epoch}", seq_len=cfg.get("seq_len", SEQ_LEN), training=True):
+    for wav_batch, tgt_batch in _iter_batched_chunks(ds, cfg, max_rows, f"Epoch {epoch}", training=True):
         wav_batch = wav_batch.to(device)
         tgt_batch = tgt_batch.to(device)
         loss = train_step(model, optimizer, loss_fn, wav_batch, tgt_batch)
