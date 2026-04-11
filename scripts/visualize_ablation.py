@@ -104,42 +104,58 @@ def _plot_subgroup(ax_f1, ax_class, subgroup: str, names: list[str], data: dict,
         ref_f1 = data.get("baseline", {}).get("macro_f1")
 
     # ── Macro F1 bars ──────────────────────────────────────────────────────
-    f1_vals = [0.01 if _is_diverged(data, n) else (data[n].get("macro_f1") or 0)
+    valid_f1 = [data[n]["macro_f1"] for n in present
+                if not _is_diverged(data, n) and data[n].get("macro_f1")]
+    y_lo = max(0, min(valid_f1) - 0.05) if valid_f1 else 0
+
+    f1_vals = [0 if _is_diverged(data, n) else (data[n].get("macro_f1") or 0)
                for n in present]
     bars = ax_f1.bar(x, f1_vals, 0.6, color=colors, alpha=0.88,
                      edgecolor=["black" if n == "baseline" else "none" for n in present],
                      linewidth=0.8)
+
+    # Restyle diverged bars to sit visibly in the y range
+    div_bar_h = (1.0 - y_lo) * 0.38
     for bar, name in zip(bars, present):
         if _is_diverged(data, name):
-            bar.set_hatch("//")
+            bar.set_y(y_lo)
+            bar.set_height(div_bar_h)
+            bar.set_facecolor(_DIVERGED_COLOR)
+            bar.set_alpha(0.35)
+            bar.set_hatch("///")
             bar.set_edgecolor(_DIVERGED_COLOR)
-            bar.set_alpha(0.6)
-            ax_f1.text(bar.get_x() + bar.get_width() / 2, 0.03,
-                       "DIVERGED", ha="center", va="bottom",
-                       fontsize=6, color=_DIVERGED_COLOR, rotation=90)
+            bar.set_linewidth(0.5)
+            ax_f1.text(bar.get_x() + bar.get_width() / 2,
+                       y_lo + div_bar_h / 2,
+                       "DIVERGED", ha="center", va="center",
+                       fontsize=7.5, fontweight="bold", color="#B71C1C", zorder=5)
+
     if ref_f1 is not None:
         ax_f1.axhline(ref_f1, color=_BASELINE_COLOR, linestyle="--", linewidth=1.2,
                       label=f"ref {ref_f1:.3f}", zorder=0)
         ax_f1.legend(fontsize=7)
     ax_f1.set_xticks(x)
     ax_f1.set_xticklabels(present, rotation=20, ha="right", fontsize=8)
-    valid_f1 = [v for n, v in zip(present, f1_vals) if not _is_diverged(data, n)]
-    y_lo = max(0, min(valid_f1) - 0.05) if valid_f1 else 0
-    ax_f1.set_ylim(y_lo, 1.02)
+    ax_f1.set_ylim(y_lo, 1.0)
     ax_f1.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
     ax_f1.set_title(f"{subgroup} — Macro F1", fontsize=10)
     ax_f1.set_ylabel("Macro F1")
     for bar, name, val in zip(bars, present, f1_vals):
         if not _is_diverged(data, name) and val > 0.01:
-            ax_f1.text(bar.get_x() + bar.get_width() / 2, val + 0.003,
-                       f"{val:.3f}", ha="center", va="bottom", fontsize=6.5)
+            inside = val > 0.975
+            ax_f1.text(bar.get_x() + bar.get_width() / 2,
+                       val - 0.005 if inside else val + 0.003,
+                       f"{val:.3f}", ha="center",
+                       va="top" if inside else "bottom",
+                       fontsize=6.5,
+                       color="white" if inside else "black")
 
     # ── Per-class F1 grouped bars (diverged excluded) ──────────────────────
     classes = ["speech", "music", "inactive"]
     class_labels = ["Speech", "Music", "Inactive"]
     converged = [n for n in present if not _is_diverged(data, n)]
     n = len(converged)
-    width = 0.22
+    width = min(0.22, 0.75 / n) if n else 0.22
     x2 = np.arange(len(classes))
     for i, name in enumerate(converged):
         pc = data[name].get("per_class", {})
@@ -152,7 +168,7 @@ def _plot_subgroup(ax_f1, ax_class, subgroup: str, names: list[str], data: dict,
                      linewidth=0.6)
     ax_class.set_xticks(x2)
     ax_class.set_xticklabels(class_labels, fontsize=9)
-    ax_class.set_ylim(0, 1.05)
+    ax_class.set_ylim(0, 1.0)
     ax_class.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
     ax_class.set_title(f"{subgroup} — Per-class F1", fontsize=10)
     ax_class.set_ylabel("F1")
@@ -162,10 +178,9 @@ def _plot_subgroup(ax_f1, ax_class, subgroup: str, names: list[str], data: dict,
 
 def plot_subgroup_figure(subgroup: str, names: list[str], data: dict,
                          ref_f1: float | None = None) -> plt.Figure:
-    fig, (ax_f1, ax_class) = plt.subplots(1, 2, figsize=(12, 4.5))
+    fig, (ax_f1, ax_class) = plt.subplots(1, 2, figsize=(12, 4.5), constrained_layout=True)
     fig.suptitle(f"Ablation: {subgroup}", fontsize=12, fontweight="bold")
     _plot_subgroup(ax_f1, ax_class, subgroup, names, data, ref_f1=ref_f1)
-    fig.tight_layout()
     return fig
 
 
@@ -264,11 +279,11 @@ def plot_ofat_summary(subgroups: dict[str, list[str]], all_data: dict) -> plt.Fi
     fig, (ax_heat, ax_sens) = plt.subplots(
         1, 2, figsize=(18, max(5, len(subgroups) * 0.9)),
         gridspec_kw={"width_ratios": [2, 1]},
+        constrained_layout=True,
     )
     fig.suptitle("OFAT Ablation Study — Summary", fontsize=13, fontweight="bold")
     _plot_delta_heatmap(ax_heat, subgroups, all_data)
     _plot_sensitivity(ax_sens, subgroups, all_data)
-    fig.tight_layout()
     return fig
 
 
@@ -361,14 +376,14 @@ def plot_coord_ascent_summary(subgroups: dict, all_data: dict, trajectory: dict,
                                subgroup_order: list[str]) -> plt.Figure:
     """Coord-ascent summary: trajectory line (top) + config diff table (bottom)."""
     fig, (ax_traj, ax_diff) = plt.subplots(2, 1, figsize=(14, 10),
-                                            gridspec_kw={"height_ratios": [1, 1.4]})
+                                            gridspec_kw={"height_ratios": [1, 1.4]},
+                                            constrained_layout=True)
     fig.suptitle("Coordinate-Ascent Study — Summary", fontsize=13, fontweight="bold")
 
     baseline_f1 = all_data.get("baseline", {}).get("macro_f1")
     _plot_trajectory(ax_traj, trajectory, subgroup_order, baseline_f1)
     _plot_config_diff(ax_diff, trajectory, subgroup_order)
 
-    fig.tight_layout()
     return fig
 
 
@@ -415,7 +430,7 @@ def main(subgroup_filter: str | None = None, suffix: str = ""):
 
         fig = plot_subgroup_figure(subgroup, names, data, ref_f1=ref_f1)
         out = graphs_dir / f"ablation_{subgroup}{suffix}.png"
-        fig.savefig(out, dpi=150, bbox_inches="tight")
+        fig.savefig(out, dpi=150)
         plt.close(fig)
         print(f"Saved → {out}")
 

@@ -84,15 +84,20 @@ def plot_macro_f1(ax, data):
     bars = ax.bar(x, f1_vals, 0.5, color=[COLORS[m] for m in labels], alpha=0.9)
     ax.set_xticks(x)
     ax.set_xticklabels([MODEL_SHORT[m] for m in labels])
-    ax.set_ylim(0, 1.05)
+    ax.set_ylim(0, 1.0)
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
     ax.set_title("Macro F1")
     ax.set_ylabel("Macro F1")
     for bar in bars:
         h = bar.get_height()
         if h > 0.02:
-            ax.text(bar.get_x() + bar.get_width() / 2, h + 0.01, f"{h:.2f}",
-                    ha="center", va="bottom", fontsize=7)
+            inside = h > 0.975
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    h - 0.01 if inside else h + 0.01,
+                    f"{h:.2f}", ha="center",
+                    va="top" if inside else "bottom",
+                    fontsize=7,
+                    color="white" if inside else "black")
 
 
 def plot_pr_scatter(ax, data):
@@ -138,8 +143,8 @@ def plot_pr_scatter(ax, data):
         Line2D([0], [0], color="gray", marker="^", linestyle="None", markersize=6, label="Inactive"),
     ]
     ax.legend(handles=legend_els, fontsize=6, ncol=1)
-    ax.set_xlim(lo, 1.01)
-    ax.set_ylim(lo, 1.01)
+    ax.set_xlim(lo, 1.0)
+    ax.set_ylim(lo, 1.0)
     ax.set_xlabel("Recall")
     ax.set_ylabel("Precision")
     ax.set_title("Precision vs Recall")
@@ -258,7 +263,7 @@ def plot_subclass_group(ax, data, subclass_keys, short_names, title):
         ax.barh(y + offset, vals, bar_h * 0.9, color=COLORS[model], alpha=0.85, label=MODEL_SHORT[model])
     ax.set_yticks(y)
     ax.set_yticklabels(short_names, fontsize=8)
-    ax.set_xlim(0, 1.05)
+    ax.set_xlim(0, 1.0)
     ax.set_xlabel("Recall")
     ax.set_title(title)
     ax.legend(fontsize=7)

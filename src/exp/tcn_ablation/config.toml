@@ -49,23 +49,29 @@ n_filters = 8
 [tcn.ablations.capacity.filters_32]
 n_filters = 32
 
-# depth/receptive field: layers, stacks, kernel size
+# n_layers: how many dilated conv layers per stack
 # RF = n_stacks × (sum 2^i for i in 0..n_layers-1) × (kernel_size-1) + 1
 # baseline: 3 × 15 × 4 + 1 = 181 frames
-[tcn.ablations.depth.baseline]
-[tcn.ablations.depth.layers_2]
-n_layers = 2            # RF = 3×3×4+1 = 37 frames
-[tcn.ablations.depth.layers_3]
-n_layers = 3            # RF = 3×7×4+1 = 85 frames
-[tcn.ablations.depth.stacks_5]
-n_stacks = 5            # RF = 5×15×4+1 = 301 frames
-[tcn.ablations.depth.layers_1]
+[tcn.ablations.layers.baseline]
+[tcn.ablations.layers.layers_1]
 n_layers = 1            # RF = 3×1×4+1 = 13 frames (paper minimum)
-[tcn.ablations.depth.kernel_3]
+[tcn.ablations.layers.layers_2]
+n_layers = 2            # RF = 3×3×4+1 = 37 frames
+[tcn.ablations.layers.layers_3]
+n_layers = 3            # RF = 3×7×4+1 = 85 frames
+
+# n_stacks: how many times the dilated layer sequence is repeated
+[tcn.ablations.stacks.baseline]
+[tcn.ablations.stacks.stacks_5]
+n_stacks = 5            # RF = 5×15×4+1 = 301 frames
+
+# kernel_size: conv kernel width
+[tcn.ablations.kernel.baseline]
+[tcn.ablations.kernel.kernel_3]
 kernel_size = 3         # RF = 3×15×2+1 = 91 frames (paper minimum)
-[tcn.ablations.depth.kernel_7]
-kernel_size = 7         # RF = 3×15×6+1 = 271 frames (fills gap 5→9)
-[tcn.ablations.depth.kernel_9]
+[tcn.ablations.kernel.kernel_7]
+kernel_size = 7         # RF = 3×15×6+1 = 271 frames
+[tcn.ablations.kernel.kernel_9]
 kernel_size = 9         # RF = 3×15×8+1 = 361 frames
 
 # regularization: dropout
@@ -119,7 +125,7 @@ augment = false
 # Optimizer/normalization settled first so capacity/depth choices train stably.
 [tcn.coord_ascent]
 subgroup_order = [
-    "optimizer", "capacity", "depth", "activation",
+    "optimizer", "capacity", "layers", "stacks", "kernel", "activation",
     "regularization", "training", "batch_size", "n_mels",
     "augmentation", "skip_connections",
 ]
