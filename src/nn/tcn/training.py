@@ -48,6 +48,9 @@ def train_step(model, optimizer, loss_fn, waveform, targets):
         targets = targets[..., :T]
     loss = loss_fn(probs, targets)
     loss.backward()
+    # Clip gradients to prevent explosion (weight norm can shrink ||v|| → 0 over
+    # many epochs, causing g/||v|| → ∞ and NaN activations in subsequent batches).
+    nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
     optimizer.step()
     return loss.item()
 
