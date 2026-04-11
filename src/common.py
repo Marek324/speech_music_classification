@@ -1,6 +1,7 @@
 # common.py
 # Marek Hric
 
+import os
 from dataclasses import dataclass
 from typing import Dict, List, Optional, Union
 
@@ -88,3 +89,8 @@ def frame_label_str(
 
 def ms_to_samples(ms: int, sr: int) -> int:
     return int(ms * sr / 1000)
+
+
+def get_num_workers() -> int:
+    """Return number of worker processes: all available CPUs, capped at 64."""
+    return min(os.cpu_count() or 1, 64)

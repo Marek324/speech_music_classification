@@ -4,7 +4,6 @@
 import hashlib
 import json
 import logging
-import os
 import time
 from collections import Counter
 from typing import Any, Dict, Optional
@@ -18,6 +17,7 @@ from .common import (
     FrameDataStrLabel,
     FrameMetadataStrLabel,
     LABEL_MAP,
+    get_num_workers,
 )
 from .classic.feat_extractor import FeatExtractor
 
@@ -133,7 +133,7 @@ class InputHandler:
         processed = dataset.map(
             self._process_row,
             desc="Extracting frames/features",
-            num_proc=os.cpu_count(),
+            num_proc=get_num_workers(),
             load_from_cache_file=True,
             writer_batch_size=100,
         )
