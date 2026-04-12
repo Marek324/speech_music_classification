@@ -28,11 +28,13 @@ hop_length_ms = 10
 lt_len_ms = 300
 
 [buffers.gmm]
+sample_rate = 8000
 frame_length_ms = 30
 hop_length_ms = 15
 lt_len_ms = 1000
 
 [buffers.svm]
+sample_rate = 8000
 frame_length_ms = 30
 hop_length_ms = 15
 lt_len_ms = 1000

@@ -39,15 +39,22 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     y = ih.getY()
     subclasses = ih.getSubclasses()
 
-    # Sequential extraction benchmark: time fe.extract() on a dummy frame
+    # Sequential extraction benchmark: time feature extraction on a dummy input
     # (avoids parallel-timing underestimate from dataset.map(num_proc=N))
     fe.reset()
-    dummy_frame = np.zeros(fe.fl, dtype=np.float32)
     _bench = []
-    for _ in range(200):
-        t0 = time.perf_counter_ns()
-        fe.extract(dummy_frame)
-        _bench.append(time.perf_counter_ns() - t0)
+    if model_name in ("gmm", "svm"):
+        dummy_seg = np.zeros(fe.sr, dtype=np.float32)  # 1s segment
+        for _ in range(20):
+            t0 = time.perf_counter_ns()
+            fe.extract_segment(dummy_seg)
+            _bench.append(time.perf_counter_ns() - t0)
+    else:
+        dummy_frame = np.zeros(fe.fl, dtype=np.float32)
+        for _ in range(200):
+            t0 = time.perf_counter_ns()
+            fe.extract(dummy_frame)
+            _bench.append(time.perf_counter_ns() - t0)
     extract_time_ns = float(np.median(_bench))
 
     t0 = time.perf_counter_ns()

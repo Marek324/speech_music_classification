@@ -53,18 +53,25 @@ def _smoke_test_classic(model_name: str):
     config.init_config(None, model_name=model_name)
     np.random.seed(42)
     fe = FeatExtractor()
-    frame_len = fe.fl
-    n_frames = 200
 
-    frames = np.random.randn(n_frames, frame_len).astype(np.float32) * 0.1
-    X_list = []
-    for i in range(n_frames):
-        feat = fe.extract(frames[i])
-        X_list.append(feat)
-    X = np.array(X_list, dtype=np.float64)
+    if model_name in ("gmm", "svm"):
+        n_segments = 60
+        segments = np.random.randn(n_segments, fe.sr).astype(np.float32) * 0.1
+        X_list = [fe.extract_segment(segments[i]) for i in range(n_segments)]
+        X = np.array(X_list, dtype=np.float64)
+        n_samples = n_segments
+    else:
+        n_frames = 200
+        frames = np.random.randn(n_frames, fe.fl).astype(np.float32) * 0.1
+        X_list = []
+        for i in range(n_frames):
+            feat = fe.extract(frames[i])
+            X_list.append(feat)
+        X = np.array(X_list, dtype=np.float64)
+        n_samples = n_frames
 
-    y = np.random.choice([-1, 1, 2], n_frames)
-    subclasses = np.array(["smoke"] * n_frames, dtype=SUBCLASS_DTYPE)
+    y = np.random.choice([-1, 1, 2], n_samples)
+    subclasses = np.array(["smoke"] * n_samples, dtype=SUBCLASS_DTYPE)
 
     model = MODELS[model_name](f"smoke_{model_name}")
     model.fit(X, y)

@@ -32,9 +32,9 @@ def _safe(arr: np.ndarray) -> np.ndarray:
 class FeatExtractor:
     def __init__(self, sec_buffer_scale: int = 30) -> None:
         self.cfg = config.get_config()
-        self.sr = self.cfg["sample_rate"]
-        self.n_fft = self.cfg[N_FFT]
         buf = self.cfg[BUFFERS]
+        self.sr = buf.get("sample_rate", self.cfg["sample_rate"])
+        self.n_fft = self.cfg[N_FFT]
         self.fl = buf["frame_length_ms"] * self.sr // 1000
         self.fh = buf["hop_length_ms"] * self.sr // 1000
         self.lt_len = int(buf["lt_len_ms"] * self.sr // 1000)
@@ -82,6 +82,124 @@ class FeatExtractor:
         if feature_set == "decision_tree":
             return self._extract_decision_tree(frame)
         return self._extract_gmm_svm(frame)
+
+    def extract_segment(self, segment: np.ndarray) -> np.ndarray:
+        """Extract one 9-dim feature vector from a 1s audio segment (paper §3.2).
+
+        Computes existing-feature statistics and speech-specific statistics
+        over non-overlapping 1s windows, matching Khonglah & Prasanna 2016.
+        """
+        n = len(segment)
+
+        # --- Step 1: per-frame existing features (30ms / 15ms hop) ---
+        frames_feats = []
+        last_fft = None
+        srp_thresh = self.cfg[FEATURES]["spectral_rolloff_point"]["threshold"]
+        pos = 0
+        while pos + self.fl <= n:
+            frame = segment[pos : pos + self.fl]
+            padded = fix_length(frame, size=self.n_fft)
+
+            ste = float(10 * np.log10(np.mean(frame**2) + 1e-10))
+            zcr = float(np.sum(np.abs(np.diff(np.sign(frame)))) / 2)
+
+            sc = libfeat.spectral_centroid(
+                y=padded, sr=self.sr, n_fft=self.n_fft
+            )[0, 0]
+            sc = 0.0 if np.isnan(sc) or np.isinf(sc) else float(sc)
+
+            cur_fft = np.fft.fft(padded, n=self.n_fft)
+            if last_fft is None:
+                flux = 0.0
+            else:
+                flux = float(np.sum(np.abs(cur_fft - last_fft) ** 2))
+            last_fft = cur_fft
+
+            rolloff = float(
+                libfeat.spectral_rolloff(
+                    y=padded, sr=self.sr, roll_percent=srp_thresh, n_fft=self.n_fft
+                )[0, 0]
+            )
+
+            frames_feats.append([ste, zcr, sc, flux, rolloff])
+            pos += self.fh
+
+        frames_arr = np.array(frames_feats)  # (~65, 5)
+
+        var_zcr = float(np.var(frames_arr[:, 1]))
+        var_centroid = float(np.var(frames_arr[:, 2]))
+        var_flux = float(np.var(frames_arr[:, 3]))
+        var_rolloff = float(np.var(frames_arr[:, 4]))
+
+        energies = frames_arr[:, 0]
+        if len(energies) > 0:
+            thr = float(np.mean(energies) / 3)
+            lster = float(np.sum(energies < thr) / len(energies))
+        else:
+            lster = 0.0
+
+        # --- Step 2: per-subframe speech-specific (30ms / 1ms shift) ---
+        step = int(self.sr * 0.001)  # 8 samples at 8 kHz
+        speech_feats = []
+        pos = 0
+        while pos + self.fl <= n:
+            subframe = segment[pos : pos + self.fl]
+            speech_feats.append([
+                self._naps_of_zffs(subframe),
+                self._psr_he_lp_residual(subframe),
+                self._log_mel_spectrum_energy(subframe),
+            ])
+            pos += step
+
+        speech_arr = _safe(np.array(speech_feats))  # (~962, 3)
+        mean_naps = float(np.mean(speech_arr[:, 0]))
+        mean_psr = float(np.mean(speech_arr[:, 1]))
+        var_mel = float(np.var(speech_arr[:, 2]))
+
+        # --- Step 3: segment-level modulation spectrum ---
+        mod_energy = self._modulation_spectrum_energy_segment(segment)
+
+        return _safe(np.array([
+            var_zcr, var_centroid, var_flux, var_rolloff, lster,
+            mean_naps, mean_psr, var_mel, mod_energy,
+        ]))
+
+    def _modulation_spectrum_energy_segment(self, segment: np.ndarray) -> float:
+        """4 Hz modulation spectrum energy across 18 mel bands (paper §2.3.1).
+
+        Uses mel spectrogram as proxy for critical-band filterbank. Analyzes
+        temporal modulation of band energies via short-window DFT at 80 Hz.
+        """
+        sr = self.sr
+        hop_mod = sr // 80  # 100 samples at 8 kHz → 80 frames/s
+        S = libfeat.melspectrogram(
+            y=segment, sr=sr, n_fft=self.n_fft,
+            hop_length=hop_mod, n_mels=18, fmin=0, fmax=sr // 2, power=2.0,
+        )  # (18, T) where T ≈ 80
+
+        # Normalize each band by its mean (paper: normalize over clip)
+        band_means = S.mean(axis=1, keepdims=True)
+        S_norm = S / (band_means + 1e-10)
+
+        # 250ms Hamming windows at 80 Hz → 20 samples per window
+        win_len = 20
+        T = S_norm.shape[1]
+        if T < win_len:
+            return 0.0
+
+        window = np.hamming(win_len)
+        mod_energy = 0.0
+        n_windows = 0
+
+        # Slide 1-sample hop (= 12.5 ms at 80 Hz)
+        for start in range(T - win_len + 1):
+            windowed = S_norm[:, start : start + win_len] * window[np.newaxis, :]
+            # DFT per band; bin 1 = 4 Hz (resolution = 80/20 = 4 Hz/bin)
+            fft_vals = np.fft.fft(windowed, axis=1)
+            mod_energy += float(np.sum(np.abs(fft_vals[:, 1]) ** 2))
+            n_windows += 1
+
+        return float(mod_energy / n_windows) if n_windows > 0 else 0.0
 
     def _extract_decision_tree(self, frame: np.ndarray) -> np.ndarray:
         feats = [
