@@ -1,0 +1,36 @@
+Evaluation report — 2026-04-11 22:45:51 UTC
+
+── Evaluation ────────────────────────────────────
+  Device     : NVIDIA A100-SXM4-80GB
+  ms/frame   : 0.0064
+  Macro F1   : 0.9218
+
+  Class             F1       P       R
+  Speech        0.9162  0.9881  0.8541
+  Music         0.9873  0.9983  0.9765
+  Inactive      0.8619  0.7584  0.9983
+  ─────────────────────────────────────
+  Macro         0.9218  0.9149  0.9429
+
+  Confusion matrix (rows=true, cols=pred):
+                    Speech     Music  Inactive
+  Speech      [    421843       747     71340  ]
+  Music       [      4704    475665      6731  ]
+  Inactive    [       360        66    245035  ]
+
+── By subclass ────────────────────────────────────
+  Subclass                       R
+  music_acapella            0.9416
+  music_electronic          0.9855
+  music_folk                0.9655
+  music_hip-hop             0.9826
+  music_instrumental        0.9668
+  music_pop                 0.9916
+  music_rock                0.9974
+  noise                     0.9983
+  speech_clean              0.8354
+  speech_dirty              0.8156
+  speech_msom               0.9703
+  speech_multispeaker       0.9495
+  speech_noisy              0.8414
+  speech_som                0.9132
