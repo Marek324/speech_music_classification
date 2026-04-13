@@ -1,8 +1,8 @@
-Evaluation report — 2026-04-12 02:10:31 UTC
+Evaluation report — 2026-04-13 11:53:25 UTC
 
 ── Evaluation ────────────────────────────────────
-  Device     : NVIDIA A100-SXM4-80GB
-  ms/frame   : 0.0055
+  Device     : NVIDIA A100-SXM4-40GB
+  ms/frame   : 0.0050
   Macro F1   : 0.1914
 
   Class             F1       P       R

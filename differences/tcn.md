@@ -16,6 +16,7 @@ The production TCN (`/home/marek/bp/config.toml`) is a separate recipe
 | Hann STFT, frame length 1024, hop 512 | `n_fft = 1024`, `hop_length = 512` |
 | Power spectrum → 80-mel filterbank, 27.5–8000 Hz | `n_mels = 80`, `f_min = 27.5`, `f_max = 8000.0` |
 | Log scale, zero-mean unit-variance normalization over training set | `preprocess.py::LogMelSpectrogram` + `compute_and_save_preprocess_stats` |
+| Spectral features pre-computed once and cached; augmentation applied to cached spectrograms (§3.4: *"saved for the training. During the training, data augmentation was applied to the saved spectrograms"*) | `training.py::_load_mel_chunks` writes `cache/nn/tcn_mel_<split>_*.pt` keyed by frontend params; `training.py::_iter_mel_batches` applies `augment_mel` to the cached mel in-batch |
 | Binary cross-entropy loss | `loss = "bce_with_logits"` (mathematically equivalent to paper's BCE; see below) |
 | SGD momentum = 0.9 | `optimizer = "sgd"` (momentum=0.9 hard-coded in `training.py`) |
 | Divide LR by 10 when validation loss does not improve for 3 epochs | `ReduceLROnPlateau(factor=0.1, patience=3)` in `training.py:205` |
@@ -158,7 +159,45 @@ dropout, with a residual add and a final ReLU.
 lets us own the training loop, streaming inference (`streaming.py`), and the
 ablation harness without cross-framework bridges.
 
-### 10. Production vs. ablation recipe are intentionally separate
+### 10. Augmentation: gain only in log-mel space vs. paper's Schlüter & Grill 2015 pipeline
+
+**Paper.** §3.7 cites the Schlüter & Grill (2015) pipeline: time stretching,
+pitch shifting, Gaussian *filtering* (smoothing), loudness manipulation, and
+block mixing — all applied on the saved power-spectrum features.
+
+**Baseline.** Only loudness manipulation is implemented. `augment_mel` in
+`augmentation.py` picks a per-example gain in ±6 dB with p=0.5 and adds it to
+the normalized log-mel as `gain_dB · ln(10)/10 / norm_std`. This is
+mathematically equivalent to a waveform gain followed by the existing log-mel
++ normalization pipeline, so from the model's perspective it matches
+"loudness manipulation on spectrograms" from §3.7.
+
+Time/pitch stretch, Gaussian filtering, and block mixing are not implemented.
+A prior revision additionally applied waveform-domain additive Gaussian noise
+at 30 dB SNR; this had no paper counterpart (Schlüter & Grill uses Gaussian
+*filtering*, not *noise*) and was dropped in the mel-precompute refactor.
+
+**Why.** Time/pitch stretching and block mixing require operating on
+pre-mel power spectra; the refactor caches post-mel features for performance
+and simplicity. Adding them would need a second cache tier (pre-mel) and a
+GPU-side resampling kernel — out of scope for the current study. The
+`augmentation.no_augment` ablation variant disables gain entirely to measure
+its contribution.
+
+### 11. Validation loss measured as chunk-level mean
+
+**Paper.** §3.5 says LR schedule and early stopping are triggered by
+"validation loss did not improve". The unit is not specified.
+
+**Baseline.** The mel-precompute refactor batches validation the same way it
+batches training: mean BCE over fixed-size mel chunks. The previous revision
+computed validation loss per full clip (one forward pass per clip, each clip
+weighted equally regardless of length); the new chunk-level mean weights
+longer clips more. Either definition is monotone in model quality, so the
+`ReduceLROnPlateau` and early-stopping semantics are unchanged; only the
+absolute numerical scale shifts.
+
+### 12. Production vs. ablation recipe are intentionally separate
 
 **Production TCN** (`/home/marek/bp/config.toml`): Adam, `lr = 1e-3`,
 `use_weight_norm = false` → BatchNorm. This is the recipe that currently
@@ -189,4 +228,4 @@ like `optimizer.sgd_lr_1e-2` and `loss.bce_sigmoid`.
 | `activation` | (ReLU in keras-tcn) | `leaky_relu`, `elu`, `gelu` |
 | `n_mels` | 80 | `mels_40`, `mels_128` |
 | `batch_size` | 32 | `batch_16`, `batch_64` |
-| `augmentation` | Schlüter & Grill 2015 pipeline | `no_augment` |
+| `augmentation` | Schlüter & Grill 2015 pipeline (we implement loudness only) | `no_augment` |

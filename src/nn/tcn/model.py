@@ -108,6 +108,14 @@ class SpeechMusicDetector(nn.Module):
         spec = self.fe(waveform)
         return self.model(spec)
 
+    def forward_logits_from_mel(self, mel: torch.Tensor) -> torch.Tensor:
+        """Raw logits from pre-computed normalized log-mel spectrograms."""
+        return self.model(mel)
+
+    def forward_from_mel(self, mel: torch.Tensor) -> torch.Tensor:
+        """Sigmoid probs from pre-computed normalized log-mel spectrograms."""
+        return torch.sigmoid(self.model(mel))
+
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:
         """
         Args:

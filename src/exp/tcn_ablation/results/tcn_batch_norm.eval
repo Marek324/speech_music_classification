@@ -1,36 +1,36 @@
-Evaluation report — 2026-04-12 05:00:56 UTC
+Evaluation report — 2026-04-13 12:16:09 UTC
 
 ── Evaluation ────────────────────────────────────
-  Device     : NVIDIA A100-SXM4-80GB
-  ms/frame   : 0.0060
-  Macro F1   : 0.9209
+  Device     : NVIDIA A100-SXM4-40GB
+  ms/frame   : 0.0052
+  Macro F1   : 0.9248
 
   Class             F1       P       R
-  Speech        0.9147  0.9783  0.8589
-  Music         0.9845  0.9985  0.9709
-  Inactive      0.8635  0.7638  0.9933
+  Speech        0.9179  0.9904  0.8553
+  Music         0.9901  0.9973  0.9830
+  Inactive      0.8665  0.7658  0.9977
   ─────────────────────────────────────
-  Macro         0.9209  0.9135  0.9410
+  Macro         0.9248  0.9178  0.9453
 
   Confusion matrix (rows=true, cols=pred):
                     Speech     Music  Inactive
-  Speech      [    424256       623     69051  ]
-  Music       [      7831    472909      6360  ]
-  Inactive    [      1578        73    243810  ]
+  Speech      [    422439      1180     70311  ]
+  Music       [      3696    478822      4582  ]
+  Inactive    [       416       140    244905  ]
 
 ── By subclass ────────────────────────────────────
   Subclass                       R
-  music_acapella            0.9661
-  music_electronic          0.9714
-  music_folk                0.9506
-  music_hip-hop             0.9725
-  music_instrumental        0.9525
-  music_pop                 0.9865
-  music_rock                0.9959
-  noise                     0.9933
-  speech_clean              0.8410
-  speech_dirty              0.8176
-  speech_msom               0.9745
-  speech_multispeaker       0.9513
-  speech_noisy              0.8490
-  speech_som                0.9177
+  music_acapella            0.9834
+  music_electronic          0.9864
+  music_folk                0.9662
+  music_hip-hop             0.9830
+  music_instrumental        0.9659
+  music_pop                 0.9981
+  music_rock                0.9982
+  noise                     0.9977
+  speech_clean              0.8381
+  speech_dirty              0.8165
+  speech_msom               0.9697
+  speech_multispeaker       0.9507
+  speech_noisy              0.8452
+  speech_som                0.9015

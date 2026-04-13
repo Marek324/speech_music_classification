@@ -1,9 +1,9 @@
 # tcn/training.py
 # Training utilities.
 
+import hashlib
 import logging
-
-import random
+from pathlib import Path
 
 import torch
 import torch.nn as nn
@@ -11,7 +11,7 @@ import torch.nn.functional as F
 
 from ...wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
-from .augmentation import augment
+from .augmentation import augment_mel
 from .config import get_config, get_preprocess_stats_path, get_weights_path
 from ..dataset import get_nn_dataset, iter_nn_rows
 from .model import SpeechMusicDetector
@@ -60,9 +60,8 @@ def build_loss(cfg: dict | None = None) -> tuple[nn.Module, str]:
     """Build the loss module and its input mode.
 
     Returns:
-        (loss_fn, mode) where mode is "logits" (training uses
-        SpeechMusicDetector.forward_logits) or "probs" (training uses the
-        sigmoid-applied SpeechMusicDetector.forward).
+        (loss_fn, mode) where mode is "logits" (use forward_logits_from_mel) or
+        "probs" (use forward_from_mel, required for nn.BCELoss / nn.MSELoss).
 
     Supported cfg["loss"] values:
         bce_with_logits  — nn.BCEWithLogitsLoss on raw logits                 (default, stable)
@@ -94,145 +93,192 @@ def build_loss(cfg: dict | None = None) -> tuple[nn.Module, str]:
     raise ValueError(f"Unknown loss '{name}'")
 
 
-def train_step(model, optimizer, loss_fn, waveform, targets, loss_mode: str = "logits"):
+def _mel_cache_path(cfg: dict, split: str) -> Path:
+    """Cache path keyed by (dataset, frontend params, seq_len). Any ablation
+    that changes one of these keys picks up a fresh tensor automatically.
     """
-    Single training step.
+    ds = cfg["dataset"]
+    key = f"{ds.get('url','')}|{ds.get('name','')}|{ds.get('revision','')}"
+    h = hashlib.sha1(key.encode()).hexdigest()[:8]
+    fname = (
+        f"tcn_mel_{split}_{h}"
+        f"_sr{cfg['sample_rate']}_nfft{cfg['n_fft']}_hop{cfg['hop_length']}"
+        f"_mels{cfg['n_mels']}_seq{cfg.get('seq_len', SEQ_LEN)}.pt"
+    )
+    repo_root = Path(__file__).resolve().parent.parent.parent.parent
+    return repo_root / "cache" / "nn" / fname
 
-    Args:
-        waveform:  (B, samples)
-        targets:   (B, 3, T) float 0/1 labels for [speech, music, inactive] per frame
-        loss_mode: "logits" (use forward_logits, stable losses) or
-                   "probs"  (apply sigmoid, required for nn.BCELoss / nn.MSELoss)
 
-    Returns:
-        scalar loss (float) or None if the batch was skipped due to a
-        non-finite loss (guard against occasional WeightNorm blowups).
+def _load_mel_chunks(
+    ds_link: str,
+    split: str,
+    name: str,
+    fe: nn.Module,
+    fe_device: torch.device,
+    cfg: dict,
+    max_rows: int | None,
+    desc: str,
+) -> tuple[torch.Tensor, torch.Tensor]:
+    """Return stacked mel + target chunk tensors for the given split.
+
+    Fast path: load cached `.pt` if the key-derived path exists.
+    Slow path: stream `iter_nn_rows` once, compute normalized log-mel per clip
+    on `fe_device`, slice into non-overlapping `seq_len`-frame chunks, stack.
+
+    Returned tensors live on CPU so the caller decides where to keep them.
     """
-    model.train()
-    optimizer.zero_grad()
-    if loss_mode == "probs":
-        output = model(waveform)                # probs
-    else:
-        output = model.forward_logits(waveform) # logits
-    T_out, T_target = output.shape[-1], targets.shape[-1]
-    if T_out != T_target:
-        T = min(T_out, T_target)
-        output = output[..., :T]
-        targets = targets[..., :T]
-    loss = loss_fn(output, targets)
-    if not torch.isfinite(loss):
-        log.warning("non-finite loss (%s); skipping batch", loss.item())
-        optimizer.zero_grad()
-        return None
-    loss.backward()
-    # Clip gradients to prevent explosion (weight norm can shrink ||v|| → 0 over
-    # many epochs, causing g/||v|| → ∞ and NaN activations in subsequent batches).
-    nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
-    optimizer.step()
-    return loss.item()
+    cache_path = _mel_cache_path(cfg, split)
+    if cache_path.exists():
+        log.info("[%s] loading cached mel chunks from %s", split, cache_path)
+        data = torch.load(cache_path, map_location="cpu")
+        return data["mel"], data["tgt"]
 
-
-def _iter_batched_chunks(ds, cfg, max_rows, desc, batch_size=None, seq_len=None, training=False):
-    if batch_size is None:
-        batch_size = cfg.get("batch_size", 32)
-    if seq_len is None:
-        seq_len = cfg.get("seq_len", SEQ_LEN)
-    """Slice clips into fixed-length chunks and yield mini-batches (paper §3.5).
-
-    chunk_samples = (seq_len - 1) * hop + n_fft  →  exactly seq_len target frames.
-    Stride = seq_len * hop  →  non-overlapping target windows, contiguous coverage.
-    Short clips are zero-padded to yield at least one chunk (prevents silent data loss).
-    When training, all chunks are collected and shuffled to interleave classes across batches.
-    """
+    sr = cfg["sample_rate"]
     hop = cfg["hop_length"]
     n_fft = cfg["n_fft"]
-    sr = cfg["sample_rate"]
+    seq_len = cfg.get("seq_len", SEQ_LEN)
     chunk_samples = (seq_len - 1) * hop + n_fft
-    stride_samples = seq_len * hop
 
-    all_wav_chunks, all_tgt_chunks = [], []
+    ds = get_nn_dataset(ds_link, split, sr, name=name)
 
-    for wav, targets in iter_nn_rows(ds, max_rows, desc, sr, hop, n_fft):
-        N = wav.shape[-1]
-        M = targets.shape[-1]
+    fe_was_training = fe.training
+    fe.eval()
 
-        # Pad short clips so every clip yields at least one chunk
-        if N < chunk_samples:
-            wav = F.pad(wav, (0, chunk_samples - N))
-            N = wav.shape[-1]
-        if M < seq_len:
-            targets = F.pad(targets, (0, seq_len - M))  # pad with 0 = inactive
-            M = targets.shape[-1]
+    mel_chunks: list[torch.Tensor] = []
+    tgt_chunks: list[torch.Tensor] = []
+    with torch.no_grad():
+        for wav, targets in iter_nn_rows(ds, max_rows, desc, sr, hop, n_fft):
+            if wav.shape[-1] < chunk_samples:
+                wav = F.pad(wav, (0, chunk_samples - wav.shape[-1]))
+            wav = wav.to(fe_device, non_blocking=True)
+            mel = fe(wav).to("cpu")  # (1, n_mels, T_mel)
 
-        s = 0
-        while s + chunk_samples <= N:
-            f_start = s // hop
-            f_end = f_start + seq_len
-            if f_end > M:
-                break
-            all_wav_chunks.append(wav[:, s:s + chunk_samples])   # (1, chunk_samples)
-            all_tgt_chunks.append(targets[:, f_start:f_end])     # (2, seq_len)
-            s += stride_samples
+            T_mel = mel.shape[-1]
+            T_tgt = targets.shape[-1]
+            T = min(T_mel, T_tgt)
+            if T < seq_len:
+                pad_amt = seq_len - T
+                mel = F.pad(mel[..., :T], (0, pad_amt))
+                targets = F.pad(targets[..., :T], (0, pad_amt))
+                T = seq_len
+            else:
+                mel = mel[..., :T]
+                targets = targets[..., :T]
 
-    # Shuffle chunks to interleave classes across batches (critical for convergence)
+            f = 0
+            while f + seq_len <= T:
+                mel_chunks.append(mel[0, :, f:f + seq_len].contiguous())
+                tgt_chunks.append(targets[:, f:f + seq_len].contiguous())
+                f += seq_len
+
+    if fe_was_training:
+        fe.train()
+
+    if not mel_chunks:
+        raise RuntimeError(f"No mel chunks produced for split={split!r}; dataset empty?")
+
+    mel_t = torch.stack(mel_chunks, dim=0).contiguous()   # (N, n_mels, seq_len)
+    tgt_t = torch.stack(tgt_chunks, dim=0).contiguous()   # (N, 3, seq_len)
+
+    cache_path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({"mel": mel_t, "tgt": tgt_t}, cache_path)
+    size_mb = cache_path.stat().st_size / 1e6
+    log.info("[%s] saved %d mel chunks to %s (%.1f MB)", split, mel_t.shape[0], cache_path, size_mb)
+    return mel_t, tgt_t
+
+
+def _iter_mel_batches(
+    mel: torch.Tensor,
+    tgt: torch.Tensor,
+    batch_size: int,
+    training: bool,
+    cfg: dict,
+    fe: nn.Module,
+):
+    """Shuffle (training) or walk (validation) the precomputed mel tensor,
+    yielding (mel_batch, tgt_batch) pairs. Augmentation is applied in-batch
+    when training. Tensors stay on whatever device they were loaded on.
+    """
+    n = mel.shape[0]
     if training:
-        indices = list(range(len(all_wav_chunks)))
-        random.shuffle(indices)
-        all_wav_chunks = [all_wav_chunks[i] for i in indices]
-        all_tgt_chunks = [all_tgt_chunks[i] for i in indices]
-
-    # Yield mini-batches
-    for i in range(0, len(all_wav_chunks), batch_size):
-        wav_chunks = all_wav_chunks[i:i + batch_size]
-        tgt_chunks = all_tgt_chunks[i:i + batch_size]
-        wav_batch = torch.cat(wav_chunks, dim=0)
-        if training and cfg.get("augment", True):
-            wav_batch = augment(wav_batch)
-        yield wav_batch, torch.stack(tgt_chunks, dim=0)
+        indices = torch.randperm(n, device=mel.device)
+    else:
+        indices = torch.arange(n, device=mel.device)
+    do_aug = training and cfg.get("augment", True)
+    for i in range(0, n, batch_size):
+        idx = indices[i:i + batch_size]
+        mel_batch = mel.index_select(0, idx)
+        tgt_batch = tgt.index_select(0, idx)
+        if do_aug:
+            mel_batch = augment_mel(mel_batch, fe)
+        yield mel_batch, tgt_batch
 
 
-def _train_epoch(model, optimizer, loss_fn, ds, cfg, max_rows: int | None, epoch: int,
-                 loss_mode: str = "logits"):
-    """Train one epoch using mini-batches of fixed-length chunks (paper §3.5)."""
-    device = next(model.parameters()).device
+def _train_epoch(
+    model,
+    optimizer,
+    loss_fn,
+    mel: torch.Tensor,
+    tgt: torch.Tensor,
+    cfg: dict,
+    loss_mode: str,
+):
+    """Train one epoch over the precomputed mel tensor."""
+    model.train()
+    batch_size = cfg.get("batch_size", 32)
     total_loss = 0.0
     n_batches = 0
-    for wav_batch, tgt_batch in _iter_batched_chunks(ds, cfg, max_rows, f"Epoch {epoch}", training=True):
-        wav_batch = wav_batch.to(device)
-        tgt_batch = tgt_batch.to(device)
-        loss = train_step(model, optimizer, loss_fn, wav_batch, tgt_batch, loss_mode=loss_mode)
-        if loss is None:
+    for mel_batch, tgt_batch in _iter_mel_batches(mel, tgt, batch_size, True, cfg, model.fe):
+        optimizer.zero_grad()
+        if loss_mode == "probs":
+            output = model.forward_from_mel(mel_batch)
+        else:
+            output = model.forward_logits_from_mel(mel_batch)
+        T_out, T_target = output.shape[-1], tgt_batch.shape[-1]
+        if T_out != T_target:
+            T = min(T_out, T_target)
+            output = output[..., :T]
+            tgt_batch = tgt_batch[..., :T]
+        loss = loss_fn(output, tgt_batch)
+        if not torch.isfinite(loss):
+            log.warning("non-finite loss (%s); skipping batch", loss.item())
+            optimizer.zero_grad()
             continue
-        total_loss += loss
+        loss.backward()
+        # Clip gradients to prevent explosion (weight norm can shrink ||v|| → 0
+        # over many epochs, causing g/||v|| → ∞ and NaN activations otherwise).
+        nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+        optimizer.step()
+        total_loss += loss.item()
         n_batches += 1
     return total_loss / max(n_batches, 1)
 
 
-def _validation_loss(model, loss_fn, ds_link: str, cfg: dict, name: str = "full",
-                     loss_mode: str = "logits") -> float:
-    """Compute mean loss on validation split (no gradient)."""
-    device = next(model.parameters()).device
+def _validation_loss(
+    model,
+    loss_fn,
+    mel: torch.Tensor,
+    tgt: torch.Tensor,
+    cfg: dict,
+    loss_mode: str,
+) -> float:
+    """Compute mean chunk-level loss on precomputed validation mel tensor."""
     model.eval()
-    sr = cfg["sample_rate"]
-    hop = cfg["hop_length"]
-    n_fft = cfg["n_fft"]
-    ds = get_nn_dataset(ds_link, "validation", sr, name=name)
+    batch_size = cfg.get("batch_size", 32)
     total_loss = 0.0
     n_batches = 0
     with torch.no_grad():
-        for wav, targets in iter_nn_rows(ds, None, "Validation", sr, hop, n_fft):
-            wav = wav.to(device)
-            targets = targets.unsqueeze(0).to(device)
+        for mel_batch, tgt_batch in _iter_mel_batches(mel, tgt, batch_size, False, cfg, model.fe):
             if loss_mode == "probs":
-                output = model(wav)
+                output = model.forward_from_mel(mel_batch)
             else:
-                output = model.forward_logits(wav)
-            T_out, T_target = output.shape[-1], targets.shape[-1]
+                output = model.forward_logits_from_mel(mel_batch)
+            T_out, T_target = output.shape[-1], tgt_batch.shape[-1]
             if T_out != T_target:
                 T = min(T_out, T_target)
                 output = output[..., :T]
-                targets = targets[..., :T]
-            loss = loss_fn(output, targets)
+                tgt_batch = tgt_batch[..., :T]
+            loss = loss_fn(output, tgt_batch)
             if torch.isfinite(loss):
                 total_loss += loss.item()
                 n_batches += 1
@@ -254,11 +300,20 @@ def train_tcn(
     Optimizer: read from cfg["optimizer"] — "adam" (default) or "sgd" (momentum=0.9).
     LR schedule: divide by 10 when val loss doesn't improve for 3 consecutive epochs.
     Early stop: stop when val loss doesn't improve for `patience` consecutive epochs.
-    """
-    from pathlib import Path
 
+    Data path: mel chunks are precomputed once per run (or loaded from the
+    disk cache at cache/nn/tcn_mel_*.pt — shared across ablation variants with
+    matching frontend params) and kept on the training device for the rest of
+    training. This is the refactor that mirrors §3.4 of the paper, where the
+    power spectrum is cached and augmentation is applied to the cached
+    spectrograms.
+    """
     if cfg is None:
         cfg = get_config()
+
+    # Free speedup for conv-heavy workloads — cuDNN picks the best algo once.
+    torch.backends.cudnn.benchmark = True
+
     exp_name = cfg.get("name")
     save_path = Path(weights_path) if weights_path is not None else get_weights_path(exp_name)
     ds_cfg = cfg["dataset"]
@@ -278,8 +333,8 @@ def train_tcn(
         )
 
     model = SpeechMusicDetector(cfg=cfg, stats_path=stats_path)
-    if torch.cuda.is_available():
-        model = model.cuda()
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = model.to(device)
 
     opt_name = cfg.get("optimizer", "adam").lower()
     lr = cfg.get("lr", 1e-3)
@@ -291,23 +346,38 @@ def train_tcn(
         optimizer, mode="min", factor=0.1, patience=3
     )
     loss_fn, loss_mode = build_loss(cfg)
-    if torch.cuda.is_available() and hasattr(loss_fn, "cuda"):
-        loss_fn = loss_fn.cuda()
+    loss_fn = loss_fn.to(device)
     log.info("Loss: %s  (mode=%s)", cfg.get("loss", "bce_with_logits"), loss_mode)
 
     run_name = cfg.get("name", "tcn")
     if use_wandb:
         wandb_init(config={"model": run_name, "epochs": epochs, "patience": patience, **cfg})
 
-    ds = get_nn_dataset(ds_cfg["url"], "train", cfg["sample_rate"], name=ds_cfg["name"])
+    # --- one-shot mel precompute + cache load for both splits ---
     ds_link = ds_cfg["url"]
-    eval_name = ds_cfg["name"]
+    ds_name = ds_cfg["name"]
 
-    device_str = "cuda" if torch.cuda.is_available() else "cpu"
+    train_mel, train_tgt = _load_mel_chunks(
+        ds_link, "train", ds_name, model.fe, device, cfg, max_train_rows,
+        "Computing train mel chunks",
+    )
+    val_mel, val_tgt = _load_mel_chunks(
+        ds_link, "validation", ds_name, model.fe, device, cfg, None,
+        "Computing val mel chunks",
+    )
+    # Move precomputed tensors to the training device. At full-tier scale this
+    # is ~5 GB on GPU — fits comfortably alongside the (small) model.
+    train_mel = train_mel.to(device, non_blocking=True)
+    train_tgt = train_tgt.to(device, non_blocking=True)
+    val_mel = val_mel.to(device, non_blocking=True)
+    val_tgt = val_tgt.to(device, non_blocking=True)
+
     n_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     log.info(
-        "Starting training: variant=%s  epochs=%d  optimizer=%s  lr=%.2e  device=%s  params=%d",
-        run_name, epochs, opt_name, lr, device_str, n_params,
+        "Starting training: variant=%s  epochs=%d  optimizer=%s  lr=%.2e  device=%s  "
+        "params=%d  train_chunks=%d  val_chunks=%d",
+        run_name, epochs, opt_name, lr, device, n_params,
+        train_mel.shape[0], val_mel.shape[0],
     )
 
     best_val_loss = float("inf")
@@ -315,16 +385,14 @@ def train_tcn(
     val_checks_without_improvement = 0
 
     for ep in range(epochs):
-        log.info("Epoch %d/%d — loading + chunking data...", ep + 1, epochs)
-        loss = _train_epoch(model, optimizer, loss_fn, ds, cfg, max_train_rows, ep + 1,
-                            loss_mode=loss_mode)
+        loss = _train_epoch(model, optimizer, loss_fn, train_mel, train_tgt, cfg, loss_mode)
         metrics = {"train/loss": loss, "epoch": ep + 1}
 
-        val_loss = _validation_loss(model, loss_fn, ds_link, cfg, name=eval_name, loss_mode=loss_mode)
+        val_loss = _validation_loss(model, loss_fn, val_mel, val_tgt, cfg, loss_mode)
         current_lr = optimizer.param_groups[0]["lr"]
         log.info(
-            "Epoch %d train loss: %.4f validation loss: %.4f lr: %.2e",
-            ep + 1, loss, val_loss, current_lr,
+            "Epoch %d/%d train loss: %.4f validation loss: %.4f lr: %.2e",
+            ep + 1, epochs, loss, val_loss, current_lr,
         )
         metrics["val/loss"] = val_loss
         metrics["lr"] = current_lr
@@ -336,7 +404,7 @@ def train_tcn(
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            best_state = {k: v.cpu().clone() for k, v in model.state_dict().items()}
+            best_state = {k: v.detach().cpu().clone() for k, v in model.state_dict().items()}
             val_checks_without_improvement = 0
         else:
             val_checks_without_improvement += 1
@@ -352,11 +420,10 @@ def train_tcn(
 
     if best_state is not None:
         model.load_state_dict(best_state)
-        if torch.cuda.is_available():
-            model = model.cuda()
+        model = model.to(device)
 
     from safetensors.torch import save_file
 
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    save_file(model.state_dict(), save_path)
+    save_file({k: v.detach().cpu() for k, v in model.state_dict().items()}, save_path)
     log.info("Saved weights to %s", save_path)

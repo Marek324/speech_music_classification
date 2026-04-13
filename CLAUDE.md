@@ -33,9 +33,9 @@ Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possibl
 - Loss: binary cross-entropy
 
 ## Dataset
-HuggingFace: `Marek324/speech-music-classification` — **mid tier** (config name `mid`)
+HuggingFace: `Marek324/speech-music-classification`. TCN is configured for the **full** tier in `config.toml` → `[dataset] name = "full"`. The mid-tier tables below describe a previously uploaded snapshot and are kept for historical reference; full-tier counts differ.
 
-### Actual clip counts (mid tier, what's currently uploaded)
+### Mid-tier clip counts (historical snapshot, previous HF upload)
 
 | Split | Rows | Minutes |
 |-------|------|---------|
@@ -43,7 +43,7 @@ HuggingFace: `Marek324/speech-music-classification` — **mid tier** (config nam
 | val   | 411  | 122 min |
 | test  | 405  | 121 min |
 
-### Actual minutes per subclass (mid tier)
+### Mid-tier minutes per subclass (historical snapshot)
 
 | Subclass | Target | Train | Val | Test |
 |----------|--------|-------|-----|------|
@@ -90,6 +90,9 @@ HuggingFace: `Marek324/speech-music-classification` — **mid tier** (config nam
 ### Dataset label keys (fixed)
 Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `dataset.py`.
 
+### Per-epoch HF re-streaming (fixed)
+`_iter_batched_chunks` in `training.py` used to call `iter_nn_rows` every epoch, re-decoding and re-chunking the entire HF train split (~5 GB on mid tier, ~32 GB on full tier) 30 times per run. GPU utilization sat at ~10% because the step was CPU/IO-bound. **Fixed** by precomputing mel chunks once in `training.py::_load_mel_chunks`, caching to `cache/nn/tcn_mel_*.pt` (keyed by dataset + frontend params + seq_len), and keeping the cached tensor resident on the training device. `augment_mel` in `augmentation.py` applies gain directly in normalized log-mel space, matching paper §3.4 ("data augmentation was applied to the saved spectrograms"). Shared across ablation variants with matching frontend params.
+
 ### Full-tier test split missing subclasses (fixed)
 `process.py` previously used per-source cumulative minutes to assign clips to train/val/test sequentially. Sources that exhausted their HF data before reaching `val_cutoff_min` (92% of `target_minutes`) never wrote any clips to the test split. Affected sources in the full tier: `bel_canto` (acapella, 300 min target — small dataset), all FMA genres (750 min each — limited clips per genre on HF), and `DEMAND` noise (2400 min — dataset likely too small). Augmented subclasses (`speech_som`, `speech_msom`, `speech_noisy`) cascaded to zero test clips if their base subclasses had none. Full-tier test split had only ~3 subclasses with data.
 
@@ -122,14 +125,15 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 |------|---------|
 | `model.py` | `SpeechMusicDetector` (waveform → probs) + `CausalTCN` |
 | `preprocess.py` | `LogMelSpectrogram` — 22050Hz, 1024/512 STFT, 80-mel, z-norm |
-| `training.py` | Training loop, chunk iterator, optimizer |
+| `training.py` | Training loop, mel precompute + disk cache (`_load_mel_chunks`), batch iterator, optimizer |
 | `evaluation.py` | Thin wrapper: loads TCN model, calls `nn/evaluation.run_nn_inference` |
 | `streaming.py` | `StreamingInference` — online chunk-by-chunk inference |
-| `augmentation.py` | `augment()` — random gain ±6dB + Gaussian noise |
+| `augmentation.py` | `augment_mel()` — random gain ±6dB applied as additive shift in normalized log-mel space (paper §3.4 aug-on-spectrogram path) |
 | `cli.py` | Click CLI: train, eval, smoke-test, smoke-test-online |
 | `config.py` | Config loader; reads `[tcn]` section of `config.toml`; `_MODEL_KEYS` / `_TOP_KEYS` split ablation overrides into model vs top-level buckets |
 | `weights/tcn.safetensors` | Trained model weights *(not in git — download via HF)* |
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
+| `cache/nn/tcn_mel_*.pt` | Precomputed mel chunks per (dataset, split, frontend params, seq_len); shared across ablation variants. *(not in git — auto-synced via `cache/` to `Marek324/butfit-bp-artifacts` on HF)* |
 
 #### Own (`src/nn/own/`) — placeholder
 | File | Purpose |
@@ -195,6 +199,8 @@ use_weight_norm = false              # model key — mixed overrides work in one
 |--------|-------|---------------------|
 | Optimizer | SGD, momentum=0.9 | Adam, lr=1e-3, weight_decay=1e-4 |
 | Normalization | WeightNorm (keras-tcn reference) | `BatchNorm1d` after each conv |
+| Spectrogram caching + aug on cached spectra (§3.4) | Power spectrum pre-saved; aug applied to saved spectra | `cache/nn/tcn_mel_*.pt` caches normalized log-mel; `augment_mel()` operates on the cached tensor ✓ |
+| Augmentation pipeline (§3.7, Schlüter & Grill 2015) | Time stretch + pitch shift + Gaussian filter + loudness + block mix | Loudness only (±6 dB gain in log-mel space) — see `differences/tcn.md` §10 |
 | Post-processing | Duration thresholds (§3.6) to smooth predictions | Not implemented |
 | Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training |
 
@@ -226,6 +232,6 @@ Labels: `-1` = speech, `1` = music, `2` = inactive
 ## Status
 - **TCN**: done — 2-class F1=0.9504, 3-class F1=0.9033 (both targets met)
 - **Classic baselines**: DT done; SVM and GMM retrained pending — both updated to closer match paper (SVM: SGDClassifier→SVC RBF C=1 γ=3; both: lt_len_ms 600→1000; GMM: smoothing buffer 20→66 frames)
-- **Dataset (mid tier)**: successfully built and uploaded; numbers in table above reflect actual mid-tier dataset
-- **Dataset (full tier)**: rescaled to 6000 min (100h); AMI replaced with LibriMix-style synthetic multispeaker; all subclasses should now hit 100% of target
-- **Next**: rebuild full tier; retrain SVM/GMM
+- **Dataset (mid tier)**: historical snapshot; numbers in the mid-tier tables above reflect that snapshot, not the current HF upload
+- **Dataset (full tier)**: rescaled to 6000 min (100h); AMI replaced with LibriMix-style synthetic multispeaker; all subclasses should now hit 100% of target; TCN config points here
+- **Next**: rebuild full tier; retrain TCN + SVM/GMM off the new mel cache
