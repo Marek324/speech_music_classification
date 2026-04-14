@@ -1,0 +1,55 @@
+Dataset stats — Marek324/speech-music-classification (config: full)
+===================================================================
+
+Total clips:        16,377
+Total duration:    5963.77 min (99.40 h)
+
+Per split
+------------------------------------------------------------
+SPLIT              CLIPS       MINUTES       HOURS
+train             13,754       5016.44       83.61
+validation         1,308        471.92        7.87
+test               1,315        475.41        7.92
+
+Per class (minutes)
+------------------------------------------------------------
+CLASS                  TRAIN  VALIDATION        TEST       TOTAL
+inactive             1010.01       95.00       95.00     1200.02
+music                1989.85      184.10      188.72     2362.67
+speech               2016.57      192.82      191.70     2401.09
+
+Per subclass (minutes)
+------------------------------------------------------------------------
+SUBCLASS                           TRAIN  VALIDATION        TEST       TOTAL
+music_acapella                    261.55       19.17       23.79      304.51
+music_electronic                  288.37       27.49       27.49      343.35
+music_folk                        288.38       27.49       27.49      343.35
+music_hip-hop                     287.90       27.49       27.49      342.87
+music_instrumental                287.88       27.49       27.49      342.86
+music_pop                         287.89       27.49       27.49      342.87
+music_rock                        287.88       27.49       27.49      342.86
+noise                            1010.01       95.00       95.00     1200.02
+speech_clean                      805.39       77.78       76.94      960.11
+speech_dirty                      404.55       38.00       37.56      480.11
+speech_msom                       100.87        9.63        9.66      120.16
+speech_multispeaker               151.23       14.42       14.51      180.17
+speech_noisy                      403.23       38.53       38.41      480.17
+speech_som                        151.31       14.46       14.61      180.37
+
+Per subclass (clip counts)
+------------------------------------------------------------------------
+SUBCLASS                           TRAIN  VALIDATION        TEST       TOTAL
+music_acapella                       171          16          16         203
+music_electronic                     577          55          55         687
+music_folk                           577          55          55         687
+music_hip-hop                        577          55          55         687
+music_instrumental                   576          55          55         686
+music_pop                            576          55          55         686
+music_rock                           576          55          55         686
+noise                                202          19          19         240
+speech_clean                       3,864         368         368       4,600
+speech_dirty                       2,001         191         190       2,382
+speech_msom                          563          55          56         674
+speech_multispeaker                  851          79          83       1,013
+speech_noisy                       1,923         186         183       2,292
+speech_som                           720          64          70         854
