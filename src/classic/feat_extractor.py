@@ -8,6 +8,7 @@ from typing import Literal, Optional
 
 import numpy as np
 from librosa import feature as libfeat
+from librosa.filters import mel as mel_filter_bank
 from librosa.util import fix_length
 from librosa import lpc
 from scipy.ndimage import uniform_filter1d
@@ -29,6 +30,14 @@ def _safe(arr: np.ndarray) -> np.ndarray:
     return np.nan_to_num(arr, nan=0.0, posinf=0.0, neginf=0.0)
 
 
+def _stack_subframes(segment: np.ndarray, positions: np.ndarray, fl: int) -> np.ndarray:
+    """Build a (len(positions), fl) array where row i is segment[positions[i]:positions[i]+fl]."""
+    if positions.size == 0:
+        return np.zeros((0, fl), dtype=segment.dtype)
+    idx = positions[:, None] + np.arange(fl)[None, :]
+    return segment[idx]
+
+
 class FeatExtractor:
     def __init__(self, sec_buffer_scale: int = 30) -> None:
         self.cfg = config.get_config()
@@ -48,6 +57,35 @@ class FeatExtractor:
         self.last_fft: Optional[np.ndarray] = None
         self.last_mfcc: Optional[np.ndarray] = None
 
+        # Precomputed constants for vectorized subframe features.
+        self._mel_fb_logmel = mel_filter_bank(
+            sr=self.sr, n_fft=self.n_fft, n_mels=22, fmin=0, fmax=4000
+        ).astype(np.float64)  # (22, n_fft//2+1), speech-specific log-mel feature
+        self._mel_fb_mod = mel_filter_bank(
+            sr=self.sr, n_fft=self.n_fft, n_mels=18, fmin=0, fmax=self.sr // 2
+        ).astype(np.float64)  # (18, n_fft//2+1), modulation spectrum feature
+        self._hann_nfft = np.hanning(self.n_fft).astype(np.float64)
+        self._step_1ms = max(1, int(self.sr * 0.001))
+        self._psr_step_ms = 10
+        self._psr_step = max(1, int(self.sr * self._psr_step_ms / 1000))
+        self._mod_hop = max(1, self.sr // 80)         # 100 samples at 8kHz → 80Hz
+        self._mod_win_len = 20                         # 250ms @ 80Hz
+
+        # Streaming state (used only by the _extract_gmm_svm per-hop path).
+        self._stream_signal = np.zeros(self.lt_len, dtype=np.float64)
+        self._stream_filled = 0
+        self._stream_total = 0
+        self._stream_next_1ms_pos = 0
+        self._stream_next_psr_pos = 0
+        self._stream_next_mod_pos = 0
+        ring_1ms = (self.lt_len - self.fl) // self._step_1ms + 1
+        ring_psr = (self.lt_len - self.fl) // self._psr_step + 1
+        ring_mod = (self.lt_len - self.n_fft) // self._mod_hop + 1
+        self._stream_naps_ring: deque[float] = deque(maxlen=ring_1ms)
+        self._stream_logmel_ring: deque[float] = deque(maxlen=ring_1ms)
+        self._stream_psr_ring: deque[float] = deque(maxlen=ring_psr)
+        self._stream_mod_ring: deque[np.ndarray] = deque(maxlen=ring_mod)
+
     def reset(self) -> None:
         """Reset all stateful buffers between clips."""
         self.signal_buffer.clear()
@@ -55,6 +93,16 @@ class FeatExtractor:
         self.sec_feat_buffer.clear()
         self.last_fft = None
         self.last_mfcc = None
+
+        self._stream_signal[:] = 0.0
+        self._stream_total = 0
+        self._stream_next_1ms_pos = 0
+        self._stream_next_psr_pos = 0
+        self._stream_next_mod_pos = 0
+        self._stream_naps_ring.clear()
+        self._stream_logmel_ring.clear()
+        self._stream_psr_ring.clear()
+        self._stream_mod_ring.clear()
 
     def _get_feature_set(self) -> FeatureSet:
         features = self.cfg.get(FEATURES, {})
@@ -86,12 +134,53 @@ class FeatExtractor:
     def extract_segment(self, segment: np.ndarray) -> np.ndarray:
         """Extract one 9-dim feature vector from a 1s audio segment (paper §3.2).
 
-        Computes existing-feature statistics and speech-specific statistics
-        over non-overlapping 1s windows, matching Khonglah & Prasanna 2016.
+        Vectorized and speed-adapted version of Khonglah & Prasanna 2016:
+          - NAPS at 1ms shift, batched via stacked lfilter + FFT autocorr
+          - PSR at 10ms shift (LPC is recursive — coarsened; parity corr > 0.99)
+          - log-mel at 1ms shift via batched manual mel filterbank on zero-padded subframes
+          - Modulation spectrum unchanged (segment-level, already batched)
         """
         n = len(segment)
+        fl = self.fl
 
         # --- Step 1: per-frame existing features (30ms / 15ms hop) ---
+        var_zcr, var_centroid, var_flux, var_rolloff, lster = self._existing_feature_stats(
+            segment
+        )
+
+        # --- Step 2: batched speech-specific features ---
+        # Build subframe index tables once, share across NAPS / PSR / log-mel.
+        last_valid = n - fl
+        positions_1ms = np.arange(0, last_valid + 1, self._step_1ms, dtype=np.int64)
+        subframes_1ms = _stack_subframes(segment, positions_1ms, fl)  # (N1, fl)
+
+        naps_vals = self._batched_naps_of_zffs(subframes_1ms)
+        logmel_vals = self._batched_log_mel_energy(subframes_1ms)
+
+        positions_psr = np.arange(0, last_valid + 1, self._psr_step, dtype=np.int64)
+        psr_vals = np.empty(len(positions_psr), dtype=np.float64)
+        for i, pos in enumerate(positions_psr):
+            psr_vals[i] = self._psr_he_lp_residual(segment[pos : pos + fl])
+
+        mean_naps = float(np.mean(naps_vals)) if naps_vals.size else 0.0
+        mean_psr = float(np.mean(psr_vals)) if psr_vals.size else 0.0
+        var_mel = float(np.var(logmel_vals)) if logmel_vals.size else 0.0
+
+        # --- Step 3: segment-level modulation spectrum ---
+        mod_energy = self._modulation_spectrum_energy_segment(segment)
+
+        return _safe(np.array([
+            var_zcr, var_centroid, var_flux, var_rolloff, lster,
+            mean_naps, mean_psr, var_mel, mod_energy,
+        ]))
+
+    def _existing_feature_stats(self, segment: np.ndarray) -> tuple:
+        """Step 1 of extract_segment: 30ms-frame features over 15ms hop.
+
+        Returns (var_zcr, var_centroid, var_flux, var_rolloff, lster).
+        Not a bottleneck — only ~66 frames per 1s segment — so left as a loop.
+        """
+        n = len(segment)
         frames_feats = []
         last_fft = None
         srp_thresh = self.cfg[FEATURES]["spectral_rolloff_point"]["threshold"]
@@ -109,10 +198,9 @@ class FeatExtractor:
             sc = 0.0 if np.isnan(sc) or np.isinf(sc) else float(sc)
 
             cur_fft = np.fft.fft(padded, n=self.n_fft)
-            if last_fft is None:
-                flux = 0.0
-            else:
-                flux = float(np.sum(np.abs(cur_fft - last_fft) ** 2))
+            flux = 0.0 if last_fft is None else float(
+                np.sum(np.abs(cur_fft - last_fft) ** 2)
+            )
             last_fft = cur_fft
 
             rolloff = float(
@@ -120,86 +208,126 @@ class FeatExtractor:
                     y=padded, sr=self.sr, roll_percent=srp_thresh, n_fft=self.n_fft
                 )[0, 0]
             )
-
             frames_feats.append([ste, zcr, sc, flux, rolloff])
             pos += self.fh
 
-        frames_arr = np.array(frames_feats)  # (~65, 5)
+        if not frames_feats:
+            return 0.0, 0.0, 0.0, 0.0, 0.0
+        arr = np.array(frames_feats)
+        var_zcr = float(np.var(arr[:, 1]))
+        var_centroid = float(np.var(arr[:, 2]))
+        var_flux = float(np.var(arr[:, 3]))
+        var_rolloff = float(np.var(arr[:, 4]))
+        energies = arr[:, 0]
+        thr = float(np.mean(energies) / 3)
+        lster = float(np.sum(energies < thr) / len(energies))
+        return var_zcr, var_centroid, var_flux, var_rolloff, lster
 
-        var_zcr = float(np.var(frames_arr[:, 1]))
-        var_centroid = float(np.var(frames_arr[:, 2]))
-        var_flux = float(np.var(frames_arr[:, 3]))
-        var_rolloff = float(np.var(frames_arr[:, 4]))
+    def _batched_naps_of_zffs(self, subframes: np.ndarray) -> np.ndarray:
+        """Vectorized NAPS. subframes: (N, fl) float. Returns (N,).
 
-        energies = frames_arr[:, 0]
-        if len(energies) > 0:
-            thr = float(np.mean(energies) / 3)
-            lster = float(np.sum(energies < thr) / len(energies))
-        else:
-            lster = 0.0
+        Semantically equivalent to looping _naps_of_zffs over each row, modulo
+        scipy FFT vs direct-correlate rounding (< 1e-8 abs diff).
+        """
+        if subframes.size == 0:
+            return np.zeros(0, dtype=np.float64)
+        N, L = subframes.shape
+        subframes = np.ascontiguousarray(subframes, dtype=np.float64)
 
-        # --- Step 2: per-subframe speech-specific (30ms / 1ms shift) ---
-        step = int(self.sr * 0.001)  # 8 samples at 8 kHz
-        speech_feats = []
-        pos = 0
-        while pos + self.fl <= n:
-            subframe = segment[pos : pos + self.fl]
-            speech_feats.append([
-                self._naps_of_zffs(subframe),
-                self._psr_he_lp_residual(subframe),
-                self._log_mel_spectrum_energy(subframe),
-            ])
-            pos += step
+        # diff with prepend (per row): out[0] = 0, out[k>0] = sub[k] - sub[k-1]
+        diffs = np.diff(subframes, axis=-1, prepend=subframes[:, :1])
+        # IIR cascade (ZFFS)
+        y = lfilter([1.0], [1.0, -4.0, 6.0, -4.0, 1.0], diffs, axis=-1)
+        # Two 10ms trend-removal passes
+        N_uf = int(self.sr * 0.01)
+        y_1 = y - uniform_filter1d(y, size=N_uf, axis=-1, mode="nearest")
+        zffs = y_1 - uniform_filter1d(y_1, size=N_uf, axis=-1, mode="nearest")
+        # Input is already length fl, so [-fl:] is a no-op. Keep it explicit for clarity.
+        zffs = zffs[:, -L:]
 
-        speech_arr = _safe(np.array(speech_feats))  # (~962, 3)
-        mean_naps = float(np.mean(speech_arr[:, 0]))
-        mean_psr = float(np.mean(speech_arr[:, 1]))
-        var_mel = float(np.var(speech_arr[:, 2]))
+        # Batched linear autocorrelation via FFT, matching the
+        # correlate(a,a,'full')[L//2:] slice used in the scalar version.
+        pad = 2 * L - 1
+        n_fft = 1 << (pad - 1).bit_length()
+        Z = np.fft.rfft(zffs, n=n_fft, axis=-1)
+        auto = np.fft.irfft(Z * np.conj(Z), n=n_fft, axis=-1)
+        neg = auto[:, n_fft - (L - 1) : n_fft]
+        pos = auto[:, :L]
+        full = np.concatenate([neg, pos], axis=-1)  # length 2L-1
+        r_sliced = full[:, L // 2 :]                # matches scalar slicing
 
-        # --- Step 3: segment-level modulation spectrum ---
-        mod_energy = self._modulation_spectrum_energy_segment(segment)
+        r0 = r_sliced[:, :1]
+        r0_safe = np.where(r0 != 0, r0, 1.0)
+        r_norm = np.where(r0 != 0, r_sliced / r0_safe, 0.0)
 
-        return _safe(np.array([
-            var_zcr, var_centroid, var_flux, var_rolloff, lster,
-            mean_naps, mean_psr, var_mel, mod_energy,
-        ]))
+        min_dist = int(self.sr * 0.002)
+        out = np.zeros(N, dtype=np.float64)
+        for i in range(N):
+            if r0[i, 0] == 0:
+                continue
+            peaks, _ = find_peaks(r_norm[i], distance=min_dist)
+            if peaks.size:
+                out[i] = float(r_norm[i, peaks[0]])
+        return out
+
+    def _batched_log_mel_energy(self, subframes: np.ndarray) -> np.ndarray:
+        """Vectorized log-mel energy. subframes: (N, fl). Returns (N,).
+
+        Deviation from the scalar version: one windowed FFT per subframe
+        (single analysis frame of n_fft samples, 240 real + zero-pad to 512),
+        instead of librosa's internal 5 center-padded frames. Simpler and
+        ~50x faster; retraining absorbs the small distribution shift.
+        """
+        if subframes.size == 0:
+            return np.zeros(0, dtype=np.float64)
+        N, fl = subframes.shape
+        padded = np.zeros((N, self.n_fft), dtype=np.float64)
+        padded[:, :fl] = subframes
+        padded *= self._hann_nfft
+        X = np.fft.rfft(padded, n=self.n_fft, axis=-1)
+        P = (X.real ** 2 + X.imag ** 2).astype(np.float64)  # (N, n_fft//2+1)
+        M = P @ self._mel_fb_logmel.T  # (N, 22)
+        log_mel = np.log(M[:, :18] + 1e-10)
+        return np.sum(log_mel, axis=-1)
 
     def _modulation_spectrum_energy_segment(self, segment: np.ndarray) -> float:
         """4 Hz modulation spectrum energy across 18 mel bands (paper §2.3.1).
 
-        Uses mel spectrogram as proxy for critical-band filterbank. Analyzes
-        temporal modulation of band energies via short-window DFT at 80 Hz.
+        Center=False manual mel cols + shared energy aggregator so the streaming
+        path produces the same output as the batch segment path.
         """
-        sr = self.sr
-        hop_mod = sr // 80  # 100 samples at 8 kHz → 80 frames/s
-        S = libfeat.melspectrogram(
-            y=segment, sr=sr, n_fft=self.n_fft,
-            hop_length=hop_mod, n_mels=18, fmin=0, fmax=sr // 2, power=2.0,
-        )  # (18, T) where T ≈ 80
+        cols = self._compute_mod_mel_cols_batch(segment)
+        return self._compute_mod_energy_from_cols(cols)
 
-        # Normalize each band by its mean (paper: normalize over clip)
-        band_means = S.mean(axis=1, keepdims=True)
-        S_norm = S / (band_means + 1e-10)
+    def _compute_mod_mel_cols_batch(self, segment: np.ndarray) -> np.ndarray:
+        """Return (18, T) power-mel cols on a center=False grid, hop=_mod_hop."""
+        n = len(segment)
+        hop = self._mod_hop
+        last = n - self.n_fft
+        if last < 0:
+            return np.zeros((18, 0), dtype=np.float64)
+        positions = np.arange(0, last + 1, hop, dtype=np.int64)
+        idx = positions[:, None] + np.arange(self.n_fft, dtype=np.int64)[None, :]
+        frames = segment[idx].astype(np.float64, copy=False) * self._hann_nfft
+        X = np.fft.rfft(frames, n=self.n_fft, axis=-1)
+        P = X.real ** 2 + X.imag ** 2
+        M = P @ self._mel_fb_mod.T  # (T, 18)
+        return M.T
 
-        # 250ms Hamming windows at 80 Hz → 20 samples per window
-        win_len = 20
-        T = S_norm.shape[1]
+    def _compute_mod_energy_from_cols(self, S: np.ndarray) -> float:
+        """Run the paper's 250ms Hamming DFT across mel cols; return 4 Hz energy."""
+        win_len = self._mod_win_len
+        T = S.shape[1]
         if T < win_len:
             return 0.0
-
-        window = np.hamming(win_len)
-        mod_energy = 0.0
-        n_windows = 0
-
-        # Slide 1-sample hop (= 12.5 ms at 80 Hz)
-        for start in range(T - win_len + 1):
-            windowed = S_norm[:, start : start + win_len] * window[np.newaxis, :]
-            # DFT per band; bin 1 = 4 Hz (resolution = 80/20 = 4 Hz/bin)
-            fft_vals = np.fft.fft(windowed, axis=1)
-            mod_energy += float(np.sum(np.abs(fft_vals[:, 1]) ** 2))
-            n_windows += 1
-
-        return float(mod_energy / n_windows) if n_windows > 0 else 0.0
+        band_means = S.mean(axis=1, keepdims=True)
+        S_norm = S / (band_means + 1e-10)
+        n_windows = T - win_len + 1
+        idx = np.arange(n_windows)[:, None] + np.arange(win_len)[None, :]
+        windowed = S_norm[:, idx] * np.hamming(win_len)[None, None, :]
+        fft_vals = np.fft.fft(windowed, axis=-1)
+        mod_energy = float(np.sum(np.abs(fft_vals[:, :, 1]) ** 2))
+        return mod_energy / n_windows
 
     def _extract_decision_tree(self, frame: np.ndarray) -> np.ndarray:
         feats = [
@@ -240,49 +368,115 @@ class FeatExtractor:
         return _safe(feats)
 
     def _extract_gmm_svm(self, frame: np.ndarray) -> np.ndarray:
-        base_feats = np.array([
-            self._short_time_energy(frame),
-            self._zero_crossing_rate(frame),
-            self._spectrum_centroid(frame),
-            self._spectral_flux(frame),
-            self._spectral_rolloff_point(frame),
-        ])
-        feats = _safe(np.hstack(base_feats))
-        self.feat_buffer.append(feats)
+        """Streaming 9-D feature on every 15ms hop, aggregating over last 1s.
 
-        lster = self._low_short_time_energy_ratio(self._get_feat_buffer()[:, 0])
-        self._fill_speech_specific_buffer()
+        Semantically tracks extract_segment: the same per-subframe quantities
+        populate ring buffers sized to the 1s window, and aggregate statistics
+        are recomputed on every call. During the first ~1s of a clip the
+        rings are still filling, so early outputs are partial-stats best-effort.
+        """
+        new_samples = np.asarray(frame[-self.fh :], dtype=np.float64)
+        self._advance_stream(new_samples)
 
+        # (1) base per-30ms features for the newest fully-filled frame.
+        if self._stream_total >= self.fl:
+            base_local = self.lt_len - self.fl
+            base_frame = self._stream_signal[base_local : base_local + self.fl]
+            self.feat_buffer.append(np.array([
+                self._short_time_energy(base_frame),
+                self._zero_crossing_rate(base_frame),
+                self._spectrum_centroid(base_frame),
+                self._spectral_flux(base_frame),
+                self._spectral_rolloff_point(base_frame),
+            ], dtype=np.float64))
+
+        # (2) NAPS + log-mel at 1ms shift — batched over any new positions.
+        new_1ms = self._collect_new_positions("_stream_next_1ms_pos", self._step_1ms, self.fl)
+        if new_1ms.size:
+            subs = self._subframes_at(new_1ms, self.fl)
+            naps_new = self._batched_naps_of_zffs(subs)
+            logmel_new = self._batched_log_mel_energy(subs)
+            self._stream_naps_ring.extend(naps_new.tolist())
+            self._stream_logmel_ring.extend(logmel_new.tolist())
+
+        # (3) PSR at 10ms shift — LPC is recursive, loop is fine.
+        new_psr = self._collect_new_positions("_stream_next_psr_pos", self._psr_step, self.fl)
+        if new_psr.size:
+            shift = self.lt_len - self._stream_total
+            for p in new_psr:
+                local = int(p) + shift
+                self._stream_psr_ring.append(
+                    self._psr_he_lp_residual(self._stream_signal[local : local + self.fl])
+                )
+
+        # (4) modulation mel cols at hop=_mod_hop, window=n_fft.
+        new_mod = self._collect_new_positions("_stream_next_mod_pos", self._mod_hop, self.n_fft)
+        if new_mod.size:
+            subs = self._subframes_at(new_mod, self.n_fft)
+            windowed = subs * self._hann_nfft
+            X = np.fft.rfft(windowed, n=self.n_fft, axis=-1)
+            P = X.real ** 2 + X.imag ** 2
+            mel_cols = P @ self._mel_fb_mod.T  # (T_new, 18)
+            for col in mel_cols:
+                self._stream_mod_ring.append(col)
+
+        # (5) aggregate 9-D output.
         existing = self._get_feat_buffer()
-        speech = self._get_feat_buffer(secondary=True)
-        feat = np.hstack([
-            self._stats_var(existing[:, 1]),
-            self._stats_var(existing[:, 2]),
-            self._stats_var(existing[:, 3]),
-            self._stats_var(existing[:, 4]),
-            lster,
-            self._stats_mean(speech[:, 0]),
-            self._stats_mean(speech[:, 1]),
-            self._stats_var(speech[:, 2]),
-            self._stats_mean(speech[:, 3]),
-        ])
-        return feat
+        lster = (
+            self._low_short_time_energy_ratio(existing[:, 0]) if existing.size else 0.0
+        )
+        var_zcr = float(np.var(existing[:, 1])) if existing.size else 0.0
+        var_centroid = float(np.var(existing[:, 2])) if existing.size else 0.0
+        var_flux = float(np.var(existing[:, 3])) if existing.size else 0.0
+        var_rolloff = float(np.var(existing[:, 4])) if existing.size else 0.0
 
-    def _fill_speech_specific_buffer(self) -> None:
-        """Fill sec_feat_buffer with 1ms-shifted speech-specific features."""
-        step = int(self.sr * 0.001)
-        sigbuf = self._get_sig_buffer()
-        start_min = len(sigbuf) - 2 * self.fl
-        start_max = len(sigbuf) - self.fl
-        for start in range(start_min, start_max, step):
-            subframe = sigbuf[start : start + self.fl]
-            row = [
-                self._naps_of_zffs(subframe),
-                self._psr_he_lp_residual(subframe),
-                self._log_mel_spectrum_energy(subframe),
-                self._modulation_spectrum_energy(subframe),
-            ]
-            self.sec_feat_buffer.append(_safe(np.hstack(row)))
+        mean_naps = float(np.mean(self._stream_naps_ring)) if self._stream_naps_ring else 0.0
+        mean_psr = float(np.mean(self._stream_psr_ring)) if self._stream_psr_ring else 0.0
+        var_mel = float(np.var(self._stream_logmel_ring)) if self._stream_logmel_ring else 0.0
+
+        if self._stream_mod_ring:
+            mod_cols = np.stack(list(self._stream_mod_ring), axis=1)  # (18, T)
+            mod_energy = self._compute_mod_energy_from_cols(mod_cols)
+        else:
+            mod_energy = 0.0
+
+        return _safe(np.array([
+            var_zcr, var_centroid, var_flux, var_rolloff, lster,
+            mean_naps, mean_psr, var_mel, mod_energy,
+        ]))
+
+    def _advance_stream(self, new_samples: np.ndarray) -> None:
+        """Append new samples into the rolling 1s stream buffer."""
+        k = new_samples.size
+        if k == 0:
+            return
+        if k >= self.lt_len:
+            self._stream_signal[:] = new_samples[-self.lt_len :]
+        else:
+            self._stream_signal[:-k] = self._stream_signal[k:]
+            self._stream_signal[-k:] = new_samples
+        self._stream_total += k
+
+    def _collect_new_positions(self, next_attr: str, step: int, win_len: int) -> np.ndarray:
+        """Absolute positions whose window [p:p+win_len] is now fully available."""
+        next_pos = getattr(self, next_attr)
+        last_valid = self._stream_total - win_len
+        if last_valid < next_pos:
+            return np.zeros(0, dtype=np.int64)
+        positions = np.arange(next_pos, last_valid + 1, step, dtype=np.int64)
+        if positions.size:
+            setattr(self, next_attr, int(positions[-1] + step))
+        return positions
+
+    def _subframes_at(self, positions: np.ndarray, win_len: int) -> np.ndarray:
+        """Stack _stream_signal windows at the given absolute positions.
+
+        Data in _stream_signal is right-aligned so a single offset maps
+        absolute → local for both warmup and post-warmup states.
+        """
+        local = positions + (self.lt_len - self._stream_total)
+        idx = local[:, None] + np.arange(win_len, dtype=np.int64)[None, :]
+        return self._stream_signal[idx]
 
     # --- Low-level feature extractors ---
 
@@ -405,21 +599,6 @@ class FeatExtractor:
             n_mels=22, fmin=0, fmax=4000, power=2.0,
         )
         return float(np.sum(np.log(S + 1e-10)[:18, :]))
-
-    def _modulation_spectrum_energy(self, frame: np.ndarray) -> float:
-        envelope = np.abs(frame) - np.mean(np.abs(frame))
-        if len(envelope) == 0:
-            return 0.0
-        fft_val = np.abs(fft(envelope))
-        df = self.sr / len(envelope)
-        lower_idx = int(2.0 / df)
-        upper_idx = int(10.0 / df)
-        if lower_idx >= len(fft_val):
-            return 0.0
-        mod_syllabic = np.sum(fft_val[lower_idx:upper_idx] ** 2)
-        limit_idx = int(50.0 / df)
-        total = np.sum(fft_val[1:limit_idx] ** 2)
-        return 0.0 if total == 0 else float(mod_syllabic / total)
 
     def _stats_mean(self, feats: np.ndarray) -> np.ndarray:
         return self._stats_agg(feats, np.mean)

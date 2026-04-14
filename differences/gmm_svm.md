@@ -11,8 +11,8 @@ and the paper.
 
 | Paper | This implementation |
 |---|---|
-| 30 ms frame, 1 ms shift for speech-specific features | `extract_segment()`: 30 ms window, 1 ms shift inner loop |
-| 1 s non-overlapping windows for statistics | `extract_segment()` receives 1 s segments; `_process_row_segments()` slices clips into non-overlapping 1 s chunks |
+| 30 ms frame, 1 ms shift for NAPS/log-mel; PSR coarsened to 10 ms (§13) | `extract_segment()` inner loop + vectorized `_batched_naps_of_zffs` / `_batched_log_mel_energy` |
+| 1 s window for statistics | `extract_segment()` on 1 s (batch path); streaming `_extract_gmm_svm()` aggregates rolling 1 s rings on every 15 ms hop (§14) |
 | Existing features: ZCR variance, spectral centroid variance, spectral flux variance, spectral roll-off variance, % low energy frames | `extract_segment()` step 1: per-frame features → variance + LSTER |
 | Speech-specific statistics: mean(NAPS), mean(PSR), var(log-mel energy), mean(modulation spectrum) | `extract_segment()` steps 2–3 |
 | NAPS of ZFFS: differenced signal → cascade of two zero-frequency resonators → two-pass trend removal → autocorrelation → first-peak / central-peak | `_naps_of_zffs()`: `lfilter([1],[1,-4,6,-4,1], diff)` + two `uniform_filter1d` passes + `correlate` + `find_peaks` |
@@ -30,7 +30,8 @@ and the paper.
 feature extraction (§4).
 
 **Implementation.** HF dataset loaded at 16 kHz (global `sample_rate`),
-resampled to 8 kHz in `_process_row_segments()` via `librosa.resample`.
+resampled to 8 kHz in `_process_row()` via `librosa.resample` before
+being fed frame-by-frame to `FeatExtractor.extract()`.
 
 **Status.** Matched after refactor. The downsampling path differs
 (16k→8k vs 22050→8k) but the target rate is the same.
@@ -90,11 +91,15 @@ rectification → 28 Hz LP filter → decimate to 80 Hz → normalize per band
 over entire clip → 250 ms Hamming DFT (12.5 ms shift) → sum 4 Hz bin
 across bands (§2.3.1, eq. 11–12).
 
-**Implementation.** `_modulation_spectrum_energy_segment()` uses
-`librosa.melspectrogram(n_mels=18, fmax=4000, hop=sr//80)` as a proxy
-for the critical-band filterbank. The mel spectrogram output is
-normalized per band, then the same 250 ms / 20-sample Hamming-windowed
-DFT extracts the 4 Hz modulation bin, summed across bands.
+**Implementation.** `_compute_mod_mel_cols_batch()` manually computes a
+(18, T) power-mel column matrix with `center=False`, hop `sr // 80 = 100`,
+windowed with a Hann over the full `n_fft=512` analysis frame and
+multiplied by a precomputed mel filterbank (`fmin=0, fmax=sr/2=4000`).
+`_compute_mod_energy_from_cols()` then normalizes each band by its mean
+over the 1 s window, slides the 250 ms (20-sample) Hamming window at a
+1-sample hop, and sums the `|FFT[·, 1]|²` (= 4 Hz) energy across bands.
+Shared by both the batch `extract_segment()` path and the streaming
+`_extract_gmm_svm()` path (streaming keeps a ring of mel columns).
 
 **Differences in detail:**
 - Mel-scale triangular filters vs. Bark-scale trapezoidal filters.
@@ -178,21 +183,70 @@ the paper; the evaluation framework differs.
 non-overlapping windows → ~15 vectors/clip × 160 clips).
 
 **Implementation.** Frame-level features subsampled to 50k per class
-via `_subsample_balanced()`. With the segment-based refactor, each
-1 s segment produces one vector, so the training set is ~minutes of
-audio (e.g., ~950 vectors for mid tier, ~5400 for full tier).
+via `_subsample_balanced()`. Since the streaming refactor (§14),
+training sees one 9-D vector per 15 ms hop (same thing inference sees),
+so the 50k cap does trigger on mid/full tier and subsampling matters again.
 
-**Status.** The subsampling cap of 50k is unlikely to trigger with
-segment-based extraction; training set sizes are now closer to the
-paper's scale.
+### 13. PSR subframe shift: 10 ms vs. paper's 1 ms
+
+**Paper.** All speech-specific features (NAPS, PSR, log-mel) share the
+30 ms frame / 1 ms shift schedule (§2.1, §3.2).
+
+**Implementation.** NAPS and log-mel are still computed at 1 ms shift
+(batched via `_batched_naps_of_zffs` / `_batched_log_mel_energy`). PSR
+is coarsened to 10 ms shift because LPC analysis is a recursive
+Levinson-Durbin recursion that cannot be vectorized across subframes
+without leaving Python, and 1 ms PSR dominated `extract_segment` cost.
+
+**Why.** A shift sweep (`scripts/parity_shift.py`) showed that PSR and
+var(log-mel) stay > 0.99 correlated with the 1 ms reference up to a 10 ms
+shift — PSR's dominant peak is stable across tens of ms — while NAPS
+drops to corr ≈ 0.29 at 10 ms and so must be kept at 1 ms. 10 ms PSR
+still produces 97 subframes per 1 s window, well above the CLT floor
+for a stable mean.
+
+### 14. Sliding-window streaming adaptation
+
+**Paper.** Classifier is fed one 9-D vector per 1 s non-overlapping
+window (§3.2). No online/streaming description.
+
+**Implementation.** `_extract_gmm_svm(frame)` is a rolling 1 s sliding
+window: every call consumes the next 15 ms hop and re-aggregates a 9-D
+vector over the most recent 1 s of audio. Internal state lives in
+fixed-size ring buffers sized to exactly one window:
+
+  - `feat_buffer` — 65 base frames (ZCR/centroid/flux/rolloff/STE)
+    at 15 ms hop
+  - `_stream_naps_ring` / `_stream_logmel_ring` — ~1000 entries at
+    1 ms shift
+  - `_stream_psr_ring` — ~100 entries at 10 ms shift (§13)
+  - `_stream_mod_ring` — ~80 mel columns at 100-sample hop for the
+    4 Hz modulation DFT
+
+Each new hop appends O(new) entries to each ring (e.g. 15 new NAPS/logmel
+subframes, 1–2 new PSR, 1 new mel col) via the batched kernels from
+`extract_segment`. Aggregation (var / mean / mod-energy DFT over the
+80-col ring) runs on every hop.
+
+**Parity.** `scripts/parity_streaming.py` verifies the streaming output
+against `extract_segment()` on the same 1 s clip. Most features agree to
+< 1% relative error; the remaining drift comes from a 10-subframe boundary
+gap (streaming stops at `stream_total - fl` whereas `extract_segment`
+reaches `n - fl` exactly). In continuous streaming this boundary never
+appears, so `run_mic` behavior tracks the batch reference.
+
+**Training impact.** `src/input_handler.py` routes GMM/SVM through
+`_process_row` (frame-by-frame `extract()`), so training sees the
+same streaming 9-D vectors that `StreamingClassifier` sees at mic time.
+One 9-D vector per 15 ms hop instead of one per 1 s segment.
 
 ## Summary
 
 | Aspect | Paper | Implementation | Match? |
 |---|---|---|---|
 | Sample rate | 8 kHz | 8 kHz (resampled from 16k) | Yes |
-| Frame / shift | 30 ms / 1 ms | 30 ms / 1 ms | Yes |
-| Statistics window | 1 s non-overlapping | 1 s non-overlapping | Yes |
+| Frame / shift | 30 ms / 1 ms | 30 ms / 1 ms (NAPS, log-mel); 10 ms (PSR) | §13 |
+| Statistics window | 1 s non-overlapping | 1 s sliding, 15 ms hop (streaming) | §14 |
 | n_fft | 512 (64 ms @ 8 kHz) | 512 (64 ms @ 8 kHz) | Yes |
 | LP order | 10 | 10 | Yes |
 | NAPS algorithm | ZFFS + autocorrelation | Matched | Yes |

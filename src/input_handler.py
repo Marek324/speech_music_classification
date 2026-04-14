@@ -130,8 +130,7 @@ class InputHandler:
         )
         assert isinstance(dataset, Dataset)
 
-        use_segments = self.fextractor._get_feature_set() == "gmm_svm"
-        process_fn = self._process_row_segments if use_segments else self._process_row
+        process_fn = self._process_row
 
         t0 = time.perf_counter_ns()
         processed = dataset.map(
@@ -186,7 +185,15 @@ class InputHandler:
         audio = row["audio"].get_all_samples().data
         if hasattr(audio, "cpu"):
             audio = audio.cpu()
-        audio = np.asarray(audio).squeeze()
+        audio = np.asarray(audio, dtype=np.float32).squeeze()
+
+        # GMM/SVM extractor runs at 8kHz, input dataset is at self.sr; resample
+        # so that the streaming path sees exactly what mic inference would see.
+        target_sr = self.fextractor.sr
+        if target_sr != self.sr:
+            audio = librosa.resample(audio, orig_sr=self.sr, target_sr=target_sr)
+        frame_len = self.fextractor.fl
+        hop_len = self.fextractor.fh
 
         cls_name = row["class"]
         subclass = row["subclass"]
@@ -195,10 +202,10 @@ class InputHandler:
         frame_start = 0
         n_samples = len(audio)
 
-        while frame_start + self.frame_len <= n_samples:
+        while frame_start + frame_len <= n_samples:
             frame = _pad_frame(
-                audio[frame_start : frame_start + self.frame_len],
-                self.frame_len,
+                audio[frame_start : frame_start + frame_len],
+                frame_len,
             )
             fd = self._process_frame(frame, cls_name, subclass)
 
@@ -206,31 +213,7 @@ class InputHandler:
             labels_out.append(fd.metadata.label)
             assert fd.metadata is not None
             subclasses_out.append(fd.metadata.subclass)
-            frame_start += self.hop_len
-
-        return {"feats": feats, "labels": labels_out, "subclasses": subclasses_out}
-
-    def _process_row_segments(self, row: Dict[str, Any]) -> Dict[str, Any]:
-        """Process one HF row as non-overlapping 1s segments (GMM/SVM paper §3.2)."""
-        audio = row["audio"].get_all_samples().data
-        if hasattr(audio, "cpu"):
-            audio = audio.cpu()
-        audio = np.asarray(audio, dtype=np.float32).squeeze()
-
-        target_sr = self.fextractor.sr  # 8000 for GMM/SVM
-        audio_rs = librosa.resample(audio, orig_sr=self.sr, target_sr=target_sr)
-
-        segment_samples = target_sr  # 1s
-        cls_name = row["class"]
-        subclass = row["subclass"]
-
-        feats, labels_out, subclasses_out = [], [], []
-        for start in range(0, len(audio_rs) - segment_samples + 1, segment_samples):
-            segment = audio_rs[start : start + segment_samples]
-            feat = self.fextractor.extract_segment(segment)
-            feats.append(_safe_feats(feat))
-            labels_out.append(cls_name)
-            subclasses_out.append(subclass)
+            frame_start += hop_len
 
         return {"feats": feats, "labels": labels_out, "subclasses": subclasses_out}
 
