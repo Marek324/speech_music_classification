@@ -76,9 +76,9 @@ def _smoke_test_classic(model_name: str):
 
     t0 = time.perf_counter_ns()
     y_pred = model.predict_batch(X)
-    time_per_sample_ns = (time.perf_counter_ns() - t0) / len(X)
+    time_per_frame_ns = (time.perf_counter_ns() - t0) / len(X)
 
-    res = run_evaluation(y, y_pred, subclasses, time_per_sample_ns, output_name=model.name, save_to_file=False)
+    res = run_evaluation(y, y_pred, subclasses, time_per_frame_ns, output_name=model.name, save_to_file=False)
     log.info(
         "Smoke test passed. Model: %s, FeatExtractor OK | 3-class F1: %.4f",
         model_name,

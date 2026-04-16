@@ -98,11 +98,12 @@ def _eval_tcn_on_n_rows(max_rows: int, weights_path=None):
     state = load_file(path, device="cpu")
     model.load_state_dict(state)
 
-    y_true, y_pred, y_sub, time_per_sample_ns = run_nn_inference(
+    y_true, y_pred, y_sub, time_per_frame_ns, _device, y_scores, clip_ids = run_nn_inference(
         model, cfg["dataset"], cfg, max_rows=max_rows
     )
 
     run_evaluation(
-        y_true, y_pred, y_sub, time_per_sample_ns,
+        y_true, y_pred, y_sub, time_per_frame_ns,
         output_name="tcn", save_to_file=False,
+        y_scores=y_scores, clip_ids=clip_ids,
     )

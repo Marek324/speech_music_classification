@@ -14,12 +14,13 @@ from . import MODELS, FeatExtractor
 log = logging.getLogger(__name__)
 
 
-def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray]:
+def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray, np.ndarray]:
     """
     Load model and test data, run inference.
-    Returns (y_true, y_pred, subclasses, time_per_sample_ns, y_scores).
+    Returns (y_true, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids).
     Labels: -1=speech, 1=music, 2=inactive.
     y_scores: (N, 3) — columns [speech, music, inactive].
+    clip_ids: (N,) int — per-frame source-clip index.
     """
     from .. import config
 
@@ -40,6 +41,7 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     X = ih.getX()
     y = ih.getY()
     subclasses = ih.getSubclasses()
+    clip_ids = ih.getClipIds()
 
     # Sequential extraction benchmark: time feature extraction on a dummy input
     # (avoids parallel-timing underestimate from dataset.map(num_proc=N))
@@ -64,21 +66,22 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     classify_ns = time.perf_counter_ns() - t0
     y_scores = model.predict_proba_batch(X)  # (N, 3) — [speech, music, inactive]
     n = len(X)
-    time_per_sample_ns = (classify_ns / n) + extract_time_ns
+    time_per_frame_ns = (classify_ns / n) + extract_time_ns
 
-    return y, y_pred, subclasses, time_per_sample_ns, y_scores
+    return y, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids
 
 
 def eval_classic(model_name: str, save_to_file: bool = True):
     """Evaluate classic model on test split. Uses main evaluator for metrics and output."""
-    y_true, y_pred, subclasses, time_per_sample_ns, y_scores = get_predictions(model_name)
+    y_true, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids = get_predictions(model_name)
     return run_evaluation(
         y_true,
         y_pred,
         subclasses,
-        time_per_sample_ns,
+        time_per_frame_ns,
         output_name=model_name,
         save_to_file=save_to_file,
         device=_device_label(False),
         y_scores=y_scores,
+        clip_ids=clip_ids,
     )

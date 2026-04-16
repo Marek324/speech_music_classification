@@ -1,4 +1,4 @@
-"""Download weights/ and cache/ from HuggingFace. Run after cloning."""
+"""Download weights/, cache/, and results/*.npz from HuggingFace. Run after cloning."""
 
 import sys
 from pathlib import Path
@@ -18,7 +18,7 @@ def main() -> None:
         local_dir=str(ROOT),
         ignore_patterns=["*.gitattributes", "README.md", ".gitignore"],
     )
-    print("Done. weights/ and cache/ are ready.")
+    print("Done. weights/, cache/, and results/ are ready.")
 
 
 if __name__ == "__main__":

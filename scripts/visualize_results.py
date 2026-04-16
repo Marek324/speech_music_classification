@@ -28,8 +28,16 @@ MUSIC_SHORT = ["acapella", "electronic", "folk", "hip-hop", "instrumental", "pop
 def parse_eval(path: Path) -> dict:
     text = path.read_text()
 
-    def macro_f1(section: str) -> float | None:
-        m = re.search(r"Macro\s+([\d.]+)", section)
+    def macro_f1_and_ci(section: str):
+        m = re.search(r"Macro F1\s*:\s*([\d.]+)(?:\s*\[([\d.]+)\s*,\s*([\d.]+)\])?", section)
+        if not m:
+            return None, None
+        pt = float(m.group(1))
+        ci = (float(m.group(2)), float(m.group(3))) if m.group(2) else None
+        return pt, ci
+
+    def single_float(section: str, key: str) -> float | None:
+        m = re.search(rf"{key}\s*:\s*([\d.]+)", section)
         return float(m.group(1)) if m else None
 
     eval_section = re.search(r"──.*?valuation.*?── By subclass", text, re.DOTALL)
@@ -42,13 +50,19 @@ def parse_eval(path: Path) -> dict:
     device = device_m.group(1).strip() if device_m else None
 
     per_class = {}
+    per_class_ci = {}
     if eval_section:
         for cls in ["Speech", "Music", "Inactive"]:
-            m = re.search(rf"{cls}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)", eval_section.group())
+            m = re.search(
+                rf"{cls}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s+\[([\d.]+),\s*([\d.]+)\])?",
+                eval_section.group(),
+            )
             if m:
                 per_class[cls.lower()] = {
                     "f1": float(m.group(1)), "p": float(m.group(2)), "r": float(m.group(3)),
                 }
+                if m.group(4):
+                    per_class_ci[cls.lower()] = (float(m.group(4)), float(m.group(5)))
 
     def parse_cm(section_text, classes):
         rows = []
@@ -67,9 +81,19 @@ def parse_eval(path: Path) -> dict:
             if m:
                 subclasses[m.group(1)] = {"f1": float(m.group(2))}
 
+    macro_pt, macro_ci = macro_f1_and_ci(eval_section.group()) if eval_section else (None, None)
+    weighted = single_float(eval_section.group(), "Weighted F1") if eval_section else None
+    acc = single_float(eval_section.group(), "Accuracy") if eval_section else None
+    auroc = single_float(eval_section.group(), "Macro AUROC") if eval_section else None
+
     return {
-        "macro_f1": macro_f1(eval_section.group()) if eval_section else None,
+        "macro_f1": macro_pt,
+        "macro_f1_ci": macro_ci,
+        "weighted_f1": weighted,
+        "accuracy": acc,
+        "macro_auroc": auroc,
         "per_class": per_class,
+        "per_class_ci": per_class_ci,
         "cm": cm,
         "time_per_frame": time_per_frame,
         "device": device,
@@ -81,12 +105,29 @@ def plot_macro_f1(ax, data):
     labels = list(data.keys())
     x = np.arange(len(labels))
     f1_vals = [data[m]["macro_f1"] or 0 for m in labels]
+    # Asymmetric error bars from bootstrap CI when available.
+    err_lo, err_hi = [], []
+    have_ci = False
+    for m, pt in zip(labels, f1_vals):
+        ci = data[m].get("macro_f1_ci")
+        if ci:
+            err_lo.append(max(0.0, pt - ci[0]))
+            err_hi.append(max(0.0, ci[1] - pt))
+            have_ci = True
+        else:
+            err_lo.append(0.0)
+            err_hi.append(0.0)
     bars = ax.bar(x, f1_vals, 0.5, color=[COLORS[m] for m in labels], alpha=0.9)
+    if have_ci:
+        ax.errorbar(
+            x, f1_vals, yerr=[err_lo, err_hi],
+            fmt="none", ecolor="black", capsize=4, lw=1.0, alpha=0.8,
+        )
     ax.set_xticks(x)
     ax.set_xticklabels([MODEL_SHORT[m] for m in labels])
     ax.set_ylim(0, 1.0)
     ax.yaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
-    ax.set_title("Macro F1")
+    ax.set_title("Macro F1" + (" (95% CI)" if have_ci else ""))
     ax.set_ylabel("Macro F1")
     for bar in bars:
         h = bar.get_height()
@@ -98,6 +139,45 @@ def plot_macro_f1(ax, data):
                     va="top" if inside else "bottom",
                     fontsize=7,
                     color="white" if inside else "black")
+
+
+def plot_metric_table(ax, data):
+    """Compact text table: Macro F1 (± CI), Weighted F1, Accuracy, Macro AUROC."""
+    ax.axis("off")
+    models = list(data.keys())
+    headers = ["Model", "Macro F1", "Weighted F1", "Accuracy", "Macro AUROC"]
+    rows = []
+    for m in models:
+        d = data[m]
+        macro = d.get("macro_f1")
+        ci = d.get("macro_f1_ci")
+        if macro is None:
+            macro_s = "—"
+        elif ci:
+            macro_s = f"{macro:.4f} [{ci[0]:.4f}, {ci[1]:.4f}]"
+        else:
+            macro_s = f"{macro:.4f}"
+        rows.append([
+            MODEL_SHORT[m],
+            macro_s,
+            f"{d['weighted_f1']:.4f}" if d.get("weighted_f1") is not None else "—",
+            f"{d['accuracy']:.4f}" if d.get("accuracy") is not None else "—",
+            f"{d['macro_auroc']:.4f}" if d.get("macro_auroc") is not None else "—",
+        ])
+    tbl = ax.table(
+        cellText=rows, colLabels=headers,
+        loc="center", cellLoc="center",
+    )
+    tbl.auto_set_font_size(False)
+    tbl.set_fontsize(9)
+    tbl.scale(1.0, 1.6)
+    for i, m in enumerate(models):
+        tbl[(i + 1, 0)].set_facecolor(COLORS[m])
+        tbl[(i + 1, 0)].set_alpha(0.4)
+    for j in range(len(headers)):
+        tbl[(0, j)].set_facecolor("#e0e0e0")
+        tbl[(0, j)].set_text_props(weight="bold")
+    ax.set_title("Headline Metrics")
 
 
 def plot_pr_scatter(ax, data):
@@ -342,6 +422,7 @@ def main():
     graphs_dir = RESULTS_DIR / "graphs"
     graphs_dir.mkdir(exist_ok=True)
     _save_solo(plot_macro_f1, data, path=graphs_dir / "macro_f1.png", figsize=(7, 5))
+    _save_solo(plot_metric_table, data, path=graphs_dir / "metric_table.png", figsize=(10, 3))
     _save_solo(plot_pr_scatter, data, path=graphs_dir / "pr_scatter.png")
     _save_solo(plot_inference_time, data, path=graphs_dir / "inference_time.png", figsize=(6, 5))
     for model in data:
@@ -370,24 +451,26 @@ def main():
         print(f"Saved → {rd_path}")
 
     # Combined
-    fig = plt.figure(figsize=(18, 16))
+    fig = plt.figure(figsize=(18, 19))
     fig.suptitle("Model Evaluation Results", fontsize=14, fontweight="bold")
-    gs = GridSpec(3, 4, figure=fig, hspace=0.50, wspace=0.38)
+    gs = GridSpec(4, 4, figure=fig, hspace=0.55, wspace=0.38, height_ratios=[0.6, 1.0, 1.0, 1.0])
 
-    plot_macro_f1(fig.add_subplot(gs[0, :2]), data)
-    plot_pr_scatter(fig.add_subplot(gs[0, 2]), data)
-    plot_inference_time(fig.add_subplot(gs[0, 3]), data)
+    plot_metric_table(fig.add_subplot(gs[0, :]), data)
+
+    plot_macro_f1(fig.add_subplot(gs[1, :2]), data)
+    plot_pr_scatter(fig.add_subplot(gs[1, 2]), data)
+    plot_inference_time(fig.add_subplot(gs[1, 3]), data)
 
     for i, model in enumerate(data):
         plot_confusion_matrix(
-            fig.add_subplot(gs[1, i]),
+            fig.add_subplot(gs[2, i]),
             data[model]["cm"],
             cm_classes,
             f"{MODEL_SHORT[model]} — Confusion Matrix",
         )
 
-    plot_subclass_group(fig.add_subplot(gs[2, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
-    plot_subclass_group(fig.add_subplot(gs[2, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
+    plot_subclass_group(fig.add_subplot(gs[3, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
+    plot_subclass_group(fig.add_subplot(gs[3, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
 
     out = RESULTS_DIR / "results.png"
     plt.savefig(out, dpi=150, bbox_inches="tight")

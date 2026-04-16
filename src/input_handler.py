@@ -120,6 +120,17 @@ class InputHandler:
             self.X = data["X"]
             self.y = data["y"]
             self.subclasses = data["subclasses"].astype(SUBCLASS_DTYPE)
+            if "clip_ids" in data.files:
+                self.clip_ids = data["clip_ids"].astype(np.int64)
+            else:
+                # Legacy cache: derive pseudo-clip ids from subclass transitions.
+                # Coarser than real clip boundaries but sufficient for block-bootstrap CIs.
+                changes = np.concatenate(([True], self.subclasses[1:] != self.subclasses[:-1]))
+                self.clip_ids = np.cumsum(changes) - 1
+                log.warning(
+                    "Cache %s has no clip_ids — using subclass transitions as bootstrap groups",
+                    cache_path,
+                )
             self.extract_duration_ns = 0
             log.info("Loaded %d frames from cache.", len(self.X))
             return
@@ -153,6 +164,7 @@ class InputHandler:
         self.X = np.empty((total_frames, feat_dim), dtype=np.float32)
         self.y = np.empty(total_frames, dtype=int)
         self.subclasses = np.empty(total_frames, dtype=SUBCLASS_DTYPE)
+        self.clip_ids = np.empty(total_frames, dtype=np.int64)
 
         cursor = 0
         for i, row in enumerate(tqdm(processed, desc="Filling Arrays")):
@@ -160,6 +172,7 @@ class InputHandler:
             self.X[cursor : cursor + n] = np.array(row["feats"], dtype=np.float32)
             self.y[cursor : cursor + n] = [LABEL_MAP[label] for label in row["labels"]]
             self.subclasses[cursor : cursor + n] = row["subclasses"]
+            self.clip_ids[cursor : cursor + n] = i
 
             self.ds_stats["frames"] += n
             self.ds_stats["classes"].update(row["labels"])
@@ -170,7 +183,13 @@ class InputHandler:
         log.info("Aggregation done.")
 
         log.info("Saving features to cache: %s", cache_path)
-        np.savez(cache_path, X=self.X, y=self.y, subclasses=np.array(self.subclasses))
+        np.savez(
+            cache_path,
+            X=self.X,
+            y=self.y,
+            subclasses=np.array(self.subclasses),
+            clip_ids=self.clip_ids,
+        )
 
     def _init_microphone_mode(self) -> None:
         self.st_buffer = np.zeros(0, dtype=np.float32)
@@ -259,6 +278,9 @@ class InputHandler:
 
     def getSubclasses(self) -> np.ndarray:
         return self.subclasses
+
+    def getClipIds(self) -> np.ndarray:
+        return self.clip_ids
 
     def summary(self) -> None:
         if self.mode != "dataset":

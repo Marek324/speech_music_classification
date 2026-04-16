@@ -11,6 +11,20 @@ import numpy as np
 LABEL_MAP = {"speech": -1, "music": 1, "inactive": 2, "noise": 2}
 
 
+def subclass_primary(name: str) -> int:
+    """Map a subclass name to its primary class label (-1 speech, 1 music, 2 inactive).
+
+    `speech_*` → -1, `music_*` → 1, `noise`/`inactive*` → 2.
+    """
+    if name.startswith("speech"):
+        return LABEL_MAP["speech"]
+    if name.startswith("music"):
+        return LABEL_MAP["music"]
+    if name == "noise" or name.startswith("inactive"):
+        return LABEL_MAP["inactive"]
+    raise ValueError(f"Unknown subclass: {name!r}")
+
+
 class EndOfDatasetException(Exception):
     def __init__(self):
         super()

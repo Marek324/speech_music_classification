@@ -19,7 +19,7 @@ def run_nn_inference(
     eval_cfg: dict,
     cfg: dict,
     max_rows: int | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, str, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, str, np.ndarray, np.ndarray]:
     """Run inference for any model producing (1, 3, T) probs per clip.
 
     Args:
@@ -29,9 +29,10 @@ def run_nn_inference(
         max_rows: optional limit on test rows
 
     Returns:
-        (y_true, y_pred, subclasses, time_per_sample_ns, device_str, y_scores)
+        (y_true, y_pred, subclasses, time_per_frame_ns, device_str, y_scores, clip_ids)
         Labels: -1=speech, 1=music, 2=inactive
         y_scores: (N, 3) — columns [speech, music, inactive]
+        clip_ids: (N,) int — per-frame source-clip index (0-indexed)
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -45,13 +46,14 @@ def run_nn_inference(
     y_pred_list: list[int] = []
     scores_list: list[np.ndarray] = []
     subclasses_list: list[str] = []
+    clip_ids_list: list[np.ndarray] = []
 
     classify_ns = 0
     total_frames = 0
-    for wav, targets, cls_name, subclass in load_nn_dataset(
+    for clip_idx, (wav, targets, cls_name, subclass) in enumerate(load_nn_dataset(
         eval_cfg["url"], "test", sr, hop, n_fft,
         max_rows=max_rows, yield_subclass=True, name=eval_cfg["name"],
-    ):
+    )):
         wav_gpu = wav.to(device)
         t0 = time.perf_counter_ns()
         with torch.no_grad():
@@ -77,14 +79,16 @@ def run_nn_inference(
         y_pred_list.extend(y_pred_frames.tolist())
         scores_list.append(class_probs.cpu().numpy().T)   # (T_actual, 3)
         subclasses_list.extend([subclass] * T_actual)
+        clip_ids_list.append(np.full(T_actual, clip_idx, dtype=np.int64))
         total_frames += T_actual
 
-    time_per_sample_ns = classify_ns / total_frames if total_frames else 0.0
+    time_per_frame_ns = classify_ns / total_frames if total_frames else 0.0
     device_str = _device_label(device.type == "cuda")
 
     y_true = np.array(y_true_list, dtype=np.int64)
     y_pred = np.array(y_pred_list, dtype=np.int64)
     y_sub = np.array(subclasses_list, dtype="U40")
     y_scores = np.vstack(scores_list) if scores_list else np.empty((0, 3))
+    clip_ids = np.concatenate(clip_ids_list) if clip_ids_list else np.empty((0,), dtype=np.int64)
 
-    return y_true, y_pred, y_sub, time_per_sample_ns, device_str, y_scores
+    return y_true, y_pred, y_sub, time_per_frame_ns, device_str, y_scores, clip_ids

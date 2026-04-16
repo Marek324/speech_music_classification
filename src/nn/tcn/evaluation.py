@@ -58,19 +58,20 @@ def eval_tcn(
         cfg = get_config()
     model = _load_tcn_model(weights_path=weights_path, cfg=cfg, stats_path=stats_path)
 
-    y_true, y_pred, subclasses, time_per_sample_ns, device, y_scores = run_nn_inference(
+    y_true, y_pred, subclasses, time_per_frame_ns, device, y_scores, clip_ids = run_nn_inference(
         model, cfg["dataset"], cfg
     )
     res = run_evaluation(
         y_true,
         y_pred,
         subclasses,
-        time_per_sample_ns,
+        time_per_frame_ns,
         output_name=output_name or "tcn",
         save_to_file=save_to_file,
         device=device,
         output_dir=output_dir,
         y_scores=y_scores,
+        clip_ids=clip_ids,
     )
 
     n = len(y_true)
