@@ -1,6 +1,6 @@
 # tests/test_classic_svm.py
 
-import warnings
+
 import numpy as np
 import pytest
 from src.classic.svm import SVM, _subsample_balanced
@@ -86,33 +86,31 @@ def test_predict_batch_valid_labels(classic_config_svm):
 
 # ── predict_proba ────────────────────────────────────────────────────────
 
-def test_predict_proba_warns(classic_config_svm):
+def test_predict_proba_shape(classic_config_svm):
     svm, X, y = _train_svm()
-    with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        svm.predict_proba(X[0])
-        assert len(w) == 1
+    proba = svm.predict_proba(X[0])
+    assert proba.shape == (3,)
 
 
-def test_predict_proba_returns_uniform(classic_config_svm):
+def test_predict_proba_sums_to_one(classic_config_svm):
     svm, X, y = _train_svm()
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        proba = svm.predict_proba(X[0])
-    assert np.allclose(proba, 1 / 3)
+    proba = svm.predict_proba(X[0])
+    assert abs(proba.sum() - 1.0) < 1e-6
+
+
+def test_predict_proba_non_negative(classic_config_svm):
+    svm, X, y = _train_svm()
+    proba = svm.predict_proba(X[0])
+    assert (proba >= 0).all()
 
 
 def test_predict_proba_batch_shape(classic_config_svm):
     svm, X, y = _train_svm()
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        proba = svm.predict_proba_batch(X[:10])
+    proba = svm.predict_proba_batch(X[:10])
     assert proba.shape == (10, 3)
 
 
-def test_predict_proba_batch_uniform(classic_config_svm):
+def test_predict_proba_batch_sums_to_one(classic_config_svm):
     svm, X, y = _train_svm()
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        proba = svm.predict_proba_batch(X[:10])
-    assert np.allclose(proba, 1 / 3)
+    proba = svm.predict_proba_batch(X[:10])
+    assert np.allclose(proba.sum(axis=1), 1.0)

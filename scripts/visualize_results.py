@@ -63,9 +63,9 @@ def parse_eval(path: Path) -> dict:
     subclasses = {}
     if subclass_section:
         for line in subclass_section.group().splitlines()[1:]:
-            m = re.match(r"\s+(\S+)\s+([\d.]+)\s*$", line)
+            m = re.match(r"\s+(\S+)\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)\s*$", line)
             if m:
-                subclasses[m.group(1)] = {"r": float(m.group(2))}
+                subclasses[m.group(1)] = {"f1": float(m.group(2))}
 
     return {
         "macro_f1": macro_f1(eval_section.group()) if eval_section else None,
@@ -258,14 +258,66 @@ def plot_subclass_group(ax, data, subclass_keys, short_names, title):
     bar_h = total_height / n_models
     y = np.arange(n_subs)
     for i, model in enumerate(models):
-        vals = [data[model]["subclasses"].get(s, {}).get("r", 0) for s in subclass_keys]
+        vals = [data[model]["subclasses"].get(s, {}).get("f1", 0) for s in subclass_keys]
         offset = (i - n_models / 2 + 0.5) * bar_h
         ax.barh(y + offset, vals, bar_h * 0.9, color=COLORS[model], alpha=0.85, label=MODEL_SHORT[model])
     ax.set_yticks(y)
     ax.set_yticklabels(short_names, fontsize=8)
     ax.set_xlim(0, 1.0)
-    ax.set_xlabel("Recall")
+    ax.set_xlabel("F1")
     ax.set_title(title)
+    ax.legend(fontsize=7)
+
+
+EVAL_LABELS = [-1, 1, 2]
+EVAL_LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Inactive"}
+
+
+def load_scores(results_dir: Path) -> dict:
+    """Load *_scores.npz files. Returns {model_name: {"y_true": ..., "y_scores": ...}}."""
+    data = {}
+    for npz_path in sorted(results_dir.glob("*_scores.npz")):
+        model = npz_path.stem.replace("_scores", "")
+        d = np.load(npz_path)
+        data[model] = {"y_true": d["y_true"], "y_scores": d["y_scores"]}
+    return data
+
+
+def plot_roc_curves(ax, scores_data: dict, class_idx: int, class_label: int):
+    """One-vs-rest ROC curve for a single class. All models on one plot."""
+    from sklearn.metrics import roc_curve, roc_auc_score
+
+    for model, sd in scores_data.items():
+        y_binary = (sd["y_true"] == class_label).astype(int)
+        if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
+            continue
+        fpr, tpr, _ = roc_curve(y_binary, sd["y_scores"][:, class_idx])
+        auc = roc_auc_score(y_binary, sd["y_scores"][:, class_idx])
+        ax.plot(fpr, tpr, color=COLORS.get(model, "gray"), lw=1.5,
+                label=f"{MODEL_SHORT.get(model, model)} (AUC={auc:.3f})")
+    ax.plot([0, 1], [0, 1], "k--", lw=0.8, alpha=0.4)
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("FPR")
+    ax.set_ylabel("TPR")
+    ax.set_title(f"ROC — {EVAL_LABEL_NAMES[class_label]} vs Rest")
+    ax.legend(fontsize=7)
+
+
+def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
+    """One-vs-rest DET curve for a single class. All models on one plot."""
+    from sklearn.metrics import det_curve
+
+    for model, sd in scores_data.items():
+        y_binary = (sd["y_true"] == class_label).astype(int)
+        if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
+            continue
+        fpr, fnr, _ = det_curve(y_binary, sd["y_scores"][:, class_idx])
+        ax.plot(fpr, fnr, color=COLORS.get(model, "gray"), lw=1.5,
+                label=MODEL_SHORT.get(model, model))
+    ax.set_xlabel("FPR")
+    ax.set_ylabel("FNR (Miss Rate)")
+    ax.set_title(f"DET — {EVAL_LABEL_NAMES[class_label]} vs Rest")
     ax.legend(fontsize=7)
 
 
@@ -299,9 +351,23 @@ def main():
             path=graphs_dir / f"cm_{model}.png", figsize=(5, 4),
         )
     _save_solo(plot_subclass_group, data, SPEECH_SUBS, SPEECH_SHORT,
-               "Speech Subclasses — Recall by Model", path=graphs_dir / "speech_subclasses.png", figsize=(9, 6))
+               "Speech Subclasses — F1 by Model", path=graphs_dir / "speech_subclasses.png", figsize=(9, 6))
     _save_solo(plot_subclass_group, data, MUSIC_SUBS, MUSIC_SHORT,
-               "Music Subclasses — Recall by Model", path=graphs_dir / "music_subclasses.png", figsize=(9, 6))
+               "Music Subclasses — F1 by Model", path=graphs_dir / "music_subclasses.png", figsize=(9, 6))
+
+    # ROC / DET curves
+    scores_data = load_scores(RESULTS_DIR)
+    if scores_data:
+        fig_rd, axes_rd = plt.subplots(2, 3, figsize=(15, 9))
+        fig_rd.suptitle("ROC & DET Curves (One-vs-Rest)", fontsize=13, fontweight="bold")
+        for j, (idx, lbl) in enumerate(zip(range(3), EVAL_LABELS)):
+            plot_roc_curves(axes_rd[0, j], scores_data, idx, lbl)
+            plot_det_curves(axes_rd[1, j], scores_data, idx, lbl)
+        fig_rd.tight_layout(rect=[0, 0, 1, 0.95])
+        rd_path = graphs_dir / "roc_det.png"
+        fig_rd.savefig(rd_path, dpi=150, bbox_inches="tight")
+        plt.close(fig_rd)
+        print(f"Saved → {rd_path}")
 
     # Combined
     fig = plt.figure(figsize=(18, 16))
@@ -320,8 +386,8 @@ def main():
             f"{MODEL_SHORT[model]} — Confusion Matrix",
         )
 
-    plot_subclass_group(fig.add_subplot(gs[2, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — Recall by Model")
-    plot_subclass_group(fig.add_subplot(gs[2, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — Recall by Model")
+    plot_subclass_group(fig.add_subplot(gs[2, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
+    plot_subclass_group(fig.add_subplot(gs[2, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
 
     out = RESULTS_DIR / "results.png"
     plt.savefig(out, dpi=150, bbox_inches="tight")

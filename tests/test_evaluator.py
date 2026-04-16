@@ -85,10 +85,30 @@ def test_format_report_contains_f1():
     assert "F1" in report or "f1" in report.lower()
 
 
-def test_subclass_metrics_recall():
-    y_true = np.array([-1, -1, -1, 1, 1, 1])
-    y_pred = np.array([-1, -1, 1,  1, 1, 1])  # 2/3 correct for speech
-    subs = np.array(["speech_clean"] * 3 + ["music_pop"] * 3)
+def test_subclass_metrics():
+    # speech_clean: 2 speech + 1 inactive frame; music_pop: 2 music + 1 inactive frame
+    y_true = np.array([-1, -1,  2,  1,  1,  2])
+    y_pred = np.array([-1, -1,  2,  1,  1,  1])  # music_pop: inactive frame mispredicted as music
+    subs  = np.array(["speech_clean"] * 3 + ["music_pop"] * 3)
     by_sub = _compute_subclass_metrics(y_true, y_pred, subs)
-    assert abs(by_sub["speech_clean"].recall - 2/3) < 1e-9
-    assert abs(by_sub["music_pop"].recall - 1.0) < 1e-9
+    # speech_clean: perfect predictions → F1=1.0, P=1.0, R=1.0
+    assert abs(by_sub["speech_clean"].f1 - 1.0) < 1e-9
+    assert abs(by_sub["speech_clean"].precision - 1.0) < 1e-9
+    assert abs(by_sub["speech_clean"].recall - 1.0) < 1e-9
+    # music_pop: class 1 P=2/3 R=1 F1=4/5; class 2 P=0 R=0 F1=0
+    # macro: F1=(4/5)/2=0.4, P=(2/3)/2=1/3, R=(1+0)/2=0.5
+    assert abs(by_sub["music_pop"].f1 - 0.4) < 1e-9
+    assert abs(by_sub["music_pop"].precision - 1/3) < 1e-9
+    assert abs(by_sub["music_pop"].recall - 0.5) < 1e-9
+
+
+def test_subclass_metrics_single_class():
+    """Subclass with only one true class (e.g. noise — all inactive)."""
+    y_true = np.array([2, 2, 2, 2])
+    y_pred = np.array([2, 2, -1, 2])  # one frame wrong
+    subs  = np.array(["noise"] * 4)
+    by_sub = _compute_subclass_metrics(y_true, y_pred, subs)
+    # present = [2]; single-class: P=3/3=1.0, R=3/4=0.75, F1=2*1*0.75/1.75=6/7
+    assert abs(by_sub["noise"].precision - 1.0) < 1e-9
+    assert abs(by_sub["noise"].recall - 0.75) < 1e-9
+    assert abs(by_sub["noise"].f1 - 6/7) < 1e-9

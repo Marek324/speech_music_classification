@@ -19,7 +19,7 @@ def run_nn_inference(
     eval_cfg: dict,
     cfg: dict,
     max_rows: int | None = None,
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, str]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, str, np.ndarray]:
     """Run inference for any model producing (1, 3, T) probs per clip.
 
     Args:
@@ -29,8 +29,9 @@ def run_nn_inference(
         max_rows: optional limit on test rows
 
     Returns:
-        (y_true, y_pred, subclasses, time_per_sample_ns)
+        (y_true, y_pred, subclasses, time_per_sample_ns, device_str, y_scores)
         Labels: -1=speech, 1=music, 2=inactive
+        y_scores: (N, 3) — columns [speech, music, inactive]
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = model.to(device)
@@ -42,6 +43,7 @@ def run_nn_inference(
 
     y_true_list: list[int] = []
     y_pred_list: list[int] = []
+    scores_list: list[np.ndarray] = []
     subclasses_list: list[str] = []
 
     classify_ns = 0
@@ -58,18 +60,22 @@ def run_nn_inference(
         T = probs.shape[-1]
         T_actual = min(T, targets.shape[-1])  # may be less than T due to center-padding in STFT
 
+        # Per-frame label mapping: 0=speech→-1, 1=music→1, 2=inactive→2
+        label_map = torch.tensor([-1, 1, 2], device=device)
+
         # Per-frame y_pred: argmax across (speech, music, inactive) channels
         class_probs = probs[0, :, :T_actual]          # (3, T)
         pred_idx = class_probs.argmax(dim=0)           # 0=speech, 1=music, 2=inactive
-        label_map = torch.tensor([-1, 1, 2], device=pred_idx.device)
         y_pred_frames = label_map[pred_idx].cpu().numpy()
 
-        # Per-frame y_true: clip-uniform, sourced from the dataset `class` column.
-        clip_label = LABEL_MAP[cls_name]
-        y_true_frames = np.full(T_actual, clip_label, dtype=np.int64)
+        # Per-frame y_true: derived from timestamp-based targets tensor.
+        tgt = targets[:, :T_actual]                    # (3, T_actual)
+        true_idx = tgt.argmax(dim=0)
+        y_true_frames = label_map[true_idx].cpu().numpy()
 
         y_true_list.extend(y_true_frames.tolist())
         y_pred_list.extend(y_pred_frames.tolist())
+        scores_list.append(class_probs.cpu().numpy().T)   # (T_actual, 3)
         subclasses_list.extend([subclass] * T_actual)
         total_frames += T_actual
 
@@ -79,5 +85,6 @@ def run_nn_inference(
     y_true = np.array(y_true_list, dtype=np.int64)
     y_pred = np.array(y_pred_list, dtype=np.int64)
     y_sub = np.array(subclasses_list, dtype="U40")
+    y_scores = np.vstack(scores_list) if scores_list else np.empty((0, 3))
 
-    return y_true, y_pred, y_sub, time_per_sample_ns, device_str
+    return y_true, y_pred, y_sub, time_per_sample_ns, device_str, y_scores

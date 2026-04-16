@@ -30,18 +30,18 @@ name = "full"
 # ── Ablation subgroups ────────────────────────────────────────────────────────
 # Each entry overrides only what it tests; everything else = baseline above.
 
-# loss function: paper-literal BCE(sigmoid) reversion + alternatives to baseline BCEWithLogits
-[tcn.ablations.loss.baseline]
-[tcn.ablations.loss.bce_sigmoid]
-loss = "bce"                 # reverts to nn.BCELoss(sigmoid(x)); expected to DIVERGE (CUDA assert)
-[tcn.ablations.loss.focal]
-loss = "focal"               # focal BCE, gamma=2 — downweights easy frames
-[tcn.ablations.loss.weighted_bce]
-loss = "weighted_bce"        # BCEWithLogits with per-class pos_weight (inactive rare)
-[tcn.ablations.loss.mse]
-loss = "mse"                 # MSE on sigmoid(logits) — classical regression baseline
-[tcn.ablations.loss.label_smoothing]
-loss = "label_smoothing_bce" # BCEWithLogits with target smoothing 0.1
+# loss function — tested but no signal: all variants land within ±0.0003 of baseline.
+# [tcn.ablations.loss.baseline]
+# [tcn.ablations.loss.bce_sigmoid]
+# loss = "bce"                 # reverts to nn.BCELoss(sigmoid(x)); expected to DIVERGE (CUDA assert)
+# [tcn.ablations.loss.focal]
+# loss = "focal"               # focal BCE, gamma=2 — downweights easy frames
+# [tcn.ablations.loss.weighted_bce]
+# loss = "weighted_bce"        # BCEWithLogits with per-class pos_weight (inactive rare)
+# [tcn.ablations.loss.mse]
+# loss = "mse"                 # MSE on sigmoid(logits) — classical regression baseline
+# [tcn.ablations.loss.label_smoothing]
+# loss = "label_smoothing_bce" # BCEWithLogits with target smoothing 0.1
 
 # optimizer/normalization: paper choices vs our production choices
 [tcn.ablations.optimizer.baseline]
@@ -59,12 +59,12 @@ use_weight_norm = false     # SGD + BatchNorm — completes 2×2 factorial
 [tcn.ablations.optimizer.sgd_lr_1e-2]
 lr = 1e-2                   # paper-adjacent LR; SGD+WeightNorm is knife-edge at this LR — expected to DIVERGE
 
-# capacity: number of filters
-[tcn.ablations.capacity.baseline]
-[tcn.ablations.capacity.filters_8]
-n_filters = 8
-[tcn.ablations.capacity.filters_32]
-n_filters = 32
+# capacity: number of filters — tested but no signal: filters_8/32 within ±0.001 of baseline.
+# [tcn.ablations.capacity.baseline]
+# [tcn.ablations.capacity.filters_8]
+# n_filters = 8
+# [tcn.ablations.capacity.filters_32]
+# n_filters = 32
 
 # n_layers: how many dilated conv layers per stack
 # RF = n_stacks × (sum 2^i for i in 0..n_layers-1) × (kernel_size-1) + 1
@@ -77,19 +77,19 @@ n_layers = 2            # RF = 3×3×4+1 = 37 frames
 [tcn.ablations.layers.layers_3]
 n_layers = 3            # RF = 3×7×4+1 = 85 frames
 
-# n_stacks: how many times the dilated layer sequence is repeated
-[tcn.ablations.stacks.baseline]
-[tcn.ablations.stacks.stacks_5]
-n_stacks = 5            # RF = 5×15×4+1 = 301 frames
+# n_stacks — tested but no signal: stacks_5 within 0.001 of baseline.
+# [tcn.ablations.stacks.baseline]
+# [tcn.ablations.stacks.stacks_5]
+# n_stacks = 5            # RF = 5×15×4+1 = 301 frames
 
-# kernel_size: conv kernel width
-[tcn.ablations.kernel.baseline]
-[tcn.ablations.kernel.kernel_3]
-kernel_size = 3         # RF = 3×15×2+1 = 91 frames (paper minimum)
-[tcn.ablations.kernel.kernel_7]
-kernel_size = 7         # RF = 3×15×6+1 = 271 frames
-[tcn.ablations.kernel.kernel_9]
-kernel_size = 9         # RF = 3×15×8+1 = 361 frames
+# kernel_size — tested but no signal: kernel_3/7/9 within ±0.003 of baseline.
+# [tcn.ablations.kernel.baseline]
+# [tcn.ablations.kernel.kernel_3]
+# kernel_size = 3         # RF = 3×15×2+1 = 91 frames (paper minimum)
+# [tcn.ablations.kernel.kernel_7]
+# kernel_size = 7         # RF = 3×15×6+1 = 271 frames
+# [tcn.ablations.kernel.kernel_9]
+# kernel_size = 9         # RF = 3×15×8+1 = 361 frames
 
 # regularization: dropout
 [tcn.ablations.regularization.baseline]
@@ -98,12 +98,12 @@ dropout = 0.1
 [tcn.ablations.regularization.dropout_medium]
 dropout = 0.25
 
-# training: chunk length relative to receptive field
-[tcn.ablations.training.baseline]
-[tcn.ablations.training.seq_len_256]
-seq_len = 256           # chunks now exceed full RF (181 frames)
-[tcn.ablations.training.seq_len_270]
-seq_len = 270           # paper's original value; just above full RF (181 frames)
+# training: chunk length — tested but no signal: seq_len 256/270 within ±0.002 of baseline.
+# [tcn.ablations.training.baseline]
+# [tcn.ablations.training.seq_len_256]
+# seq_len = 256           # chunks now exceed full RF (181 frames)
+# [tcn.ablations.training.seq_len_270]
+# seq_len = 270           # paper's original value; just above full RF (181 frames)
 
 # skip connections: paper hyperparameter (Table 2)
 [tcn.ablations.skip_connections.baseline]
@@ -120,30 +120,29 @@ activation = "elu"
 activation = "gelu"
 
 # feature resolution: number of mel filterbanks
-[tcn.ablations.n_mels.baseline]
-[tcn.ablations.n_mels.mels_40]
-n_mels = 40
-[tcn.ablations.n_mels.mels_128]
-n_mels = 128
+# DIVERGED — cached preprocess stats are hardcoded at 80 mels; needs separate stats per count.
+# [tcn.ablations.n_mels.baseline]
+# [tcn.ablations.n_mels.mels_40]
+# n_mels = 40
+# [tcn.ablations.n_mels.mels_128]
+# n_mels = 128
 
-# training batch size
-[tcn.ablations.batch_size.baseline]
-[tcn.ablations.batch_size.batch_16]
-batch_size = 16
-[tcn.ablations.batch_size.batch_64]
-batch_size = 64
+# training batch size — tested but no signal: batch_16/64 within ±0.002 of baseline.
+# [tcn.ablations.batch_size.baseline]
+# [tcn.ablations.batch_size.batch_16]
+# batch_size = 16
+# [tcn.ablations.batch_size.batch_64]
+# batch_size = 64
 
-# data augmentation (gain ±6dB + Gaussian noise)
-[tcn.ablations.augmentation.baseline]
-[tcn.ablations.augmentation.no_augment]
-augment = false
+# data augmentation (gain ±6dB) — tested but no signal: no_augment within 0.001 of baseline.
+# [tcn.ablations.augmentation.baseline]
+# [tcn.ablations.augmentation.no_augment]
+# augment = false
 
 # ── Coordinate-ascent search order ───────────────────────────────────────────
 # Loss and optimizer/normalization are settled first so capacity/depth choices
 # train under a stable numerical recipe.
 [tcn.coord_ascent]
 subgroup_order = [
-    "loss", "optimizer", "capacity", "layers", "stacks", "kernel", "activation",
-    "regularization", "training", "batch_size", "n_mels",
-    "augmentation", "skip_connections",
+    "optimizer", "layers", "activation", "regularization", "skip_connections",
 ]

@@ -58,6 +58,6 @@ n_filters = 16
 kernel_size = 5
 n_layers = 4
 n_stacks = 3
-dropout = 0.5
+dropout = 0.1
 n_classes = 3
 use_weight_norm = false   # false = BatchNorm (current impl), true = WeightNorm (paper ref)

@@ -22,7 +22,7 @@ The production TCN (`/home/marek/bp/config.toml`) is a separate recipe
 | Divide LR by 10 when validation loss does not improve for 3 epochs | `ReduceLROnPlateau(factor=0.1, patience=3)` in `training.py:205` |
 | Stop training after 5 consecutive non-improving validation epochs | `patience=5` in `train_tcn` |
 | Mini-batches of fixed-length chunks, batch size 32 | `batch_size = 32`, `_iter_batched_chunks` in `training.py` |
-| Dropout ∈ [0.05, 0.5] per block | `dropout = 0.5` (upper bound of the paper range) |
+| Dropout ∈ [0.05, 0.5] per block | `dropout = 0.5` (upper bound; the ablation found this over-regularizes — `regularization.dropout_low` at 0.1 wins by +0.003 F1 and has been adopted in the production config) |
 | Causal dilated convolutions, residual blocks, skip connections | `blocks.py::TCNResidualBlock`, `skip_connections=true` default |
 | keras-tcn-style block: two dilated causal convs + WeightNorm + ReLU + dropout + residual add | `blocks.py::TCNResidualBlock` with `use_weight_norm=true`, `activation="relu"` |
 | Hyperparameter search space: `n_layers ∈ 1..4`, `n_stacks ∈ 3..10`, `kernel_size ∈ {3,5,…,19}`, `n_filters ∈ {8,16,32}`, dilations `2^0…2^N_D` with `N_D=3..8` | Ablation subgroups cover the same ranges (`capacity`, `layers`, `stacks`, `kernel`) |
@@ -200,8 +200,9 @@ absolute numerical scale shifts.
 ### 12. Production vs. ablation recipe are intentionally separate
 
 **Production TCN** (`/home/marek/bp/config.toml`): Adam, `lr = 1e-3`,
-`use_weight_norm = false` → BatchNorm. This is the recipe that currently
-holds the reported 2-class F1 = 0.9504 / 3-class F1 = 0.9033.
+`use_weight_norm = false` → BatchNorm, `dropout = 0.1` (adopted from the
+`regularization.dropout_low` ablation winner). This is the recipe that
+currently holds the reported 2-class F1 = 0.9504 / 3-class F1 = 0.9033.
 
 **Ablation baseline** (`src/exp/tcn_ablation/config.toml`): SGD m=0.9,
 `lr = 1e-3`, `use_weight_norm = true` → WeightNorm. Paper-faithful
@@ -214,18 +215,30 @@ like `optimizer.sgd_lr_1e-2` and `loss.bce_sigmoid`.
 
 ## Summary table of ablation subgroups
 
-| Subgroup | Paper range / default | Variants |
-|---|---|---|
-| `loss` | BCE | `bce_sigmoid` (paper-literal, DIVERGES), `focal`, `weighted_bce`, `mse`, `label_smoothing` |
-| `optimizer` | SGD m=0.9 | `adam`, `batch_norm`, `adam_batchnorm`, `sgd_batchnorm`, `sgd_lr_1e-2` (paper LR, DIVERGES) |
-| `capacity` | `n_filters ∈ {8,16,32}` | `filters_8`, `filters_32` |
-| `layers` | `n_layers ∈ 1..4` | `layers_1`, `layers_2`, `layers_3` |
-| `stacks` | `n_stacks ∈ 3..10` | `stacks_5` |
-| `kernel` | `kernel_size ∈ {3,5,…,19}` | `kernel_3`, `kernel_7`, `kernel_9` |
-| `regularization` | dropout ∈ [0.05, 0.5] | `dropout_low` (0.1), `dropout_medium` (0.25) |
-| `training` | seq_len=270 | `seq_len_256`, `seq_len_270` |
-| `skip_connections` | true/false | `no_skip` |
-| `activation` | (ReLU in keras-tcn) | `leaky_relu`, `elu`, `gelu` |
-| `n_mels` | 80 | `mels_40`, `mels_128` |
-| `batch_size` | 32 | `batch_16`, `batch_64` |
-| `augmentation` | Schlüter & Grill 2015 pipeline (we implement loudness only) | `no_augment` |
+Only the five subgroups that produced signal are kept active in
+`src/exp/tcn_ablation/config.toml`. The rest were executed once, landed
+within noise of baseline, and have been commented out so they don't clutter
+future re-runs or plots — their eval files remain in `results/` for reference.
+
+### Active subgroups (real signal)
+
+| Subgroup | Paper range / default | Variants | Outcome |
+|---|---|---|---|
+| `optimizer` | SGD m=0.9 | `adam`, `batch_norm`, `adam_batchnorm`, `sgd_batchnorm`, `sgd_lr_1e-2` (paper LR, expected DIVERGE) | bare `adam` collapses to a trivial predictor (0.19); `adam_batchnorm` rescues it; `sgd_lr_1e-2` surprisingly survived and topped the board at 0.928 |
+| `layers` | `n_layers ∈ 1..4` | `layers_1`, `layers_2`, `layers_3` | clear depth effect: `layers_1` drops to 0.906 |
+| `activation` | (ReLU in keras-tcn) | `leaky_relu`, `elu`, `gelu` | `elu` drops to 0.909; ReLU/LeakyReLU/GELU tied |
+| `regularization` | dropout ∈ [0.05, 0.5] | `dropout_low` (0.1), `dropout_medium` (0.25) | **winning finding**: `dropout_low` beats baseline by +0.003; adopted in production config |
+| `skip_connections` | true/false | `no_skip` | catastrophic without skips (collapses to single-class) |
+
+### Pruned subgroups (no signal, kept as .eval files only)
+
+| Subgroup | Reason pruned |
+|---|---|
+| `loss` | all 5 variants within ±0.0003 F1 of baseline |
+| `capacity` (`n_filters`) | `filters_8`/`filters_32` within ±0.001 |
+| `stacks` | `stacks_5` within 0.001 |
+| `kernel` | all kernel widths within ±0.003 |
+| `training` (`seq_len`) | `seq_len_256`/`seq_len_270` within ±0.002 |
+| `batch_size` | `batch_16`/`batch_64` within ±0.002 |
+| `augmentation` | `no_augment` within 0.001 |
+| `n_mels` | eval crashes — cached preprocess stats are baked to 80 mels; needs per-mel-count stats to test properly |

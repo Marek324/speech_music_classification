@@ -18,6 +18,7 @@ from .common import (
     FrameDataStrLabel,
     FrameMetadataStrLabel,
     LABEL_MAP,
+    frame_label_str,
     get_num_workers,
 )
 from .classic.feat_extractor import FeatExtractor
@@ -90,6 +91,7 @@ class InputHandler:
             "n_fft": cfg["n_fft"],
             "buffers": cfg["buffers"],
             "features": cfg["features"],
+            "label_mode": "frame",
         }, sort_keys=True)
         return hashlib.md5(fingerprint.encode()).hexdigest()
 
@@ -180,6 +182,19 @@ class InputHandler:
             return 0.0
         return float(self.extract_duration_ns) / len(x)
 
+    @staticmethod
+    def _normalize_labels(labels_raw) -> list:
+        """Normalize HF Sequence dict-of-lists to list-of-dicts."""
+        if not labels_raw:
+            return []
+        if isinstance(labels_raw, dict):
+            keys = list(labels_raw.keys())
+            return [
+                {k: labels_raw[k][i] for k in keys}
+                for i in range(len(labels_raw[keys[0]]))
+            ]
+        return labels_raw
+
     def _process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         self.fextractor.reset()
         audio = row["audio"].get_all_samples().data
@@ -197,6 +212,7 @@ class InputHandler:
 
         cls_name = row["class"]
         subclass = row["subclass"]
+        labels_list = self._normalize_labels(row.get("labels"))
 
         feats, labels_out, subclasses_out = [], [], []
         frame_start = 0
@@ -207,7 +223,15 @@ class InputHandler:
                 audio[frame_start : frame_start + frame_len],
                 frame_len,
             )
-            fd = self._process_frame(frame, cls_name, subclass)
+
+            if labels_list:
+                f_start_ms = int(frame_start * 1000 / target_sr)
+                f_end_ms = int((frame_start + frame_len) * 1000 / target_sr)
+                label = frame_label_str(labels_list, f_start_ms, f_end_ms)
+            else:
+                label = cls_name
+
+            fd = self._process_frame(frame, label, subclass)
 
             feats.append(_safe_feats(fd.feats))
             labels_out.append(fd.metadata.label)

@@ -14,10 +14,12 @@ from . import MODELS, FeatExtractor
 log = logging.getLogger(__name__)
 
 
-def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, float]:
+def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray]:
     """
-    Load model and test data, run inference. Returns (y_true, y_pred, subclasses, time_per_sample_ns).
+    Load model and test data, run inference.
+    Returns (y_true, y_pred, subclasses, time_per_sample_ns, y_scores).
     Labels: -1=speech, 1=music, 2=inactive.
+    y_scores: (N, 3) — columns [speech, music, inactive].
     """
     from .. import config
 
@@ -60,15 +62,16 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     t0 = time.perf_counter_ns()
     y_pred = model.predict_batch(X)
     classify_ns = time.perf_counter_ns() - t0
+    y_scores = model.predict_proba_batch(X)  # (N, 3) — [speech, music, inactive]
     n = len(X)
     time_per_sample_ns = (classify_ns / n) + extract_time_ns
 
-    return y, y_pred, subclasses, time_per_sample_ns
+    return y, y_pred, subclasses, time_per_sample_ns, y_scores
 
 
 def eval_classic(model_name: str, save_to_file: bool = True):
     """Evaluate classic model on test split. Uses main evaluator for metrics and output."""
-    y_true, y_pred, subclasses, time_per_sample_ns = get_predictions(model_name)
+    y_true, y_pred, subclasses, time_per_sample_ns, y_scores = get_predictions(model_name)
     return run_evaluation(
         y_true,
         y_pred,
@@ -77,4 +80,5 @@ def eval_classic(model_name: str, save_to_file: bool = True):
         output_name=model_name,
         save_to_file=save_to_file,
         device=_device_label(False),
+        y_scores=y_scores,
     )

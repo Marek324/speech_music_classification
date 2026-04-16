@@ -34,10 +34,8 @@ class PerClassMetrics:
 
 @dataclass
 class SubclassMetrics:
-    # y_true is clip-uniform within a subclass (sourced from the dataset `class`
-    # column), so fp is structurally 0 inside the mask. Precision collapses to
-    # 1.0/0.0, accuracy equals recall, and F1 = 2R/(1+R) — only recall carries
-    # independent information.
+    f1: float
+    precision: float
     recall: float
 
 
@@ -68,6 +66,7 @@ class EvalResults:
     labels: list
     per_class: Dict[int, PerClassMetrics]
     device: str = "cpu"
+    y_scores: np.ndarray | None = None
 
     @property
     def f1(self) -> float:
@@ -122,9 +121,9 @@ def _fmt_subclass_table(by_subclass: Dict[str, SubclassMetrics]) -> str:
     if not by_subclass:
         return ""
     lines = ["── By subclass " + "─" * 36]
-    lines.append(f"  {'Subclass':<24}  {'R':>6}")
+    lines.append(f"  {'Subclass':<24}  {'F1':>6}  {'P':>6}  {'R':>6}")
     for sub, res in sorted(by_subclass.items()):
-        lines.append(f"  {sub:<24}  {res.recall:>6.4f}")
+        lines.append(f"  {sub:<24}  {res.f1:>6.4f}  {res.precision:>6.4f}  {res.recall:>6.4f}")
     return "\n".join(lines)
 
 
@@ -151,11 +150,16 @@ def _compute_subclass_metrics(
         mask = y_sub == sub
         y_t, y_p = y_true[mask], y_pred[mask]
 
-        # y_true is clip-uniform within a subclass — primary is any frame's label.
-        primary = int(y_t[0])
-        recall = float(np.mean(y_p == primary)) if len(y_t) else 0.0
+        if len(y_t) == 0:
+            by_sub[str(sub)] = SubclassMetrics(f1=0.0, precision=0.0, recall=0.0)
+            continue
 
-        by_sub[str(sub)] = SubclassMetrics(recall=recall)
+        present = np.unique(y_t)
+        f1 = float(f1_score(y_t, y_p, labels=present, average="macro", zero_division=0))
+        prec = float(precision_score(y_t, y_p, labels=present, average="macro", zero_division=0))
+        rec = float(recall_score(y_t, y_p, labels=present, average="macro", zero_division=0))
+
+        by_sub[str(sub)] = SubclassMetrics(f1=f1, precision=prec, recall=rec)
 
     return by_sub
 
@@ -198,6 +202,7 @@ def run_evaluation(
     save_to_file: bool = True,
     device: str = "cpu",
     output_dir: Path | None = None,
+    y_scores: np.ndarray | None = None,
 ) -> EvalResults:
     """
     Main evaluation entry point. Computes metrics and optionally saves report.
@@ -205,12 +210,17 @@ def run_evaluation(
 
     *output_dir* overrides the default ``repo_root/results/`` save location.
     Pass it to route experiment results into experiment-specific subdirectories.
+
+    *y_scores*: optional (N, 3) array of continuous scores (columns: speech,
+    music, inactive). If provided and *save_to_file* is True, saved as
+    ``<output_name>_scores.npz`` alongside the ``.eval`` report.
     """
     if len(y_true) != len(y_pred) or len(y_true) != len(subclasses):
         raise ValueError("y_true, y_pred and subclasses must have the same length")
 
     by_subclass = _compute_subclass_metrics(y_true, y_pred, subclasses)
     res = _compute_metrics(y_true, y_pred, [-1, 1, 2], time_per_sample_ns, by_subclass, device=device)
+    res.y_scores = y_scores
 
     report = format_report(res)
     if save_to_file:
@@ -221,6 +231,11 @@ def run_evaluation(
         out_path = results_dir / f"{output_name}.eval"
         out_path.write_text(report)
         log.info("Saved evaluation results to %s", out_path)
+
+        if y_scores is not None:
+            scores_path = results_dir / f"{output_name}_scores.npz"
+            np.savez(scores_path, y_true=y_true, y_scores=y_scores)
+            log.info("Saved scores to %s", scores_path)
 
     log.info("\n%s", report)
     return res

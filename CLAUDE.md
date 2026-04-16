@@ -1,7 +1,7 @@
 # Project: butfit-bp — Speech/Music Classifier
 
 ## Goal
-Beat the existing DT/GMM/SVM baselines (≥ **0.88 macro F1 on 2-class evaluation**) and achieve >= **.85 F1 macro on 3-class evaluation** with a causal TCN that can run online (streaming). Currently overfitting; training is ongoing.
+Beat the existing DT/GMM/SVM baselines and achieve >= **.85 F1 macro on 3-class evaluation** with a causal TCN that can run online (streaming). Currently overfitting; training is ongoing.
 
 ## CLI
 ```
@@ -230,7 +230,7 @@ Feature extraction is stateful — `FeatExtractor.reset()` must be called betwee
 Labels: `-1` = speech, `1` = music, `2` = inactive
 
 ## Status
-- **TCN**: done — 2-class F1=0.9504, 3-class F1=0.9033 (both targets met)
+- **TCN**: done — 3-class F1=0.9033 (target met)
 - **Classic baselines**: DT done; SVM and GMM retrained pending — both updated to closer match paper (SVM: SGDClassifier→SVC RBF C=1 γ=3; both: lt_len_ms 600→1000; GMM: smoothing buffer 20→66 frames)
 - **Dataset (mid tier)**: historical snapshot; numbers in the mid-tier tables above reflect that snapshot, not the current HF upload
 - **Dataset (full tier)**: rescaled to 6000 min (100h); AMI replaced with LibriMix-style synthetic multispeaker; all subclasses should now hit 100% of target; TCN config points here

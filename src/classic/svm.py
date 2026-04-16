@@ -2,7 +2,6 @@
 # Marek Hric
 
 import logging
-import warnings
 from collections import deque
 
 import numpy as np
@@ -69,9 +68,13 @@ class SVM(ModelClass):
         return self.svm.predict(X)
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
-        warnings.warn("SVM does not provide probabilities; returning placeholder")
-        return np.full(3, 1/3)
+        x = np.atleast_2d(frame.astype(np.float64))
+        d = self.svm.decision_function(x)              # (1, 3) OvR-shaped
+        exp_d = np.exp(d - d.max(axis=1, keepdims=True))
+        return (exp_d / exp_d.sum(axis=1, keepdims=True))[0]
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
-        warnings.warn("SVM does not provide probabilities; returning placeholder")
-        return np.full((len(X), 3), 1/3)
+        X = X.astype(np.float64)
+        d = self.svm.decision_function(X)              # (N, 3) OvR-shaped
+        exp_d = np.exp(d - d.max(axis=1, keepdims=True))
+        return exp_d / exp_d.sum(axis=1, keepdims=True)
