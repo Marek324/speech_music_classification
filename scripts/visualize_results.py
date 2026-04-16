@@ -385,16 +385,31 @@ def plot_roc_curves(ax, scores_data: dict, class_idx: int, class_label: int):
 
 
 def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
-    """One-vs-rest DET curve for a single class. All models on one plot."""
+    """One-vs-rest DET curve for a single class. Normal-deviate (probit) axes."""
     from sklearn.metrics import det_curve
+    from scipy.stats import norm
 
     for model, sd in scores_data.items():
         y_binary = (sd["y_true"] == class_label).astype(int)
         if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
             continue
         fpr, fnr, _ = det_curve(y_binary, sd["y_scores"][:, class_idx])
-        ax.plot(fpr, fnr, color=COLORS.get(model, "gray"), lw=1.5,
-                label=MODEL_SHORT.get(model, model))
+        eps = np.finfo(fpr.dtype).eps
+        fpr = np.clip(fpr, eps, 1 - eps)
+        fnr = np.clip(fnr, eps, 1 - eps)
+        ax.plot(norm.ppf(fpr), norm.ppf(fnr), color=COLORS.get(model, "gray"),
+                lw=1.5, label=MODEL_SHORT.get(model, model))
+    ticks = [0.001, 0.01, 0.05, 0.20, 0.5, 0.80, 0.95, 0.99, 0.999]
+    tick_vals = norm.ppf(ticks)
+    tick_labels = [
+        f"{t:.0%}" if (100 * t).is_integer() else f"{t:.1%}" for t in ticks
+    ]
+    ax.set_xticks(tick_vals)
+    ax.set_xticklabels(tick_labels, fontsize=7)
+    ax.set_yticks(tick_vals)
+    ax.set_yticklabels(tick_labels, fontsize=7)
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-3, 3)
     ax.set_xlabel("FPR")
     ax.set_ylabel("FNR (Miss Rate)")
     ax.set_title(f"DET — {EVAL_LABEL_NAMES[class_label]} vs Rest")
