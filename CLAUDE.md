@@ -175,7 +175,7 @@ use_weight_norm = false              # model key — mixed overrides work in one
 |------|---------|
 | `visualize_results.py` | Parses all `results/*.eval` files, plots macro F1 comparison + per-subclass breakdown → `results/results.png` |
 | `upload_artifacts.py` | Uploads `weights/` and `cache/` to `Marek324/butfit-bp-artifacts` on HF |
-| `download_artifacts.py` | Downloads `weights/` and `cache/` from HF (run after cloning) |
+| `download_artifacts.py` | Downloads `weights/`, `cache/`, and `results/` from HF (run after cloning; pass `--no-cache` to skip the large mel cache) |
 
 ### Dataset scripts (`scripts/dataset/`) — uv subproject
 | File | Purpose |
