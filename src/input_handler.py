@@ -150,7 +150,7 @@ class InputHandler:
             process_fn,
             desc="Extracting frames/features",
             num_proc=get_num_workers(),
-            load_from_cache_file=True,
+            load_from_cache_file=False,
             writer_batch_size=100,
         )
         self.extract_duration_ns = time.perf_counter_ns() - t0

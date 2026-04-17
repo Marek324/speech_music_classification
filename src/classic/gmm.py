@@ -15,6 +15,9 @@ from .modelclass import ModelClass
 log = logging.getLogger(__name__)
 
 
+_SCALE_CLIP = 10.0
+
+
 class GMM(ModelClass):
     name: str = "unnamed"
 
@@ -29,7 +32,7 @@ class GMM(ModelClass):
         self.gmm_speech = GaussianMixture(
             n_components=8,
             covariance_type="diag",
-            reg_covar=1e-4,
+            reg_covar=1e-3,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
@@ -38,7 +41,7 @@ class GMM(ModelClass):
         self.gmm_music = GaussianMixture(
             n_components=8,
             covariance_type="diag",
-            reg_covar=1e-4,
+            reg_covar=1e-3,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
@@ -47,7 +50,7 @@ class GMM(ModelClass):
         self.gmm_inactive = GaussianMixture(
             n_components=8,
             covariance_type="diag",
-            reg_covar=1e-4,
+            reg_covar=1e-3,
             max_iter=200,
             init_params="kmeans",
             random_state=0,
@@ -56,10 +59,14 @@ class GMM(ModelClass):
 
         self.ll_buf = deque(maxlen=66)
 
+    def _scale(self, X: np.ndarray) -> np.ndarray:
+        return np.clip(self.scaler.transform(X), -_SCALE_CLIP, _SCALE_CLIP)
+
     def _train(self, X: np.ndarray, y: np.ndarray) -> None:
         X = X.astype(np.float64)
 
-        Xn = self.scaler.fit_transform(X)
+        self.scaler.fit(X)
+        Xn = self._scale(X)
 
         X_s = Xn[y == -1]
         X_m = Xn[y == 1]
@@ -89,7 +96,7 @@ class GMM(ModelClass):
     def predict(self, frame: np.ndarray) -> int:
         x = frame.astype(np.float64)
         x = np.atleast_2d(x)
-        x = self.scaler.transform(x)
+        x = self._scale(x)
 
         ll_s = self.gmm_speech.score_samples(x)[0]
         ll_m = self.gmm_music.score_samples(x)[0]
@@ -102,7 +109,7 @@ class GMM(ModelClass):
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
         x = frame.astype(np.float64)
         x = np.atleast_2d(x)
-        x = self.scaler.transform(x)
+        x = self._scale(x)
 
         ll_s = self.gmm_speech.score_samples(x)
         ll_m = self.gmm_music.score_samples(x)
@@ -118,7 +125,7 @@ class GMM(ModelClass):
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
         x = X.astype(np.float64)
-        Xn = self.scaler.transform(x)
+        Xn = self._scale(x)
 
         ll = np.vstack([
             self.gmm_speech.score_samples(Xn),
@@ -129,7 +136,7 @@ class GMM(ModelClass):
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
         x = X.astype(np.float64)
-        Xn = self.scaler.transform(x)
+        Xn = self._scale(x)
 
         ll = np.vstack([
             self.gmm_speech.score_samples(Xn),

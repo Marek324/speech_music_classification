@@ -590,7 +590,7 @@ class FeatExtractor:
         sidelobes = np.concatenate((left, right))
         if sidelobes.size == 0:
             return 0.0
-        return float(peak_val / (np.var(sidelobes) + 1e-8))
+        return float(peak_val / (np.var(sidelobes) + 1e-4))
 
     def _log_mel_spectrum_energy(self, frame: np.ndarray) -> float:
         frame = self._frame_for_fft(frame)
