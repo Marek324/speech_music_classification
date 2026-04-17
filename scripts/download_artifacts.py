@@ -1,4 +1,8 @@
-"""Download weights/, cache/, and results/*.npz from HuggingFace. Run after cloning."""
+"""Download weights/, cache/, and results/*.npz (top-level + per-experiment) from HuggingFace.
+
+Run after cloning. `snapshot_download` mirrors the repo tree under ROOT, so any
+`src/exp/*/results/*.npz` uploaded by `upload_artifacts.py` lands at the same local path.
+"""
 
 import sys
 from pathlib import Path
