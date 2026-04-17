@@ -1,0 +1,2 @@
+DIVERGED
+ValueError: You are trying to save a non contiguous tensor: `fe.mfcc.dct_mat` which is not allowed. It either means you are trying to save tensors which are reference of each other in which case it's recommended to save only the full tensors, and reslice at load time, or simply call `.contiguous()` on your tensor to pack it before saving.

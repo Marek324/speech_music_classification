@@ -1,0 +1,2 @@
+DIVERGED
+RuntimeError: Given groups=1, weight of size [16, 40, 1], expected input[32, 20, 128] to have 40 channels, but got 20 channels instead
