@@ -67,20 +67,29 @@ class CausalLSTM(nn.Module):
 class _SinusoidalPE(nn.Module):
     """Standard sinusoidal positional encoding (Vaswani et al. 2017).
 
-    Non-learnable, added per-frame — no cross-frame dependence.
+    Non-learnable, added per-frame — no cross-frame dependence. Buffer grows
+    on demand so eval-time clips longer than the initial ``max_len`` work
+    without retraining. Non-persistent: not saved in state_dict.
     """
 
     def __init__(self, d_model: int, max_len: int = 8192):
         super().__init__()
-        pe = torch.zeros(max_len, d_model)
-        pos = torch.arange(max_len).unsqueeze(1).float()
-        div = torch.exp(torch.arange(0, d_model, 2).float() * (-math.log(10000.0) / d_model))
+        self.d_model = d_model
+        self.register_buffer("pe", self._build(max_len), persistent=False)
+
+    def _build(self, length: int) -> torch.Tensor:
+        pe = torch.zeros(length, self.d_model)
+        pos = torch.arange(length).unsqueeze(1).float()
+        div = torch.exp(torch.arange(0, self.d_model, 2).float() * (-math.log(10000.0) / self.d_model))
         pe[:, 0::2] = torch.sin(pos * div)
         pe[:, 1::2] = torch.cos(pos * div)
-        self.register_buffer("pe", pe.unsqueeze(0))  # (1, max_len, d_model)
+        return pe.unsqueeze(0)  # (1, length, d_model)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        return x + self.pe[:, :x.size(1)]
+        T = x.size(1)
+        if T > self.pe.size(1):
+            self.pe = self._build(T).to(device=self.pe.device, dtype=self.pe.dtype)
+        return x + self.pe[:, :T]
 
 
 class CausalTransformer(nn.Module):
