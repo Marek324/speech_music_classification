@@ -32,16 +32,40 @@ name = "full"
 # -- Backbone variants --------------------------------------------------------
 # Each entry overrides only what it tests; everything else = baseline above.
 # All architectures are strictly causal (no future lookahead).
+#
+# Capacity sweep across two param budgets (~32K, ~128K) so each backbone is
+# compared at comparable capacity rather than at a fixed hidden size. Hidden
+# sizes chosen so param counts land within ~10% of each budget; see PR notes
+# for arithmetic.
 
 [tcn.variants.baseline]
-# Default TCN backbone — causal dilated convolutions (Lemaire & Holzapfel 2019).
+# TCN small — f=16, ~32K params. Matches ablation baseline.
 
-[tcn.variants.gru]
+[tcn.variants.tcn_large]
+n_filters = 32           # ~126K params
+
+[tcn.variants.gru_small]
 backbone = "gru"
+n_filters = 32           # ~28K params
 
-[tcn.variants.lstm]
+[tcn.variants.gru_large]
+backbone = "gru"
+n_filters = 72           # ~132K params
+
+[tcn.variants.lstm_small]
 backbone = "lstm"
+n_filters = 32           # ~36K params
 
-[tcn.variants.transformer]
+[tcn.variants.lstm_large]
+backbone = "lstm"
+n_filters = 64           # ~138K params
+
+[tcn.variants.transformer_small]
 backbone = "transformer"
-n_heads = 4
+n_filters = 24
+n_heads = 4              # head_dim = 6; ~31K params
+
+[tcn.variants.transformer_large]
+backbone = "transformer"
+n_filters = 48
+n_heads = 8              # head_dim = 6; ~117K params
