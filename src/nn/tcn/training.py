@@ -102,6 +102,7 @@ def _mel_cache_path(cfg: dict, split: str) -> Path:
     h = hashlib.sha1(key.encode()).hexdigest()[:8]
     fname = (
         f"tcn_mel_{split}_{h}"
+        f"_fe{cfg.get('frontend', 'log_mel')}"
         f"_sr{cfg['sample_rate']}_nfft{cfg['n_fft']}_hop{cfg['hop_length']}"
         f"_mels{cfg['n_mels']}_seq{cfg.get('seq_len', SEQ_LEN)}.pt"
     )
@@ -330,6 +331,7 @@ def train_tcn(
             max_rows=max_train_rows,
             stats_path=stats_path,
             revision=ds_rev,
+            cfg=cfg,
         )
 
     model = SpeechMusicDetector(cfg=cfg, stats_path=stats_path)

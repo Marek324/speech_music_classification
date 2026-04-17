@@ -71,11 +71,11 @@ def eval_cmd(name, subgroup):
 def smoke_test_cmd(name, subgroup):
     """Smoke test: forward pass with synthetic audio (no weights or dataset needed)."""
     cfg, variant_name, _, stats_path = _load(name, subgroup)
-    n_mels = cfg["n_mels"]
 
     model = SpeechMusicDetector(cfg=cfg, stats_path=stats_path)
-    model.fe.norm_mean = torch.zeros(1, n_mels, 1)
-    model.fe.norm_std = torch.ones(1, n_mels, 1)
+    nf = model.fe.n_features
+    model.fe.norm_mean = torch.zeros(1, nf, 1)
+    model.fe.norm_std = torch.ones(1, nf, 1)
 
     dummy = torch.randn(2, cfg["sample_rate"] * 3)
     probs = model(dummy)

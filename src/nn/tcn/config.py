@@ -6,10 +6,12 @@ from pathlib import Path
 from typing import Any, Dict
 
 _DEFAULT: Dict[str, Any] = {
+    "frontend": "log_mel",
     "sample_rate": 22050,
     "n_fft": 1024,
     "hop_length": 512,
     "n_mels": 80,
+    "n_mfcc": 20,
     "f_min": 27.5,
     "f_max": 8000.0,
     "optimizer": "adam",
@@ -19,10 +21,13 @@ _DEFAULT: Dict[str, Any] = {
     "augment": True,
     "loss": "bce_with_logits",
     "model": {
+        "backbone": "tcn",
+        "preprocessor": "none",
         "n_filters": 32,
         "kernel_size": 5,
         "n_layers": 6,
         "n_stacks": 2,
+        "n_heads": 4,
         "dropout": 0.2,
         "n_classes": 3,
         "use_weight_norm": False,
@@ -59,12 +64,12 @@ def get_preprocess_stats_path(revision: str | None = None, name: str | None = No
 
 
 _MODEL_KEYS = frozenset([
-    "n_filters", "kernel_size", "n_layers", "n_stacks",
-    "dropout", "n_classes", "use_weight_norm", "skip_connections", "activation",
+    "backbone", "preprocessor", "n_filters", "kernel_size", "n_layers", "n_stacks",
+    "n_heads", "dropout", "n_classes", "use_weight_norm", "skip_connections", "activation",
 ])
 _TOP_KEYS = frozenset([
-    "sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
-    "optimizer", "lr", "seq_len", "batch_size", "augment",
+    "frontend", "sample_rate", "n_fft", "hop_length", "n_mels", "n_mfcc",
+    "f_min", "f_max", "optimizer", "lr", "seq_len", "batch_size", "augment",
     "loss", "focal_gamma", "label_smoothing",
 ])
 _VARIANT_OVERRIDE_KEYS = _TOP_KEYS | _MODEL_KEYS | frozenset(["name"])
@@ -154,9 +159,9 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
         raw = tomli.load(f)
 
     tcn = raw.get("tcn", {})
-    for k in ("sample_rate", "n_fft", "hop_length", "n_mels", "f_min", "f_max",
-              "optimizer", "lr", "seq_len", "batch_size", "augment", "name",
-              "loss", "focal_gamma", "label_smoothing"):
+    for k in ("frontend", "sample_rate", "n_fft", "hop_length", "n_mels", "n_mfcc",
+              "f_min", "f_max", "optimizer", "lr", "seq_len", "batch_size", "augment",
+              "name", "loss", "focal_gamma", "label_smoothing"):
         if k in tcn:
             cfg[k] = tcn[k]
     cfg["model"] = {**_DEFAULT["model"], **raw.get("tcn", {}).get("model", {})}

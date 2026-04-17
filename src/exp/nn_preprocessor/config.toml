@@ -1,0 +1,43 @@
+# Marek Hric
+# Preprocessor layer experiment — tests learned layers between frontend and backbone.
+# All logic lives in src/nn/tcn/; this file only defines variant overrides.
+
+[tcn]
+name = "baseline"
+# Baseline uses same training recipe as ablation baseline.
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+f_min = 27.5
+f_max = 8000.0
+optimizer = "sgd"
+lr = 1e-3
+seq_len = 128
+loss = "bce_with_logits"
+
+[tcn.model]
+n_filters = 16
+kernel_size = 5
+n_layers = 4
+n_stacks = 3
+dropout = 0.5
+n_classes = 3
+use_weight_norm = true
+
+[dataset]
+url = "Marek324/speech-music-classification"
+name = "full"
+
+# -- Preprocessor variants ----------------------------------------------------
+# Each entry overrides only what it tests; everything else = baseline above.
+# All preprocessors are causal (no future lookahead) and preserve shape.
+
+[tcn.variants.baseline]
+# No preprocessor — features pass directly from frontend to backbone.
+
+[tcn.variants.conv1d]
+preprocessor = "conv1d"
+
+[tcn.variants.conv2d]
+preprocessor = "conv2d"

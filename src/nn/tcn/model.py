@@ -4,9 +4,11 @@
 import torch
 import torch.nn as nn
 
+from ..backbones import CausalGRU, CausalLSTM, CausalTransformer
 from ..blocks import TCNResidualBlock
+from ..preprocessors import build_preprocessor
 from .config import get_config, get_preprocess_stats_path
-from .preprocess import LogMelSpectrogram
+from .preprocess import build_frontend
 
 
 class CausalTCN(nn.Module):
@@ -72,6 +74,35 @@ class CausalTCN(nn.Module):
         return x
 
 
+# ---------------------------------------------------------------------------
+# Backbone factory
+# ---------------------------------------------------------------------------
+
+_BACKBONE_TYPES = ("tcn", "gru", "lstm", "transformer")
+
+
+def build_backbone(cfg: dict, n_features: int) -> nn.Module:
+    """Construct a backbone module from config."""
+    m = cfg.get("model", {})
+    name = m.get("backbone", "tcn")
+    common = dict(
+        n_features=n_features,
+        n_filters=m["n_filters"],
+        n_layers=m["n_layers"],
+        dropout=m["dropout"],
+        n_classes=m["n_classes"],
+    )
+    if name == "tcn":
+        return CausalTCN(cfg=cfg, n_mels=n_features)
+    if name == "gru":
+        return CausalGRU(**common)
+    if name == "lstm":
+        return CausalLSTM(**common)
+    if name == "transformer":
+        return CausalTransformer(n_heads=m.get("n_heads", 4), **common)
+    raise ValueError(f"Unknown backbone {name!r}. Supported: {_BACKBONE_TYPES}")
+
+
 class SpeechMusicDetector(nn.Module):
     """
     End-to-end: raw waveform -> per-frame speech/music probabilities.
@@ -83,37 +114,33 @@ class SpeechMusicDetector(nn.Module):
         sample_rate: int | None = None,
         cfg: dict | None = None,
         stats_path=None,
-        **tcn_kwargs,
     ):
         super().__init__()
         if cfg is None:
             cfg = get_config()
-        sr = sample_rate or cfg["sample_rate"]
         if stats_path is None:
             rev = cfg["dataset"].get("revision")
             stats_path = get_preprocess_stats_path(revision=rev)
-        self.fe = LogMelSpectrogram(
-            sample_rate=sr,
-            n_fft=cfg["n_fft"],
-            hop_length=cfg["hop_length"],
-            n_mels=cfg["n_mels"],
-            f_min=cfg["f_min"],
-            f_max=cfg["f_max"],
-            stats_path=stats_path,
-        )
-        self.model = CausalTCN(cfg=cfg, **tcn_kwargs)
+        if sample_rate is not None:
+            cfg = {**cfg, "sample_rate": sample_rate}
+        self.fe = build_frontend(cfg, stats_path=stats_path)
+        self.preproc = build_preprocessor(cfg, n_features=self.fe.n_features)
+        self.model = build_backbone(cfg, n_features=self.preproc.n_features)
 
     def forward_logits(self, waveform: torch.Tensor) -> torch.Tensor:
         """Raw logits — used by training with BCEWithLogitsLoss."""
         spec = self.fe(waveform)
+        spec = self.preproc(spec)
         return self.model(spec)
 
     def forward_logits_from_mel(self, mel: torch.Tensor) -> torch.Tensor:
         """Raw logits from pre-computed normalized log-mel spectrograms."""
+        mel = self.preproc(mel)
         return self.model(mel)
 
     def forward_from_mel(self, mel: torch.Tensor) -> torch.Tensor:
         """Sigmoid probs from pre-computed normalized log-mel spectrograms."""
+        mel = self.preproc(mel)
         return torch.sigmoid(self.model(mel))
 
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:
