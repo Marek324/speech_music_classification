@@ -93,21 +93,36 @@ def build_loss(cfg: dict | None = None) -> tuple[nn.Module, str]:
     raise ValueError(f"Unknown loss '{name}'")
 
 
-def _mel_cache_path(cfg: dict, split: str) -> Path:
+def _mel_cache_path(cfg: dict, split: str, fe: nn.Module | None = None) -> Path:
     """Cache path keyed by (dataset, frontend params, seq_len). Any ablation
     that changes one of these keys picks up a fresh tensor automatically.
+
+    When a frontend is provided, ``fe.n_features`` is baked into the key so
+    variants that share a ``frontend`` name but emit different channel counts
+    (e.g. ``mfcc`` with ``n_mfcc=20`` vs ``n_mfcc=40``) don't collide.
     """
     ds = cfg["dataset"]
     key = f"{ds.get('url','')}|{ds.get('name','')}|{ds.get('revision','')}"
     h = hashlib.sha1(key.encode()).hexdigest()[:8]
+    feat = f"_nf{fe.n_features}" if fe is not None else ""
     fname = (
         f"tcn_mel_{split}_{h}"
-        f"_fe{cfg.get('frontend', 'log_mel')}"
+        f"_fe{cfg.get('frontend', 'log_mel')}{feat}"
         f"_sr{cfg['sample_rate']}_nfft{cfg['n_fft']}_hop{cfg['hop_length']}"
         f"_mels{cfg['n_mels']}_seq{cfg.get('seq_len', SEQ_LEN)}.pt"
     )
     repo_root = Path(__file__).resolve().parent.parent.parent.parent
     return repo_root / "cache" / "nn" / fname
+
+
+def _legacy_mel_cache_path(cfg: dict, split: str) -> Path:
+    """Pre-``n_features`` cache path — used as a read-only fallback so caches
+    built before the key change still load. Safe for frontends where the
+    output channel count was unambiguous from ``frontend`` + ``n_mels``;
+    MFCC is excluded by the caller because its old key could map to either
+    20 or 40 channels.
+    """
+    return _mel_cache_path(cfg, split, fe=None)
 
 
 def _load_mel_chunks(
@@ -128,7 +143,12 @@ def _load_mel_chunks(
 
     Returned tensors live on CPU so the caller decides where to keep them.
     """
-    cache_path = _mel_cache_path(cfg, split)
+    cache_path = _mel_cache_path(cfg, split, fe)
+    if not cache_path.exists() and cfg.get("frontend", "log_mel") != "mfcc":
+        legacy = _legacy_mel_cache_path(cfg, split)
+        if legacy.exists():
+            log.info("[%s] using legacy mel cache %s", split, legacy)
+            cache_path = legacy
     if cache_path.exists():
         log.info("[%s] loading cached mel chunks from %s", split, cache_path)
         data = torch.load(cache_path, map_location="cpu")
@@ -427,5 +447,10 @@ def train_tcn(
     from safetensors.torch import save_file
 
     save_path.parent.mkdir(parents=True, exist_ok=True)
-    save_file({k: v.detach().cpu() for k, v in model.state_dict().items()}, save_path)
+    # safetensors rejects non-contiguous tensors (e.g. torchaudio MFCC's
+    # dct_mat is stored as a transposed view), so pack every tensor first.
+    save_file(
+        {k: v.detach().cpu().contiguous() for k, v in model.state_dict().items()},
+        save_path,
+    )
     log.info("Saved weights to %s", save_path)

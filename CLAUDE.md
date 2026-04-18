@@ -93,6 +93,25 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ### Per-epoch HF re-streaming (fixed)
 `_iter_batched_chunks` in `training.py` used to call `iter_nn_rows` every epoch, re-decoding and re-chunking the entire HF train split (~5 GB on mid tier, ~32 GB on full tier) 30 times per run. GPU utilization sat at ~10% because the step was CPU/IO-bound. **Fixed** by precomputing mel chunks once in `training.py::_load_mel_chunks`, caching to `cache/nn/tcn_mel_*.pt` (keyed by dataset + frontend params + seq_len), and keeping the cached tensor resident on the training device. `augment_mel` in `augmentation.py` applies gain directly in normalized log-mel space, matching paper §3.4 ("data augmentation was applied to the saved spectrograms"). Shared across ablation variants with matching frontend params.
 
+### Mel cache key changed — `n_features` now baked in (fixed)
+`_mel_cache_path` in `training.py` used to key the cache by `frontend`+`n_mels`, which collided for MFCC variants (`mfcc_20` and `mfcc_40` share `frontend="mfcc"`, `n_mels=80`, but emit different channel counts). Now the key includes `_nf{fe.n_features}`.
+
+**Filename anatomy** — `cache/nn/tcn_mel_{split}_{h}_fe{frontend}[_nf{n_features}]_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`. Only `{h}` is hashed: it's `sha1(dataset_url|dataset_name|dataset_revision)[:8]`, covering the dataset tuple only. Every other slot is verbose, and the `.npz` classic-feature cache at `cache/*.npz` is a *separate* cache (fully md5-hashed over a different fingerprint) — unaffected by this change.
+
+**Old filename:** `tcn_mel_{split}_{h}_fe{frontend}_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`
+**New filename:** `tcn_mel_{split}_{h}_fe{frontend}_nf{n_features}_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`
+
+`_load_mel_chunks` has a read-only legacy fallback: if the new path is missing it reads the old filename for every frontend **except** `mfcc` (old mfcc caches are ambiguous — can't tell 20 vs 40 channels from the filename). So downloaded legacy caches still load, just not under the new name.
+
+**To rename downloaded legacy caches in place** (no hash recomputation needed — `{h}` stays the same unless the dataset tuple changes), compute `n_features` from the filename:
+- `log_mel` → `n_mels`
+- `log_mel_delta` → `2 × n_mels`
+- `log_mel_delta2` → `3 × n_mels`
+- `pcen` → `n_mels`
+- `mfcc` → open the file, read `data["mel"].shape[1]` (can't infer from name)
+
+Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user asks to "rename the legacy mel caches", this is the recipe.
+
 ### Full-tier test split missing subclasses (fixed)
 `process.py` previously used per-source cumulative minutes to assign clips to train/val/test sequentially. Sources that exhausted their HF data before reaching `val_cutoff_min` (92% of `target_minutes`) never wrote any clips to the test split. Affected sources in the full tier: `bel_canto` (acapella, 300 min target — small dataset), all FMA genres (750 min each — limited clips per genre on HF), and `DEMAND` noise (2400 min — dataset likely too small). Augmented subclasses (`speech_som`, `speech_msom`, `speech_noisy`) cascaded to zero test clips if their base subclasses had none. Full-tier test split had only ~3 subclasses with data.
 
@@ -158,6 +177,9 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 |------|---------|
 | `config.toml` | Ablation variants — each `[tcn.ablations.<subgroup>.<name>]` section is a flat set of overrides; top-level keys (`optimizer`, `lr`, `seq_len`, …) and model keys (`n_filters`, `n_layers`, …) are written directly without a `.model` sub-section |
 | `cli.py` | `train`, `eval`, `ablation` (batch all variants in a subgroup) commands |
+
+### Flat-variant experiments (`src/exp/{tcn_frontend, nn_architecture, nn_preprocessor, tcn_combined}/`)
+Each module follows the same pattern: its own `config.toml` with a base `[tcn]` section plus `[tcn.variants.<name>]` flat overrides, and a near-identical `cli.py` (`train`, `eval`, `smoke-test`, `visualize`, `run-all`). Overrides are routed into top-level vs model buckets by `_TOP_KEYS` / `_MODEL_KEYS` in `src/nn/tcn/config.py`. `tcn_combined` stacks the winners of the other three in a 2² factorial (×architecture winner) to test whether the individual gains compose.
 
 **Ablation config format** — keys are split automatically by `_MODEL_KEYS` / `_TOP_KEYS` in `config.py`:
 ```toml

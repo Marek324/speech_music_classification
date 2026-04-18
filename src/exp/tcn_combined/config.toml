@@ -1,0 +1,63 @@
+# Marek Hric
+# Combined-winners experiment — stacks the winners of the frontend,
+# preprocessor, and architecture experiments in a 2^2 factorial (×architecture
+# winner) to test whether their individual gains compose.
+# All logic lives in src/nn/tcn/; this file only defines variant overrides.
+
+[tcn]
+name = "baseline"
+# Baseline matches the three source experiments (SGD, WeightNorm).
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+f_min = 27.5
+f_max = 8000.0
+optimizer = "sgd"
+lr = 1e-3
+seq_len = 128
+loss = "bce_with_logits"
+
+[tcn.model]
+n_filters = 16
+kernel_size = 5
+n_layers = 4
+n_stacks = 3
+dropout = 0.5
+n_classes = 3
+use_weight_norm = true
+
+[dataset]
+url = "Marek324/speech-music-classification"
+name = "full"
+
+# -- Combined-winners variants ------------------------------------------------
+# Winners from the three source experiments, stacked:
+#   F = frontend:     log_mel_delta2 (log-mel + Δ + ΔΔ, 240 channels)
+#   P = preprocessor: conv1d (shape-preserving learned layer)
+#   A = architecture: n_filters = 32 (~126K-param TCN)
+# Each entry overrides only what it tests; everything else = baseline above.
+
+[tcn.variants.baseline]
+# No overrides — reference point.
+
+[tcn.variants.delta2_conv1d]
+# F + P
+frontend = "log_mel_delta2"
+preprocessor = "conv1d"
+
+[tcn.variants.delta2_large]
+# F + A
+frontend = "log_mel_delta2"
+n_filters = 32
+
+[tcn.variants.conv1d_large]
+# P + A
+preprocessor = "conv1d"
+n_filters = 32
+
+[tcn.variants.delta2_conv1d_large]
+# F + P + A
+frontend = "log_mel_delta2"
+preprocessor = "conv1d"
+n_filters = 32
