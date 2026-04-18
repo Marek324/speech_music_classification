@@ -308,7 +308,7 @@ def _validation_loss(
 
 
 def train_tcn(
-    epochs: int = 30,
+    epochs: int = 50,
     max_train_rows: int | None = None,
     weights_path=None,
     use_wandb: bool = True,
