@@ -5,12 +5,12 @@ Beat the existing DT/GMM/SVM baselines and achieve >= **.85 F1 macro on 3-class 
 
 ## CLI
 ```
-uv run smclassifier nn tcn <command>          # TCN model
-uv run smclassifier nn own <command>          # custom model (placeholder)
+uv run smclassifier nn tcn <command>           # TCN model (paper baseline)
+uv run smclassifier nn tcn-lstm <command>      # TCN+LSTM hybrid (delta2 + conv1d + LSTM tail)
+uv run smclassifier nn small-tcn <command>     # small-footprint TCN (delta2 + n_filters=8)
 uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
 ```
-TCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
-Own commands: `train`, `eval`, `smoke-test` (all NotImplementedError placeholders)
+TCN / TCN+LSTM / SmallTCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
 Classic commands: `train`, `eval`, `smoke-test`, `mic` (placeholder)
 
 ## Architecture
@@ -137,7 +137,7 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `dataset.py` | **Shared** HF dataset loader, frame-label builder; params (sr/hop/n_fft) passed explicitly |
 | `evaluation.py` | **Shared** `run_nn_inference()` — generic inference loop for any `(1,3,T)`-output model |
 | `modelclass.py` | Abstract `NNModelClass` base: `train()`, `evaluate()`, `smoke_test()` |
-| `cli.py` | `nn_group` — dispatches to `tcn` and `own` subgroups |
+| `cli.py` | `nn_group` — dispatches to `tcn`, `tcn-lstm`, and `small-tcn` subgroups |
 
 #### TCN (`src/nn/tcn/`)
 | File | Purpose |
@@ -154,11 +154,23 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
 | `cache/nn/tcn_mel_*.pt` | Precomputed mel chunks per (dataset, split, frontend params, seq_len); shared across ablation variants. *(not in git — auto-synced via `cache/` to `Marek324/butfit-bp-artifacts` on HF)* |
 
-#### Own (`src/nn/own/`) — placeholder
+#### TCNLSTM (`src/nn/tcn_lstm/`)
 | File | Purpose |
 |------|---------|
-| `model.py` | `OwnModel` stub (raises `NotImplementedError`) |
-| `cli.py` | Placeholder CLI: train/eval/smoke-test (all raise `NotImplementedError`) |
+| `model.py` | `TCNLSTM` — delta² frontend + conv1d preprocessor + TCN backbone + LSTM tail (combined-experiment winner) |
+| `config.py` / `config.toml` | Baked defaults; `get_tcn_lstm_config()` supports flat overrides |
+| `cli.py` | Click group `tcn-lstm`: train/eval/smoke-test/smoke-test-online |
+| `weights/tcn_lstm/tcn_lstm.safetensors` | Trained weights *(not in git — download via HF)* |
+| `weights/tcn_lstm/tcn_lstm_preprocess_stats.pt` | Log-mel normalization stats *(not in git)* |
+
+#### SmallTCN (`src/nn/small_tcn/`)
+| File | Purpose |
+|------|---------|
+| `model.py` | `SmallTCN` — delta² frontend + n_filters=8 TCN, no preprocessor/tail (small-footprint variant, ~52K params) |
+| `config.py` / `config.toml` | Baked defaults; `get_small_tcn_config()` supports flat overrides |
+| `cli.py` | Click group `small-tcn`: train/eval/smoke-test/smoke-test-online |
+| `weights/small_tcn/tcn_small.safetensors` | Trained weights *(not in git — download via HF)* |
+| `weights/small_tcn/tcn_small_preprocess_stats.pt` | Log-mel normalization stats *(not in git)* |
 
 ### Classic models (`src/classic/`)
 | File | Purpose |

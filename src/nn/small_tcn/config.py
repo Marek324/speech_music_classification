@@ -1,5 +1,5 @@
-# nn/own2/config.py
-# Config loader for Own2Model. Mirrors own/config.py — loads src/nn/own2/config.toml
+# nn/small_tcn/config.py
+# Config loader for SmallTCN. Mirrors tcn_lstm/config.py — loads src/nn/small_tcn/config.toml
 # and exposes the same overridable API as the TCN ablation loader.
 
 import tomli
@@ -18,8 +18,8 @@ from ..tcn.config import (
 _CONFIG_PATH = Path(__file__).resolve().parent / "config.toml"
 
 
-def _load_own2_default() -> Dict[str, Any]:
-    """Flatten own2/config.toml into the {top-level keys, 'model': {...}, 'dataset': {...}} shape
+def _load_small_tcn_default() -> Dict[str, Any]:
+    """Flatten small_tcn/config.toml into the {top-level keys, 'model': {...}, 'dataset': {...}} shape
     that the rest of the pipeline expects."""
     with open(_CONFIG_PATH, "rb") as f:
         raw = tomli.load(f)
@@ -30,16 +30,16 @@ def _load_own2_default() -> Dict[str, Any]:
     return cfg
 
 
-_OWN2_DEFAULT: Dict[str, Any] = _load_own2_default()
+_SMALL_TCN_DEFAULT: Dict[str, Any] = _load_small_tcn_default()
 
 
-def get_own2_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """Return the own2/ config, optionally applying flat ``overrides``.
+def get_small_tcn_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Return the small_tcn/ config, optionally applying flat ``overrides``.
 
     Overrides are a flat dict mixing top-level and model keys; routing follows
     the same ``_TOP_KEYS`` / ``_MODEL_KEYS`` split as the TCN ablation loader.
     """
-    cfg = deepcopy(_OWN2_DEFAULT)
+    cfg = deepcopy(_SMALL_TCN_DEFAULT)
     if overrides:
         for k in _TOP_KEYS:
             if k in overrides:
@@ -51,14 +51,14 @@ def get_own2_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
     return cfg
 
 
-_OWN2_SUBDIR = "own2"
+_SMALL_TCN_SUBDIR = "small_tcn"
 
 
-def get_own2_weights_path() -> Path:
-    """Path to own2/ weights (safetensors format)."""
-    return get_weights_path(name="own2", subdir=_OWN2_SUBDIR)
+def get_small_tcn_weights_path() -> Path:
+    """Path to small_tcn/ weights (safetensors format)."""
+    return get_weights_path(name="small", subdir=_SMALL_TCN_SUBDIR)
 
 
-def get_own2_stats_path() -> Path:
-    """Path to own2/ preprocess stats."""
-    return get_preprocess_stats_path(name="own2", subdir=_OWN2_SUBDIR)
+def get_small_tcn_stats_path() -> Path:
+    """Path to small_tcn/ preprocess stats."""
+    return get_preprocess_stats_path(name="small", subdir=_SMALL_TCN_SUBDIR)

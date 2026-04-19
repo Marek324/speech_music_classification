@@ -1,11 +1,11 @@
-# Own2Model config — small-footprint TCN aimed at matching the production
+# SmallTCN config — small-footprint TCN aimed at matching the production
 # baseline F1 at a fraction of the parameter count.
 # Recipe: log_mel_delta2 frontend (cheap F1 boost) + n_filters=8 backbone
 # (≈¼ of the baseline backbone params, ablation-confirmed at parity).
-# No preprocessor, no tail — those were the bulk of OwnModel's 389K params.
+# No preprocessor, no tail — those were the bulk of TCNLSTM's 432K params.
 
 [tcn]
-name = "own2"
+name = "small"
 frontend = "log_mel_delta2"
 sample_rate = 22050
 n_fft = 1024

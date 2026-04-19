@@ -1,8 +1,8 @@
-# OwnModel config — delta2 frontend + conv1d preprocessor + TCN + LSTM tail
+# TCNLSTM config — delta2 frontend + conv1d preprocessor + TCN + LSTM tail
 # (combined-experiment winner with the hybrid-experiment LSTM tail stacked on top).
 
 [tcn]
-name = "own"
+name = "lstm"
 frontend = "log_mel_delta2"
 sample_rate = 22050
 n_fft = 1024

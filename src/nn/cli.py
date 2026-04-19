@@ -4,16 +4,16 @@
 import click
 
 from .tcn.cli import tcn_group
-from .own.cli import own_group
-from .own2.cli import own2_group
+from .tcn_lstm.cli import tcn_lstm_group
+from .small_tcn.cli import small_tcn_group
 
 
 @click.group("nn")
 def nn_group():
-    """Neural network models (TCN, Own, Own2)."""
+    """Neural network models (TCN, TCNLSTM, SmallTCN)."""
     pass
 
 
 nn_group.add_command(tcn_group)
-nn_group.add_command(own_group)
-nn_group.add_command(own2_group)
+nn_group.add_command(tcn_lstm_group)
+nn_group.add_command(small_tcn_group)

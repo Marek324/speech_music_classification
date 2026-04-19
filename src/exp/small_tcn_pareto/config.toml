@@ -1,0 +1,56 @@
+# Marek Hric
+# SmallTCN Pareto sweep — n_filters curve at fixed SmallTCN recipe
+# (log_mel_delta2 + no preprocessor + no tail, SGD + WeightNorm, 50 epochs, full tier).
+# Isolates capacity as the single free axis. All logic lives in src/nn/tcn/;
+# this file only defines variant overrides.
+
+[tcn]
+name = "baseline"
+frontend = "log_mel_delta2"
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+n_mfcc = 20
+f_min = 27.5
+f_max = 8000.0
+optimizer = "sgd"
+lr = 1e-3
+seq_len = 128
+batch_size = 32
+augment = true
+loss = "bce_with_logits"
+
+[tcn.model]
+backbone = "tcn"
+preprocessor = "none"
+n_filters = 8
+kernel_size = 5
+n_layers = 4
+n_stacks = 3
+n_heads = 4
+dropout = 0.5
+n_classes = 3
+use_weight_norm = true
+activation = "relu"
+
+[dataset]
+url = "Marek324/speech-music-classification"
+name = "full"
+
+# -- Pareto variants ----------------------------------------------------------
+# Each entry overrides only n_filters; everything else = SmallTCN baseline.
+# filters_8 reproduces the deployed SmallTCN recipe and serves as an
+# in-experiment seed-noise reference point (shipped eval = 0.9766).
+
+[tcn.variants.filters_4]
+n_filters = 4
+
+[tcn.variants.filters_6]
+n_filters = 6
+
+[tcn.variants.filters_8]
+n_filters = 8
+
+[tcn.variants.filters_12]
+n_filters = 12

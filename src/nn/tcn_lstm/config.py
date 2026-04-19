@@ -1,7 +1,7 @@
-# nn/own/config.py
-# Config loader for OwnModel. Reads src/nn/own/config.toml; exposes the same
+# nn/tcn_lstm/config.py
+# Config loader for TCNLSTM. Reads src/nn/tcn_lstm/config.toml; exposes the same
 # overridable API as the TCN ablation loader so future experiments can sweep
-# variants against own/ without editing the TOML file.
+# variants against tcn_lstm/ without editing the TOML file.
 
 import tomli
 from copy import deepcopy
@@ -19,8 +19,8 @@ from ..tcn.config import (
 _CONFIG_PATH = Path(__file__).resolve().parent / "config.toml"
 
 
-def _load_own_default() -> Dict[str, Any]:
-    """Flatten own/config.toml into the {top-level keys, 'model': {...}, 'dataset': {...}} shape
+def _load_tcn_lstm_default() -> Dict[str, Any]:
+    """Flatten tcn_lstm/config.toml into the {top-level keys, 'model': {...}, 'dataset': {...}} shape
     that the rest of the pipeline expects."""
     with open(_CONFIG_PATH, "rb") as f:
         raw = tomli.load(f)
@@ -31,18 +31,18 @@ def _load_own_default() -> Dict[str, Any]:
     return cfg
 
 
-_OWN_DEFAULT: Dict[str, Any] = _load_own_default()
+_TCN_LSTM_DEFAULT: Dict[str, Any] = _load_tcn_lstm_default()
 
 
-def get_own_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
-    """Return the own/ config, optionally applying flat ``overrides``.
+def get_tcn_lstm_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+    """Return the tcn_lstm/ config, optionally applying flat ``overrides``.
 
     Overrides are a flat dict mixing top-level and model keys; routing follows
     the same ``_TOP_KEYS`` / ``_MODEL_KEYS`` split as the TCN ablation loader.
-    This hook exists so future experiments can sweep variants against own/
+    This hook exists so future experiments can sweep variants against tcn_lstm/
     without editing the defaults TOML.
     """
-    cfg = deepcopy(_OWN_DEFAULT)
+    cfg = deepcopy(_TCN_LSTM_DEFAULT)
     if overrides:
         for k in _TOP_KEYS:
             if k in overrides:
@@ -54,14 +54,14 @@ def get_own_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
     return cfg
 
 
-_OWN_SUBDIR = "own"
+_TCN_LSTM_SUBDIR = "tcn_lstm"
 
 
-def get_own_weights_path() -> Path:
-    """Path to own/ weights (safetensors format)."""
-    return get_weights_path(name="own", subdir=_OWN_SUBDIR)
+def get_tcn_lstm_weights_path() -> Path:
+    """Path to tcn_lstm/ weights (safetensors format)."""
+    return get_weights_path(name="lstm", subdir=_TCN_LSTM_SUBDIR)
 
 
-def get_own_stats_path() -> Path:
-    """Path to own/ preprocess stats."""
-    return get_preprocess_stats_path(name="own", subdir=_OWN_SUBDIR)
+def get_tcn_lstm_stats_path() -> Path:
+    """Path to tcn_lstm/ preprocess stats."""
+    return get_preprocess_stats_path(name="lstm", subdir=_TCN_LSTM_SUBDIR)

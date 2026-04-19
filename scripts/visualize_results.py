@@ -9,9 +9,9 @@ import numpy as np
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
-MODELS = ["own", "tcn", "decision_tree", "svm", "gmm"]
-COLORS = {"own": "#E91E63", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
-MODEL_SHORT = {"own": "Own", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
+MODELS = ["tcn_lstm", "small_tcn", "tcn", "decision_tree", "svm", "gmm"]
+COLORS = {"tcn_lstm": "#E91E63", "small_tcn": "#009688", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
+MODEL_SHORT = {"tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
 
 SPEECH_SUBS = [
     "speech_clean", "speech_dirty", "speech_multispeaker",
@@ -491,9 +491,9 @@ def plot_subclass_heatmap(ax, data):
     ax.set_title("Subclass F1 — all models × all subclasses")
 
 
-def plot_subclass_dumbbell_own_vs_tcn(ax, data):
-    """Dumbbell: per-subclass F1 for Own vs TCN; line colored by who wins; sorted by Δ."""
-    if "own" not in data or "tcn" not in data:
+def plot_subclass_dumbbell_tcn_lstm_vs_tcn(ax, data):
+    """Dumbbell: per-subclass F1 for TCN+LSTM vs TCN; line colored by who wins; sorted by Δ."""
+    if "tcn_lstm" not in data or "tcn" not in data:
         ax.set_visible(False)
         return
 
@@ -506,11 +506,11 @@ def plot_subclass_dumbbell_own_vs_tcn(ax, data):
 
     rows = []
     for sub in ALL_SUBS:
-        own_f1 = data["own"]["subclasses"].get(sub, {}).get("f1")
+        lstm_f1 = data["tcn_lstm"]["subclasses"].get(sub, {}).get("f1")
         tcn_f1 = data["tcn"]["subclasses"].get(sub, {}).get("f1")
-        if own_f1 is None or tcn_f1 is None:
+        if lstm_f1 is None or tcn_f1 is None:
             continue
-        rows.append((sub, tcn_f1, own_f1, own_f1 - tcn_f1))
+        rows.append((sub, tcn_f1, lstm_f1, lstm_f1 - tcn_f1))
 
     rows.sort(key=lambda r: r[3], reverse=True)
 
@@ -518,7 +518,7 @@ def plot_subclass_dumbbell_own_vs_tcn(ax, data):
     y = np.arange(n)
     win_color = "#2E7D32"
     loss_color = "#C62828"
-    own_color = COLORS["own"]
+    lstm_color = COLORS["tcn_lstm"]
     tcn_color = COLORS["tcn"]
 
     for i, (_, t, o, d) in enumerate(rows):
@@ -526,7 +526,7 @@ def plot_subclass_dumbbell_own_vs_tcn(ax, data):
         ax.plot([t, o], [i, i], color=line_color, lw=2.2, alpha=0.75, zorder=1)
         ax.scatter([t], [i], color=tcn_color, s=70, zorder=3,
                    edgecolor="white", linewidth=0.8)
-        ax.scatter([o], [i], color=own_color, s=70, zorder=3,
+        ax.scatter([o], [i], color=lstm_color, s=70, zorder=3,
                    edgecolor="white", linewidth=0.8)
         sign = "+" if d >= 0 else ""
         right = max(t, o)
@@ -544,22 +544,22 @@ def plot_subclass_dumbbell_own_vs_tcn(ax, data):
     ax.set_xlim(lo, 1.01)
     ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
     ax.set_xlabel("F1")
-    ax.set_title("Subclass F1 — Own vs TCN  (sorted by Δ)")
+    ax.set_title("Subclass F1 — TCN+LSTM vs TCN  (sorted by Δ)")
     ax.grid(axis="x", alpha=0.3, linestyle=":")
 
     from matplotlib.lines import Line2D
     legend_els = [
         Line2D([0], [0], color=tcn_color, marker="o", linestyle="None", markersize=7, label="TCN"),
-        Line2D([0], [0], color=own_color, marker="o", linestyle="None", markersize=7, label="Own"),
-        Line2D([0], [0], color=win_color, lw=2.5, label="Own better"),
-        Line2D([0], [0], color=loss_color, lw=2.5, label="Own worse"),
+        Line2D([0], [0], color=lstm_color, marker="o", linestyle="None", markersize=7, label="TCN+LSTM"),
+        Line2D([0], [0], color=win_color, lw=2.5, label="TCN+LSTM better"),
+        Line2D([0], [0], color=loss_color, lw=2.5, label="TCN+LSTM worse"),
     ]
     ax.legend(handles=legend_els, fontsize=7, loc="lower left", framealpha=0.9)
 
 
-def plot_cm_delta(ax, other_cm, own_cm, classes, title, vmax_shared=None, show_ylabel=True):
-    """Row-normalized CM delta vs Own, sign-flipped so positive always = worse than Own."""
-    if other_cm is None or own_cm is None:
+def plot_cm_delta(ax, other_cm, ref_cm, classes, title, vmax_shared=None, show_ylabel=True):
+    """Row-normalized CM delta vs reference model, sign-flipped so positive always = worse than reference."""
+    if other_cm is None or ref_cm is None:
         ax.set_visible(False)
         return
 
@@ -567,7 +567,7 @@ def plot_cm_delta(ax, other_cm, own_cm, classes, title, vmax_shared=None, show_y
         rs = cm.sum(axis=1, keepdims=True)
         return np.where(rs > 0, cm / rs, 0.0)
 
-    o = norm(own_cm)
+    o = norm(ref_cm)
     x = norm(other_cm)
     I_mask = np.eye(len(classes), dtype=bool)
     err_delta = np.where(I_mask, o - x, x - o)  # positive ⇒ this model does worse at that cell
@@ -678,15 +678,15 @@ def main():
     _save_solo(plot_per_class_f1, data, path=graphs_dir / "per_class_f1.svg", figsize=(8, 5))
     _save_solo(plot_subclass_heatmap, data, path=graphs_dir / "subclass_heatmap.svg", figsize=(13, 4))
 
-    # Confusion matrix deltas vs Own
-    if "own" in data and data["own"]["cm"] is not None:
-        others = [m for m in data if m != "own" and data[m]["cm"] is not None]
+    # Confusion matrix deltas vs TCN+LSTM
+    if "tcn_lstm" in data and data["tcn_lstm"]["cm"] is not None:
+        others = [m for m in data if m != "tcn_lstm" and data[m]["cm"] is not None]
         if others:
             # Shared vmax so colors are comparable across the 4 panels.
             def _norm(cm):
                 rs = cm.sum(axis=1, keepdims=True)
                 return np.where(rs > 0, cm / rs, 0.0)
-            o = _norm(data["own"]["cm"])
+            o = _norm(data["tcn_lstm"]["cm"])
             I_mask = np.eye(len(cm_classes), dtype=bool)
             vmax_shared = 0.0
             for m in others:
@@ -698,12 +698,12 @@ def main():
             fig_d, axes_d = plt.subplots(1, len(others), figsize=(4.2 * len(others), 4.2))
             if len(others) == 1:
                 axes_d = [axes_d]
-            fig_d.suptitle("Confusion Matrix Δ vs Own  (red = worse than Own, values in pp)",
+            fig_d.suptitle("Confusion Matrix Δ vs TCN+LSTM  (red = worse than TCN+LSTM, values in pp)",
                            fontsize=12, fontweight="bold")
             im = None
             for k, (ax_d, m) in enumerate(zip(axes_d, others)):
-                im = plot_cm_delta(ax_d, data[m]["cm"], data["own"]["cm"], cm_classes,
-                                   f"{MODEL_SHORT[m]} − Own", vmax_shared=vmax_shared,
+                im = plot_cm_delta(ax_d, data[m]["cm"], data["tcn_lstm"]["cm"], cm_classes,
+                                   f"{MODEL_SHORT[m]} − TCN+LSTM", vmax_shared=vmax_shared,
                                    show_ylabel=(k == 0))
             if im is not None:
                 cbar = fig_d.colorbar(im, ax=axes_d, fraction=0.025, pad=0.02)
@@ -716,12 +716,12 @@ def main():
             plt.close(fig_d)
             print(f"Saved → {d_path}")
 
-    # Standalone Own vs TCN delta (TCN as reference; blue ⇒ Own better, red ⇒ Own worse)
-    if "own" in data and "tcn" in data and data["own"]["cm"] is not None and data["tcn"]["cm"] is not None:
+    # Standalone TCN+LSTM vs TCN delta (TCN as reference; blue ⇒ TCN+LSTM better, red ⇒ TCN+LSTM worse)
+    if "tcn_lstm" in data and "tcn" in data and data["tcn_lstm"]["cm"] is not None and data["tcn"]["cm"] is not None:
         fig_ot, ax_ot = plt.subplots(figsize=(6, 5))
         im_ot = plot_cm_delta(
-            ax_ot, data["own"]["cm"], data["tcn"]["cm"], cm_classes,
-            "Own vs TCN  (red = Own worse, blue = Own better)",
+            ax_ot, data["tcn_lstm"]["cm"], data["tcn"]["cm"], cm_classes,
+            "TCN+LSTM vs TCN  (red = TCN+LSTM worse, blue = TCN+LSTM better)",
         )
         if im_ot is not None:
             cbar = fig_ot.colorbar(im_ot, ax=ax_ot, fraction=0.045, pad=0.04)
@@ -729,14 +729,14 @@ def main():
             ticks = cbar.get_ticks()
             cbar.set_ticks(ticks)
             cbar.set_ticklabels([f"{t*100:+.1f}" for t in ticks])
-        ot_path = graphs_dir / "cm_delta_own_vs_tcn.svg"
+        ot_path = graphs_dir / "cm_delta_tcn_lstm_vs_tcn.svg"
         fig_ot.savefig(ot_path, dpi=150, bbox_inches="tight")
         plt.close(fig_ot)
         print(f"Saved → {ot_path}")
 
-    if "own" in data and "tcn" in data:
-        _save_solo(plot_subclass_dumbbell_own_vs_tcn, data,
-                   path=graphs_dir / "subclass_dumbbell_own_vs_tcn.svg", figsize=(9, 6))
+    if "tcn_lstm" in data and "tcn" in data:
+        _save_solo(plot_subclass_dumbbell_tcn_lstm_vs_tcn, data,
+                   path=graphs_dir / "subclass_dumbbell_tcn_lstm_vs_tcn.svg", figsize=(9, 6))
 
     # ROC / DET curves
     scores_data = load_scores(RESULTS_DIR)
