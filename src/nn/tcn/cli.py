@@ -22,7 +22,7 @@ def tcn_group():
 
 @tcn_group.command("train")
 @click.option("--epochs", "-e", default=50, help="Max training epochs")
-@click.option("--patience", "-p", default=3, help="Early stopping patience (validation checks without improvement, every 5th epoch)")
+@click.option("--patience", "-p", default=5, help="Early stopping patience (validation checks without improvement, every 5th epoch)")
 def train_cmd(epochs, patience):
     """Train the TCN model with early stopping."""
     _train_tcn(epochs=epochs, patience=patience)

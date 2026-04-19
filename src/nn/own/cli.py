@@ -25,7 +25,7 @@ def own_group():
 
 @own_group.command("train")
 @click.option("--epochs", "-e", default=50, help="Max training epochs")
-@click.option("--patience", "-p", default=3, help="Early-stopping patience (val checks without improvement)")
+@click.option("--patience", "-p", default=5, help="Early-stopping patience (val checks without improvement)")
 @click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
 def train_cmd(epochs, patience, no_wandb):
     """Train OwnModel."""

@@ -16,6 +16,7 @@ from .config import get_config, get_preprocess_stats_path, get_weights_path
 from ..dataset import get_nn_dataset, iter_nn_rows
 from .model import SpeechMusicDetector
 from .preprocess import compute_and_save_preprocess_stats
+from ...seed import seed_all
 
 log = logging.getLogger(__name__)
 
@@ -314,6 +315,7 @@ def train_tcn(
     power spectrum is cached and augmentation is applied to the cached
     spectrograms.
     """
+    seed_all()
     if cfg is None:
         cfg = get_config()
 

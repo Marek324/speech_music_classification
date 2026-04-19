@@ -10,6 +10,7 @@ from scipy.special import logsumexp
 from sklearn.mixture import GaussianMixture
 from sklearn.preprocessing import RobustScaler
 
+from ..seed import RAND_SEED
 from .modelclass import ModelClass
 
 log = logging.getLogger(__name__)
@@ -35,7 +36,7 @@ class GMM(ModelClass):
             reg_covar=1e-3,
             max_iter=200,
             init_params="kmeans",
-            random_state=0,
+            random_state=RAND_SEED,
             verbose=2,
         )
         self.gmm_music = GaussianMixture(
@@ -44,7 +45,7 @@ class GMM(ModelClass):
             reg_covar=1e-3,
             max_iter=200,
             init_params="kmeans",
-            random_state=0,
+            random_state=RAND_SEED,
             verbose=2,
         )
         self.gmm_inactive = GaussianMixture(
@@ -53,7 +54,7 @@ class GMM(ModelClass):
             reg_covar=1e-3,
             max_iter=200,
             init_params="kmeans",
-            random_state=0,
+            random_state=RAND_SEED,
             verbose=2,
         )
 

@@ -10,6 +10,7 @@ import numpy as np
 from .. import config
 from ..evaluator import run_evaluation
 from ..input_handler import InputHandler, SUBCLASS_DTYPE
+from ..seed import seed_all
 from . import MODELS, FeatExtractor
 from .evaluation import eval_classic
 
@@ -19,6 +20,7 @@ CLASSIC_MODELS = ("decision_tree", "gmm", "svm")
 
 
 def _train_classic(model_name: str):
+    seed_all()
     config.init_config(None, model_name=model_name)
     cfg = config.get_config()
     fe = FeatExtractor()
@@ -49,7 +51,7 @@ def _mic_classic(model_name: str, device: int | None, duration: float):
 
 def _smoke_test_classic(model_name: str):
     config.init_config(None, model_name=model_name)
-    np.random.seed(42)
+    seed_all()
     fe = FeatExtractor()
 
     if model_name in ("gmm", "svm"):

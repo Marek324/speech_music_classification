@@ -113,8 +113,8 @@ def _inject_stats(model, cfg):
 def test_own_model_instantiates_with_defaults():
     model = OwnModel(stats_path=Path("/nonexistent"))
     assert model.fe.n_features == 240  # log_mel_delta2 at n_mels=80 -> 3*80
-    # No tail by default.
-    assert model.tail is None
+    # LSTM tail baked into defaults (hybrid-experiment winner).
+    assert type(model.tail).__name__ == "TailLSTM"
 
 
 def test_own_model_forward_shape():

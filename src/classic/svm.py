@@ -9,6 +9,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import SVC
 
+from ..seed import RAND_SEED
 from .modelclass import ModelClass
 
 log = logging.getLogger(__name__)
@@ -17,7 +18,7 @@ _MAX_PER_CLASS = 50_000
 
 
 def _subsample_balanced(X: np.ndarray, y: np.ndarray, max_per_class: int) -> tuple[np.ndarray, np.ndarray]:
-    rng = np.random.default_rng(42)
+    rng = np.random.default_rng(RAND_SEED)
     indices = []
     for label in np.unique(y):
         idx = np.where(y == label)[0]
@@ -38,7 +39,7 @@ class SVM(ModelClass):
         self.svm = Pipeline(
             [
                 ("scaler", StandardScaler()),
-                ("svm", SVC(kernel="rbf", C=1, gamma=3, cache_size=2000)),
+                ("svm", SVC(kernel="rbf", C=1, gamma=3, cache_size=2000, random_state=RAND_SEED)),
             ]
         )
         self.dec_buf = deque(maxlen=20)

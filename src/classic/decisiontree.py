@@ -10,6 +10,7 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.feature_selection import SelectKBest, f_classif
 
+from ..seed import RAND_SEED
 from .modelclass import ModelClass
 
 log = logging.getLogger(__name__)
@@ -32,7 +33,7 @@ class DecisionTree(ModelClass):
                         score_func=f_classif, k=10
                     )
                 ),
-                ("classifier", DecisionTreeClassifier()),
+                ("classifier", DecisionTreeClassifier(random_state=RAND_SEED)),
             ]
         )
         self.name: str = name

@@ -23,8 +23,9 @@ log = logging.getLogger(__name__)
 
 LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Inactive"}
 
+from .seed import RAND_SEED as BOOTSTRAP_SEED
+
 BOOTSTRAP_N = 1000
-BOOTSTRAP_SEED = 20260416
 BOOTSTRAP_CI = 0.95
 
 
