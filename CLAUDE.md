@@ -96,14 +96,14 @@ Dataset uses `start`/`end` keys (in ms), not `start_ms`/`end_ms`. Fixed in `data
 ### Mel cache key changed — `n_features` now baked in (fixed)
 `_mel_cache_path` in `training.py` used to key the cache by `frontend`+`n_mels`, which collided for MFCC variants (`mfcc_20` and `mfcc_40` share `frontend="mfcc"`, `n_mels=80`, but emit different channel counts). Now the key includes `_nf{fe.n_features}`.
 
-**Filename anatomy** — `cache/nn/tcn_mel_{split}_{h}_fe{frontend}[_nf{n_features}]_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`. Only `{h}` is hashed: it's `sha1(dataset_url|dataset_name|dataset_revision)[:8]`, covering the dataset tuple only. Every other slot is verbose, and the `.npz` classic-feature cache at `cache/*.npz` is a *separate* cache (fully md5-hashed over a different fingerprint) — unaffected by this change.
+**Filename anatomy** — `cache/nn/tcn_mel_{split}_{h}_fe{frontend}_nf{n_features}_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`. Only `{h}` is hashed: it's `sha1(dataset_url|dataset_name|dataset_revision)[:8]`, covering the dataset tuple only. Every other slot is verbose, and the `.npz` classic-feature cache at `cache/*.npz` is a *separate* cache (fully md5-hashed over a different fingerprint) — unaffected by this change.
+
+The legacy fallback in `_load_mel_chunks` (which read pre-`_nf` filenames) was removed once all local + HF caches were migrated. Anyone with a legacy local cache must rename in place using the recipe below, or recompute.
 
 **Old filename:** `tcn_mel_{split}_{h}_fe{frontend}_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`
-**New filename:** `tcn_mel_{split}_{h}_fe{frontend}_nf{n_features}_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`
+**Current filename:** `tcn_mel_{split}_{h}_fe{frontend}_nf{n_features}_sr{sr}_nfft{nfft}_hop{hop}_mels{nmels}_seq{seq}.pt`
 
-`_load_mel_chunks` has a read-only legacy fallback: if the new path is missing it reads the old filename for every frontend **except** `mfcc` (old mfcc caches are ambiguous — can't tell 20 vs 40 channels from the filename). So downloaded legacy caches still load, just not under the new name.
-
-**To rename downloaded legacy caches in place** (no hash recomputation needed — `{h}` stays the same unless the dataset tuple changes), compute `n_features` from the filename:
+**To rename legacy caches in place** (no hash recomputation needed — `{h}` stays the same unless the dataset tuple changes), compute `n_features` from the filename:
 - `log_mel` → `n_mels`
 - `log_mel_delta` → `2 × n_mels`
 - `log_mel_delta2` → `3 × n_mels`

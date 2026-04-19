@@ -1,5 +1,5 @@
-# exp/tcn_frontend/cli.py
-# Thin CLI wrapper — all logic lives in src/nn/tcn/.
+# exp/tcn_hybrid/cli.py
+# Thin CLI wrapper — all logic lives in src/nn/tcn/ and src/nn/hybrids.py.
 # The experiment is fully defined by config.toml in this directory.
 
 import logging
@@ -23,7 +23,7 @@ log = logging.getLogger(__name__)
 
 _CFG_PATH = Path(__file__).parent / "config.toml"
 _results_dir = Path(__file__).resolve().parent / "results"
-_EXP_SUBDIR = "tcn_frontend"
+_EXP_SUBDIR = "tcn_hybrid"
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +59,7 @@ def _load(name: str | None = None):
         cfg = _get_variant_config(name)
     else:
         cfg = get_config(_CFG_PATH)
-    variant_name = cfg.get("name", "frontend")
+    variant_name = cfg.get("name", "hybrid")
     return (
         cfg,
         variant_name,
@@ -72,25 +72,25 @@ def _load(name: str | None = None):
 # CLI
 # ---------------------------------------------------------------------------
 
-@click.group("tcn-frontend")
-def tcn_frontend_group():
-    """TCN frontend experiment — variants defined in src/exp/tcn_frontend/config.toml."""
+@click.group("tcn-hybrid")
+def tcn_hybrid_group():
+    """TCN hybrid-backbone experiment — variants defined in src/exp/tcn_hybrid/config.toml."""
     pass
 
 
-@tcn_frontend_group.command("train")
-@click.option("--name", "-n", default=None, help="Variant name (e.g. mfcc_20, pcen)")
+@tcn_hybrid_group.command("train")
+@click.option("--name", "-n", default=None, help="Variant name (e.g. tcn_gru)")
 @click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
 def train_cmd(name, no_wandb):
-    """Train a single frontend variant."""
+    """Train a single hybrid-backbone variant."""
     cfg, _, weights_path, stats_path = _load(name)
     train_tcn(use_wandb=not no_wandb, cfg=cfg, weights_path=weights_path, stats_path=stats_path)
 
 
-@tcn_frontend_group.command("eval")
+@tcn_hybrid_group.command("eval")
 @click.option("--name", "-n", default=None, help="Variant name")
 def eval_cmd(name):
-    """Evaluate a single frontend variant on the test split."""
+    """Evaluate a single hybrid-backbone variant on the test split."""
     cfg, variant_name, weights_path, stats_path = _load(name)
     eval_tcn(
         cfg=cfg,
@@ -101,7 +101,7 @@ def eval_cmd(name):
     )
 
 
-@tcn_frontend_group.command("smoke-test")
+@tcn_hybrid_group.command("smoke-test")
 @click.option("--name", "-n", default=None, help="Variant name (default: base config)")
 def smoke_test_cmd(name):
     """Smoke test: forward pass with synthetic audio (no weights or dataset needed)."""
@@ -119,33 +119,33 @@ def smoke_test_cmd(name):
         f"Unexpected output shape: {probs.shape}"
     )
     assert 0 <= probs.min().item() <= 1 and 0 <= probs.max().item() <= 1
-    log.info("Smoke-test passed. Variant: %s  Frontend: %s  n_features: %d  Output shape: %s",
-             variant_name, cfg.get("frontend", "log_mel"), nf, tuple(probs.shape))
+    log.info("Smoke-test passed. Variant: %s  Frontend: %s  Tail: %s  n_features: %d  Output shape: %s",
+             variant_name, cfg.get("frontend", "log_mel"), cfg["model"].get("tail", "none"), nf, tuple(probs.shape))
 
 
-@tcn_frontend_group.command("visualize")
+@tcn_hybrid_group.command("visualize")
 def visualize_cmd():
-    """Plot frontend experiment results. Reads results/tcn_<name>.eval files."""
+    """Plot hybrid-backbone experiment results. Reads results/tcn_<name>.eval files."""
     import importlib.util
     viz_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "visualize_experiment.py"
     spec = importlib.util.spec_from_file_location("visualize_experiment", viz_path)
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    mod.main(config_path=_CFG_PATH, results_dir=_results_dir, experiment_name="Frontend Experiment")
+    mod.main(config_path=_CFG_PATH, results_dir=_results_dir, experiment_name="Hybrid Backbone Experiment")
 
 
-@tcn_frontend_group.command("run-all")
+@tcn_hybrid_group.command("run-all")
 @click.option("--skip-existing/--no-skip-existing", default=False,
               help="Skip variants whose weights already exist (default: off)")
 def run_all_cmd(skip_existing):
-    """Train + eval all frontend variants sequentially."""
+    """Train + eval all hybrid-backbone variants sequentially."""
     import time
 
     names = _list_variants()
     done: set[str] = set()
     results: dict[str, tuple[int, float]] = {}
     diverged: set[str] = set()
-    log.info("Running frontend experiment: %d variant(s): %s", len(names), names)
+    log.info("Running hybrid-backbone experiment: %d variant(s): %s", len(names), names)
 
     for name in names:
         if name in done:
@@ -182,7 +182,7 @@ def run_all_cmd(skip_existing):
         log.info("[%s] eval done — %d-class macro F1: %.4f", name, res.n_classes, res.f1)
         done.add(name)
 
-    log.info("Frontend experiment complete. %d variant(s) processed.", len(done))
+    log.info("Hybrid-backbone experiment complete. %d variant(s) processed.", len(done))
     if results or diverged:
         log.info("── Results summary ──")
         log.info("  %-24s  %s", "variant", "macro F1")

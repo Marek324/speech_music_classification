@@ -53,16 +53,10 @@ def test_get_config_model_overrides_from_toml():
 
 
 # ── get_ablation_config ──────────────────────────────────────────────────
-
-def test_get_ablation_config_model_key_n_filters():
-    cfg = get_ablation_config("filters_8", config_path=ABLATION_CFG, subgroup="capacity")
-    assert cfg["model"]["n_filters"] == 8
-
-
-def test_get_ablation_config_model_key_n_filters_32():
-    cfg = get_ablation_config("filters_32", config_path=ABLATION_CFG, subgroup="capacity")
-    assert cfg["model"]["n_filters"] == 32
-
+# Tests reference only variants that are currently active in
+# src/exp/tcn_ablation/config.toml. Commented-out ablations (capacity,
+# stacks, kernel, training/seq_len, n_mels, batch_size, augmentation, loss)
+# were removed per the latest ablation notes — don't resurrect tests for them.
 
 def test_get_ablation_config_top_key_optimizer():
     cfg = get_ablation_config("adam", config_path=ABLATION_CFG, subgroup="optimizer")
@@ -82,23 +76,13 @@ def test_get_ablation_config_mixed_top_and_model():
 
 
 def test_get_ablation_config_layers_2():
-    cfg = get_ablation_config("layers_2", config_path=ABLATION_CFG, subgroup="depth")
+    cfg = get_ablation_config("layers_2", config_path=ABLATION_CFG, subgroup="layers")
     assert cfg["model"]["n_layers"] == 2
-
-
-def test_get_ablation_config_stacks_5():
-    cfg = get_ablation_config("stacks_5", config_path=ABLATION_CFG, subgroup="depth")
-    assert cfg["model"]["n_stacks"] == 5
 
 
 def test_get_ablation_config_dropout_low():
     cfg = get_ablation_config("dropout_low", config_path=ABLATION_CFG, subgroup="regularization")
     assert cfg["model"]["dropout"] == pytest.approx(0.1)
-
-
-def test_get_ablation_config_seq_len():
-    cfg = get_ablation_config("seq_len_256", config_path=ABLATION_CFG, subgroup="training")
-    assert cfg["seq_len"] == 256
 
 
 def test_get_ablation_config_baseline_equals_base():
@@ -110,15 +94,15 @@ def test_get_ablation_config_baseline_equals_base():
 
 def test_get_ablation_config_non_overridden_keys_preserved():
     base = get_config(ABLATION_CFG)
-    cfg = get_ablation_config("filters_8", config_path=ABLATION_CFG, subgroup="capacity")
-    # keys other than n_filters should be unchanged
-    for k in ("kernel_size", "n_layers", "n_stacks", "dropout"):
+    cfg = get_ablation_config("layers_2", config_path=ABLATION_CFG, subgroup="layers")
+    # keys other than n_layers should be unchanged
+    for k in ("kernel_size", "n_filters", "n_stacks", "dropout"):
         assert cfg["model"][k] == base["model"][k]
 
 
 def test_get_ablation_config_sets_name():
-    cfg = get_ablation_config("filters_8", config_path=ABLATION_CFG, subgroup="capacity")
-    assert cfg["name"] == "filters_8"
+    cfg = get_ablation_config("layers_2", config_path=ABLATION_CFG, subgroup="layers")
+    assert cfg["name"] == "layers_2"
 
 
 # ── list_ablations ────────────────────────────────────────────────────────
@@ -130,13 +114,14 @@ def test_list_ablations_returns_dict():
 
 def test_list_ablations_subgroups_present():
     result = list_ablations(ABLATION_CFG)
-    for sg in ("optimizer", "capacity", "depth", "regularization", "training"):
+    # Only currently-active subgroups — see ablation notes for which have been dropped.
+    for sg in ("optimizer", "layers", "regularization", "skip_connections", "activation"):
         assert sg in result
 
 
-def test_list_ablations_capacity_variants():
+def test_list_ablations_layers_variants():
     result = list_ablations(ABLATION_CFG)
-    assert set(result["capacity"]) == {"baseline", "filters_8", "filters_32"}
+    assert set(result["layers"]) == {"baseline", "layers_1", "layers_2", "layers_3"}
 
 
 def test_list_ablations_all_variants_are_lists():
@@ -165,21 +150,58 @@ def test_is_subgroup_variant_names_returns_true():
 def test_get_weights_path_default_name():
     p = get_weights_path()
     assert p.name == "tcn.safetensors"
+    assert p.parent.name == "weights"
 
 
 def test_get_weights_path_named():
     p = get_weights_path("foo")
     assert p.name == "tcn_foo.safetensors"
+    assert p.parent.name == "weights"
+
+
+def test_get_weights_path_with_subdir():
+    """subdir scopes weights into a per-experiment directory; collision-proof across experiments."""
+    p = get_weights_path("baseline", subdir="tcn_hybrid")
+    assert p.name == "tcn_baseline.safetensors"
+    assert p.parent.name == "tcn_hybrid"
+    assert p.parent.parent.name == "weights"
+
+
+def test_get_weights_path_subdir_no_name():
+    p = get_weights_path(subdir="tcn_hybrid")
+    assert p.name == "tcn.safetensors"
+    assert p.parent.name == "tcn_hybrid"
 
 
 def test_get_preprocess_stats_path_default():
     p = get_preprocess_stats_path()
     assert "preprocess_stats" in p.name
+    assert p.parent.name == "weights"
 
 
 def test_get_preprocess_stats_path_named():
     p = get_preprocess_stats_path(name="foo")
     assert p.name == "tcn_foo_preprocess_stats.pt"
+    assert p.parent.name == "weights"
+
+
+def test_get_preprocess_stats_path_with_subdir():
+    """Same subdir scoping as weights — stats and weights live side-by-side."""
+    p = get_preprocess_stats_path(name="baseline", subdir="tcn_hybrid")
+    assert p.name == "tcn_baseline_preprocess_stats.pt"
+    assert p.parent.name == "tcn_hybrid"
+    assert p.parent.parent.name == "weights"
+
+
+def test_paths_are_collision_free_across_experiments():
+    """Two experiments with the same variant name must produce different paths."""
+    a = get_weights_path("baseline", subdir="tcn_hybrid")
+    b = get_weights_path("baseline", subdir="tcn_combined")
+    assert a != b
+    assert a.parent != b.parent
+    sa = get_preprocess_stats_path(name="baseline", subdir="tcn_hybrid")
+    sb = get_preprocess_stats_path(name="baseline", subdir="tcn_combined")
+    assert sa != sb
 
 
 # ── New config keys: batch_size, augment, activation ─────────────────────────
@@ -212,36 +234,16 @@ def test_ablation_activation_gelu():
     assert cfg["model"]["activation"] == "gelu"
 
 
-def test_ablation_no_augment():
-    cfg = get_ablation_config("no_augment", config_path=ABLATION_CFG, subgroup="augmentation")
-    assert cfg["augment"] is False
-
-
-def test_ablation_batch_size_16():
-    cfg = get_ablation_config("batch_16", config_path=ABLATION_CFG, subgroup="batch_size")
-    assert cfg["batch_size"] == 16
-
-
-def test_ablation_batch_size_64():
-    cfg = get_ablation_config("batch_64", config_path=ABLATION_CFG, subgroup="batch_size")
-    assert cfg["batch_size"] == 64
-
-
-def test_ablation_n_mels_40():
-    cfg = get_ablation_config("mels_40", config_path=ABLATION_CFG, subgroup="n_mels")
-    assert cfg["n_mels"] == 40
-
-
-def test_ablation_n_mels_128():
-    cfg = get_ablation_config("mels_128", config_path=ABLATION_CFG, subgroup="n_mels")
-    assert cfg["n_mels"] == 128
+def test_ablation_skip_connections_no_skip():
+    cfg = get_ablation_config("no_skip", config_path=ABLATION_CFG, subgroup="skip_connections")
+    assert cfg["model"]["skip_connections"] is False
 
 
 # ── carried_overrides ─────────────────────────────────────────────────────────
 
 def test_carried_overrides_top_key():
     carried = {"optimizer": "adam", "lr": 1e-3}
-    cfg = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+    cfg = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="layers",
                               carried_overrides=carried)
     assert cfg["optimizer"] == "adam"
     assert cfg["lr"] == pytest.approx(1e-3)
@@ -249,22 +251,22 @@ def test_carried_overrides_top_key():
 
 def test_carried_overrides_model_key():
     carried = {"n_filters": 32}
-    cfg = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+    cfg = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="layers",
                               carried_overrides=carried)
     assert cfg["model"]["n_filters"] == 32
 
 
 def test_carried_overrides_variant_wins_over_carried():
     """Variant-specific overrides take precedence over carried config."""
-    carried = {"n_filters": 32}
-    cfg = get_ablation_config("filters_8", config_path=ABLATION_CFG, subgroup="capacity",
+    carried = {"n_layers": 4}
+    cfg = get_ablation_config("layers_2", config_path=ABLATION_CFG, subgroup="layers",
                               carried_overrides=carried)
-    assert cfg["model"]["n_filters"] == 8
+    assert cfg["model"]["n_layers"] == 2
 
 
 def test_carried_overrides_none_unchanged():
-    base = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity")
-    carried_none = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+    base = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="layers")
+    carried_none = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="layers",
                                        carried_overrides=None)
     assert base["model"] == carried_none["model"]
 
@@ -282,7 +284,7 @@ def test_extract_overrides_returns_flat_dict():
 def test_extract_overrides_contains_top_keys():
     cfg = get_config(ABLATION_CFG)
     out = extract_overrides(cfg)
-    for k in ("optimizer", "lr", "batch_size", "augment", "n_mels"):
+    for k in ("optimizer", "lr", "seq_len", "loss"):
         assert k in out, f"missing key: {k}"
 
 
@@ -297,25 +299,25 @@ def test_extract_overrides_roundtrip():
     """Overrides extracted from a variant config should reproduce that config when carried."""
     cfg1 = get_ablation_config("adam", config_path=ABLATION_CFG, subgroup="optimizer")
     overrides = extract_overrides(cfg1)
-    cfg2 = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="capacity",
+    cfg2 = get_ablation_config("baseline", config_path=ABLATION_CFG, subgroup="layers",
                                carried_overrides=overrides)
     assert cfg2["optimizer"] == "adam"
     assert cfg2["lr"] == pytest.approx(1e-3)
 
 
-# ── New subgroups present in list_ablations ───────────────────────────────────
+# ── Subgroups present in list_ablations ───────────────────────────────────────
+# Historical note: n_mels / batch_size / augmentation / capacity / training /
+# stacks / kernel / loss were commented out of tcn_ablation/config.toml after
+# their respective signals turned out to be flat. Tests for those live only
+# in the git history.
 
-def test_list_ablations_new_subgroups():
+def test_list_ablations_active_subgroups():
     result = list_ablations(ABLATION_CFG)
-    for sg in ("activation", "n_mels", "batch_size", "augmentation"):
+    # These are the subgroups still active in the current ablation config.
+    for sg in ("optimizer", "layers", "regularization", "skip_connections", "activation"):
         assert sg in result, f"subgroup '{sg}' missing from list_ablations"
 
 
 def test_list_ablations_activation_variants():
     result = list_ablations(ABLATION_CFG)
     assert set(result["activation"]) == {"baseline", "leaky_relu", "elu", "gelu"}
-
-
-def test_list_ablations_augmentation_variants():
-    result = list_ablations(ABLATION_CFG)
-    assert set(result["augmentation"]) == {"baseline", "no_augment"}

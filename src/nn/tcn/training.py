@@ -115,16 +115,6 @@ def _mel_cache_path(cfg: dict, split: str, fe: nn.Module | None = None) -> Path:
     return repo_root / "cache" / "nn" / fname
 
 
-def _legacy_mel_cache_path(cfg: dict, split: str) -> Path:
-    """Pre-``n_features`` cache path — used as a read-only fallback so caches
-    built before the key change still load. Safe for frontends where the
-    output channel count was unambiguous from ``frontend`` + ``n_mels``;
-    MFCC is excluded by the caller because its old key could map to either
-    20 or 40 channels.
-    """
-    return _mel_cache_path(cfg, split, fe=None)
-
-
 def _load_mel_chunks(
     ds_link: str,
     split: str,
@@ -144,11 +134,6 @@ def _load_mel_chunks(
     Returned tensors live on CPU so the caller decides where to keep them.
     """
     cache_path = _mel_cache_path(cfg, split, fe)
-    if not cache_path.exists() and cfg.get("frontend", "log_mel") != "mfcc":
-        legacy = _legacy_mel_cache_path(cfg, split)
-        if legacy.exists():
-            log.info("[%s] using legacy mel cache %s", split, legacy)
-            cache_path = legacy
     if cache_path.exists():
         log.info("[%s] loading cached mel chunks from %s", split, cache_path)
         data = torch.load(cache_path, map_location="cpu")

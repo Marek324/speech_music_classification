@@ -6,6 +6,7 @@ import torch.nn as nn
 
 from ..backbones import CausalGRU, CausalLSTM, CausalTransformer
 from ..blocks import TCNResidualBlock
+from ..hybrids import build_tail
 from ..preprocessors import build_preprocessor
 from .config import get_config, get_preprocess_stats_path
 from .preprocess import build_frontend
@@ -15,6 +16,10 @@ class CausalTCN(nn.Module):
     """
     Causal TCN for frame-level speech / music detection.
     Receptive field = n_stacks * sum(2^i) * (kernel-1) + 1 frames.
+
+    When ``return_features=True``, the internal classifier head is skipped and
+    the raw feature map ``(B, n_filters, T)`` is returned — used when a tail
+    module provides its own classification head.
     """
 
     def __init__(
@@ -27,6 +32,7 @@ class CausalTCN(nn.Module):
         dropout: float | None = None,
         n_classes: int | None = None,
         cfg: dict | None = None,
+        return_features: bool = False,
     ):
         super().__init__()
         if cfg is None:
@@ -42,6 +48,9 @@ class CausalTCN(nn.Module):
         use_weight_norm = m.get("use_weight_norm", False)
         skip_connections = m.get("skip_connections", True)
         activation = m.get("activation", "relu")
+
+        self.return_features = return_features
+        self.n_filters = n_filters
 
         self.input_proj = nn.Conv1d(n_mels, n_filters, kernel_size=1)
 
@@ -64,12 +73,12 @@ class CausalTCN(nn.Module):
             x: log-mel spectrogram (batch, n_mels, time_frames)
         Returns:
             logits: (batch, n_classes, time_frames) — raw (pre-sigmoid) logits.
-            Apply torch.sigmoid externally to obtain probabilities. Training
-            uses BCEWithLogitsLoss directly on these logits; inference paths
-            apply sigmoid in SpeechMusicDetector.forward.
+            When ``return_features=True``, returns features (batch, n_filters, T) instead.
         """
         x = self.input_proj(x)
         x = self.tcn(x)
+        if self.return_features:
+            return x
         x = self.classifier(x)
         return x
 
@@ -82,7 +91,12 @@ _BACKBONE_TYPES = ("tcn", "gru", "lstm", "transformer")
 
 
 def build_backbone(cfg: dict, n_features: int) -> nn.Module:
-    """Construct a backbone module from config."""
+    """Construct a backbone module from config.
+
+    When ``cfg["model"]["tail"]`` is set, the TCN backbone is built with
+    ``return_features=True`` so the tail module can provide the classification head.
+    Only the ``tcn`` backbone supports tails — other backbones ignore the tail config.
+    """
     m = cfg.get("model", {})
     name = m.get("backbone", "tcn")
     common = dict(
@@ -93,7 +107,7 @@ def build_backbone(cfg: dict, n_features: int) -> nn.Module:
         n_classes=m["n_classes"],
     )
     if name == "tcn":
-        return CausalTCN(cfg=cfg, n_mels=n_features)
+        return CausalTCN(cfg=cfg, n_mels=n_features, return_features=bool(m.get("tail")))
     if name == "gru":
         return CausalGRU(**common)
     if name == "lstm":
@@ -126,22 +140,30 @@ class SpeechMusicDetector(nn.Module):
         self.fe = build_frontend(cfg, stats_path=stats_path)
         self.preproc = build_preprocessor(cfg, n_features=self.fe.n_features)
         self.model = build_backbone(cfg, n_features=self.preproc.n_features)
+        # Tail sits on the TCN feature map (only applies when backbone == "tcn" + cfg.model.tail set).
+        self.tail = build_tail(cfg, n_features=cfg["model"]["n_filters"])
+
+    def _apply_backbone(self, mel: torch.Tensor) -> torch.Tensor:
+        """Run backbone + optional tail on a normalized mel tensor. Returns logits."""
+        x = self.model(mel)
+        if self.tail is not None:
+            x = self.tail(x)
+        return x
 
     def forward_logits(self, waveform: torch.Tensor) -> torch.Tensor:
         """Raw logits — used by training with BCEWithLogitsLoss."""
         spec = self.fe(waveform)
         spec = self.preproc(spec)
-        return self.model(spec)
+        return self._apply_backbone(spec)
 
     def forward_logits_from_mel(self, mel: torch.Tensor) -> torch.Tensor:
         """Raw logits from pre-computed normalized log-mel spectrograms."""
         mel = self.preproc(mel)
-        return self.model(mel)
+        return self._apply_backbone(mel)
 
     def forward_from_mel(self, mel: torch.Tensor) -> torch.Tensor:
         """Sigmoid probs from pre-computed normalized log-mel spectrograms."""
-        mel = self.preproc(mel)
-        return torch.sigmoid(self.model(mel))
+        return torch.sigmoid(self.forward_logits_from_mel(mel))
 
     def forward(self, waveform: torch.Tensor) -> torch.Tensor:
         """
@@ -151,3 +173,38 @@ class SpeechMusicDetector(nn.Module):
             probs: (batch, 3, time_frames) — sigmoid applied for inference.
         """
         return torch.sigmoid(self.forward_logits(waveform))
+
+    def forward_streaming(self, waveform: torch.Tensor, state=None):
+        """Streaming forward.
+
+        For stateless models (no tail): equivalent to forward(); state passes through.
+        For stateful tails: the TCN recomputes on the full audio buffer (it is stateless),
+        then only the last ``state["n_new_frames"]`` feature frames are fed through the
+        tail with carried state. Returns (probs, new_state).
+        """
+        if self.tail is None or not getattr(self.tail, "is_stateful", False):
+            return self.forward(waveform), state
+
+        spec = self.fe(waveform)
+        spec = self.preproc(spec)
+        feats = self.model(spec)  # (B, n_filters, T_buf)
+
+        n_new = (state or {}).get("n_new_frames")
+        if n_new is None or n_new <= 0 or n_new > feats.shape[-1]:
+            # No frame counter yet (e.g. first offline call) — process the whole buffer.
+            logits, new_state = self.tail.forward_streaming(feats, state)
+        else:
+            feats_new = feats[..., -n_new:]
+            logits_new, new_state = self.tail.forward_streaming(feats_new, state)
+            # Pad prefix with zeros so caller sees a tensor aligned to buffer length;
+            # last frame (the one StreamingInference reads) is always valid.
+            prefix = feats.shape[-1] - n_new
+            if prefix > 0:
+                pad = torch.zeros(
+                    logits_new.shape[0], logits_new.shape[1], prefix,
+                    device=logits_new.device, dtype=logits_new.dtype,
+                )
+                logits = torch.cat([pad, logits_new], dim=-1)
+            else:
+                logits = logits_new
+        return torch.sigmoid(logits), new_state

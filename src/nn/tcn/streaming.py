@@ -16,6 +16,8 @@ class StreamingInference:
         self.sample_rate = sample_rate or cfg["sample_rate"]
         device = next(model.parameters()).device
         self.buffer = torch.zeros(1, 0, device=device)
+        self._state = None
+        self._frames_emitted = 0
 
         m = cfg["model"]
         kernel_size = m["kernel_size"]
@@ -31,13 +33,21 @@ class StreamingInference:
     def process_chunk(self, chunk):
         self.model.eval()
         chunk = chunk.unsqueeze(0).to(self.buffer.device)
+        chunk_frames = chunk.shape[-1] // self.hop_length
         self.buffer = torch.cat([self.buffer, chunk], dim=-1)
 
         min_samples = self.hop_length * 4
         if self.buffer.shape[-1] < min_samples:
             return 0.0, 0.0, 0.0
 
-        probs = self.model(self.buffer)
+        # Stateful-streaming protocol: model reads/advances state each call.
+        # Stateless models ignore n_new_frames and return state unchanged.
+        if self._state is None:
+            self._state = {}
+        self._state["n_new_frames"] = chunk_frames
+        probs, self._state = self.model.forward_streaming(self.buffer, self._state)
+        self._frames_emitted += chunk_frames
+
         speech_prob   = probs[0, 0, -1].item()
         music_prob    = probs[0, 1, -1].item()
         inactive_prob = probs[0, 2, -1].item()

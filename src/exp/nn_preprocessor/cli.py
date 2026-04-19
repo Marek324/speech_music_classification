@@ -23,6 +23,7 @@ log = logging.getLogger(__name__)
 
 _CFG_PATH = Path(__file__).parent / "config.toml"
 _results_dir = Path(__file__).resolve().parent / "results"
+_EXP_SUBDIR = "nn_preprocessor"
 
 
 # ---------------------------------------------------------------------------
@@ -59,7 +60,12 @@ def _load(name: str | None = None):
     else:
         cfg = get_config(_CFG_PATH)
     variant_name = cfg.get("name", "preprocessor")
-    return cfg, variant_name, get_weights_path(name=variant_name), get_preprocess_stats_path(name=variant_name)
+    return (
+        cfg,
+        variant_name,
+        get_weights_path(name=variant_name, subdir=_EXP_SUBDIR),
+        get_preprocess_stats_path(name=variant_name, subdir=_EXP_SUBDIR),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -145,7 +151,8 @@ def run_all_cmd(skip_existing):
         if name in done:
             log.info("[%s] already processed — skipping", name)
             continue
-        weights = get_weights_path(name=name)
+        weights = get_weights_path(name=name, subdir=_EXP_SUBDIR)
+        stats = get_preprocess_stats_path(name=name, subdir=_EXP_SUBDIR)
         diverged_path = _results_dir / f"tcn_{name}.diverged"
 
         if skip_existing and weights.exists():
@@ -155,7 +162,7 @@ def run_all_cmd(skip_existing):
             t0 = time.monotonic()
             cfg = _get_variant_config(name)
             try:
-                train_tcn(cfg=cfg)
+                train_tcn(cfg=cfg, weights_path=weights, stats_path=stats)
                 log.info("[%s] training done in %.1fs", name, time.monotonic() - t0)
                 if diverged_path.exists():
                     diverged_path.unlink()
@@ -169,7 +176,6 @@ def run_all_cmd(skip_existing):
 
         log.info("[%s] evaluating...", name)
         cfg = _get_variant_config(name)
-        stats = get_preprocess_stats_path(name=name)
         res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats,
                        output_name=f"tcn_{name}", output_dir=_results_dir)
         results[name] = (res.n_classes, res.f1)

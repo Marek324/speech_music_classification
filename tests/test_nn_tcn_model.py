@@ -48,10 +48,11 @@ def test_causal_tcn_output_shape():
 
 
 def test_causal_tcn_output_range():
+    """CausalTCN emits raw logits. Sigmoid(logits) must land in [0, 1]."""
     tcn = CausalTCN(cfg=TINY_CFG)
     x = torch.randn(2, 80, 100)
     with torch.no_grad():
-        out = tcn(x)
+        out = torch.sigmoid(tcn(x))
     assert (out >= 0).all() and (out <= 1).all()
 
 

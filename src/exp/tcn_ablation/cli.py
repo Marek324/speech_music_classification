@@ -24,6 +24,7 @@ log = logging.getLogger(__name__)
 
 _CFG_PATH = Path(__file__).parent / "config.toml"
 _results_dir = Path(__file__).resolve().parent / "results"
+_EXP_SUBDIR = "tcn_ablation"
 
 
 def _load(name: str | None = None, subgroup: str | None = None):
@@ -32,7 +33,12 @@ def _load(name: str | None = None, subgroup: str | None = None):
     else:
         cfg = get_config(_CFG_PATH)
     variant_name = cfg.get("name", "ablation")
-    return cfg, variant_name, get_weights_path(name=variant_name), get_preprocess_stats_path(name=variant_name)
+    return (
+        cfg,
+        variant_name,
+        get_weights_path(name=variant_name, subdir=_EXP_SUBDIR),
+        get_preprocess_stats_path(name=variant_name, subdir=_EXP_SUBDIR),
+    )
 
 
 @click.group("tcn-ablation")
@@ -117,7 +123,8 @@ def ablation_cmd(subgroup, skip_existing):
             if name in done:
                 log.info("[%s] already processed — skipping", name)
                 continue
-            weights = get_weights_path(name=name)
+            weights = get_weights_path(name=name, subdir=_EXP_SUBDIR)
+            stats = get_preprocess_stats_path(name=name, subdir=_EXP_SUBDIR)
             diverged_path = _results_dir / f"tcn_{name}.diverged"
             if skip_existing and weights.exists():
                 log.info("[%s] weights exist — skipping train", name)
@@ -126,7 +133,7 @@ def ablation_cmd(subgroup, skip_existing):
                 t0 = time.monotonic()
                 cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
                 try:
-                    train_tcn(cfg=cfg)
+                    train_tcn(cfg=cfg, weights_path=weights, stats_path=stats)
                     log.info("[%s] training done in %.1fs", name, time.monotonic() - t0)
                     if diverged_path.exists():
                         diverged_path.unlink()
@@ -139,7 +146,6 @@ def ablation_cmd(subgroup, skip_existing):
                     continue
             log.info("[%s] evaluating...", name)
             cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp or None)
-            stats = get_preprocess_stats_path(name=name)
             res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats,
                            output_name=f"tcn_{name}", output_dir=_results_dir)
             results[name] = (res.n_classes, res.f1)
@@ -198,7 +204,8 @@ def coord_ascent_cmd(skip_existing):
                 log.info("[%s] already processed — skipping", name)
                 continue
             full_name = f"{name}_ca"
-            weights = get_weights_path(name=full_name)
+            weights = get_weights_path(name=full_name, subdir=_EXP_SUBDIR)
+            stats = get_preprocess_stats_path(name=full_name, subdir=_EXP_SUBDIR)
             diverged_path = _results_dir / f"tcn_{full_name}.diverged"
 
             if skip_existing and weights.exists():
@@ -210,7 +217,7 @@ def coord_ascent_cmd(skip_existing):
                                           carried_overrides=carried or None)
                 cfg["name"] = full_name
                 try:
-                    train_tcn(cfg=cfg)
+                    train_tcn(cfg=cfg, weights_path=weights, stats_path=stats)
                     log.info("[%s] training done in %.1fs", full_name, time.monotonic() - t0)
                     if diverged_path.exists():
                         diverged_path.unlink()
@@ -226,7 +233,6 @@ def coord_ascent_cmd(skip_existing):
             cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=grp,
                                       carried_overrides=carried or None)
             cfg["name"] = full_name
-            stats = get_preprocess_stats_path(name=full_name)
             res = eval_tcn(cfg=cfg, weights_path=weights, stats_path=stats,
                            output_name=f"tcn_{full_name}", output_dir=_results_dir)
             results[name] = (res.n_classes, res.f1)

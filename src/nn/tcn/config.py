@@ -36,26 +36,38 @@ _DEFAULT: Dict[str, Any] = {
 }
 
 
-def get_weights_path(name: str | None = None) -> Path:
+def get_weights_path(name: str | None = None, subdir: str | None = None) -> Path:
     """Path to saved TCN weights (safetensors format).
 
-    When *name* is provided, returns a per-experiment path
-    ``weights/tcn_{name}.safetensors`` so ablation runs don't overwrite the
-    production checkpoint.
+    When *name* is provided, returns a per-variant path
+    ``weights/[subdir/]tcn_{name}.safetensors`` so ablation runs don't overwrite
+    the production checkpoint. When *subdir* is provided, the file lives under
+    ``weights/<subdir>/`` — used by experiments to isolate their per-variant
+    weights from each other (a "baseline" variant in two experiments must not
+    share a weights file because frontends/preprocessors may differ).
     """
     weights = Path(__file__).resolve().parent.parent.parent.parent / "weights"
+    if subdir:
+        weights = weights / subdir
     if name:
         return weights / f"tcn_{name}.safetensors"
     return weights / "tcn.safetensors"
 
 
-def get_preprocess_stats_path(revision: str | None = None, name: str | None = None) -> Path:
-    """Path to precomputed normalization stats (mean, std) for log-mel spectrograms.
+def get_preprocess_stats_path(
+    revision: str | None = None,
+    name: str | None = None,
+    subdir: str | None = None,
+) -> Path:
+    """Path to precomputed normalization stats (mean, std) for the frontend.
 
-    *name* is checked first (per-experiment path); *revision* is the legacy
-    dataset-revision suffix used by the production TCN.
+    *name* gives a per-variant suffix; *subdir* scopes the file to an
+    experiment directory (mirrors ``get_weights_path``); *revision* is the
+    legacy dataset-revision suffix used by the production TCN.
     """
     weights = Path(__file__).resolve().parent.parent.parent.parent / "weights"
+    if subdir:
+        weights = weights / subdir
     if name:
         return weights / f"tcn_{name}_preprocess_stats.pt"
     if revision:
@@ -66,6 +78,7 @@ def get_preprocess_stats_path(revision: str | None = None, name: str | None = No
 _MODEL_KEYS = frozenset([
     "backbone", "preprocessor", "n_filters", "kernel_size", "n_layers", "n_stacks",
     "n_heads", "dropout", "n_classes", "use_weight_norm", "skip_connections", "activation",
+    "tail", "tail_width",
 ])
 _TOP_KEYS = frozenset([
     "frontend", "sample_rate", "n_fft", "hop_length", "n_mels", "n_mfcc",

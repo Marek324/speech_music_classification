@@ -8,6 +8,7 @@ from .nn_preprocessor.cli import nn_preprocessor_group
 from .tcn_ablation.cli import tcn_ablation_group
 from .tcn_combined.cli import tcn_combined_group
 from .tcn_frontend.cli import tcn_frontend_group
+from .tcn_hybrid.cli import tcn_hybrid_group
 
 
 @click.group("exp")
@@ -21,3 +22,4 @@ exp_group.add_command(nn_preprocessor_group)
 exp_group.add_command(tcn_ablation_group)
 exp_group.add_command(tcn_combined_group)
 exp_group.add_command(tcn_frontend_group)
+exp_group.add_command(tcn_hybrid_group)
