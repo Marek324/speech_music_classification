@@ -9,9 +9,9 @@ import numpy as np
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
-MODELS = ["tcn", "decision_tree", "svm", "gmm"]
-COLORS = {"tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
-MODEL_SHORT = {"tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
+MODELS = ["own", "tcn", "decision_tree", "svm", "gmm"]
+COLORS = {"own": "#E91E63", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
+MODEL_SHORT = {"own": "Own", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
 
 SPEECH_SUBS = [
     "speech_clean", "speech_dirty", "speech_multispeaker",
@@ -23,6 +23,8 @@ MUSIC_SUBS = [
 ]
 SPEECH_SHORT = ["clean", "dirty", "multi", "msom", "noisy", "som"]
 MUSIC_SHORT = ["acapella", "electronic", "folk", "hip-hop", "instrumental", "pop", "rock"]
+ALL_SUBS = SPEECH_SUBS + MUSIC_SUBS + ["noise"]
+ALL_SHORT = SPEECH_SHORT + MUSIC_SHORT + ["noise"]
 
 
 def parse_eval(path: Path) -> dict:
@@ -416,6 +418,228 @@ def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
     ax.legend(fontsize=7)
 
 
+def plot_per_class_f1(ax, data):
+    """Grouped bars: per-class F1, one bar group per class, one colored bar per model."""
+    models = list(data.keys())
+    classes = ["speech", "music", "inactive"]
+    class_labels = ["Speech", "Music", "Inactive"]
+    n_models = len(models)
+    x = np.arange(len(classes))
+    width = 0.8 / n_models
+    for i, model in enumerate(models):
+        vals = [data[model]["per_class"].get(c, {}).get("f1", 0) for c in classes]
+        offset = (i - n_models / 2 + 0.5) * width
+        bars = ax.bar(x + offset, vals, width * 0.95,
+                      color=COLORS[model], alpha=0.9, label=MODEL_SHORT[model])
+        for bar, v in zip(bars, vals):
+            if v > 0:
+                ax.text(bar.get_x() + bar.get_width() / 2, v + 0.005,
+                        f"{v:.2f}", ha="center", va="bottom", fontsize=6, rotation=0)
+    ax.set_xticks(x)
+    ax.set_xticklabels(class_labels)
+    ax.set_ylim(0, 1.05)
+    ax.set_ylabel("F1")
+    ax.set_title("Per-Class F1 by Model")
+    ax.legend(fontsize=8, ncol=n_models, loc="lower center", bbox_to_anchor=(0.5, -0.18))
+    ax.grid(axis="y", alpha=0.3, linestyle=":")
+
+
+def plot_subclass_heatmap(ax, data):
+    """Heatmap: rows=models, cols=all 14 subclasses (speech | music | inactive). Cells = F1."""
+    models = list(data.keys())
+    values = np.full((len(models), len(ALL_SUBS)), np.nan)
+    for i, model in enumerate(models):
+        for j, sub in enumerate(ALL_SUBS):
+            f1 = data[model]["subclasses"].get(sub, {}).get("f1")
+            if f1 is not None:
+                values[i, j] = f1
+
+    # Clamp low end of colormap so differences near ceiling are still visible.
+    vmin = np.nanmin(values)
+    vmin_floor = max(0.0, min(vmin - 0.02, 0.7))
+    im = ax.imshow(values, cmap="RdYlGn", vmin=vmin_floor, vmax=1.0, aspect="auto")
+
+    ax.set_xticks(range(len(ALL_SUBS)))
+    ax.set_xticklabels(ALL_SHORT, rotation=45, ha="right", fontsize=8)
+    ax.set_yticks(range(len(models)))
+    ax.set_yticklabels([MODEL_SHORT[m] for m in models], fontsize=9)
+
+    speech_end = len(SPEECH_SUBS) - 0.5
+    music_end = len(SPEECH_SUBS) + len(MUSIC_SUBS) - 0.5
+    for xv in (speech_end, music_end):
+        ax.axvline(xv, color="black", linewidth=1.2)
+
+    ax.text(len(SPEECH_SUBS) / 2 - 0.5, -0.9, "Speech",
+            ha="center", fontsize=10, fontweight="bold")
+    ax.text(len(SPEECH_SUBS) + len(MUSIC_SUBS) / 2 - 0.5, -0.9, "Music",
+            ha="center", fontsize=10, fontweight="bold")
+    ax.text(len(SPEECH_SUBS) + len(MUSIC_SUBS) - 0.5, -0.9, "Inactive",
+            ha="center", fontsize=10, fontweight="bold")
+
+    mid = (vmin_floor + 1.0) / 2
+    for i in range(len(models)):
+        for j in range(len(ALL_SUBS)):
+            v = values[i, j]
+            if np.isnan(v):
+                continue
+            ax.text(j, i, f"{v:.2f}", ha="center", va="center",
+                    fontsize=7, color="white" if v < mid - 0.05 else "black")
+
+    cb = plt.colorbar(im, ax=ax, shrink=0.7, pad=0.02)
+    cb.set_label("F1", fontsize=8)
+    cb.ax.tick_params(labelsize=7)
+    ax.set_title("Subclass F1 — all models × all subclasses")
+
+
+def plot_subclass_dumbbell_own_vs_tcn(ax, data):
+    """Dumbbell: per-subclass F1 for Own vs TCN; line colored by who wins; sorted by Δ."""
+    if "own" not in data or "tcn" not in data:
+        ax.set_visible(False)
+        return
+
+    group_for = (
+        {s: "sp" for s in SPEECH_SUBS}
+        | {s: "mu" for s in MUSIC_SUBS}
+        | {"noise": "in"}
+    )
+    short_for = dict(zip(ALL_SUBS, ALL_SHORT))
+
+    rows = []
+    for sub in ALL_SUBS:
+        own_f1 = data["own"]["subclasses"].get(sub, {}).get("f1")
+        tcn_f1 = data["tcn"]["subclasses"].get(sub, {}).get("f1")
+        if own_f1 is None or tcn_f1 is None:
+            continue
+        rows.append((sub, tcn_f1, own_f1, own_f1 - tcn_f1))
+
+    rows.sort(key=lambda r: r[3], reverse=True)
+
+    n = len(rows)
+    y = np.arange(n)
+    win_color = "#2E7D32"
+    loss_color = "#C62828"
+    own_color = COLORS["own"]
+    tcn_color = COLORS["tcn"]
+
+    for i, (_, t, o, d) in enumerate(rows):
+        line_color = win_color if d >= 0 else loss_color
+        ax.plot([t, o], [i, i], color=line_color, lw=2.2, alpha=0.75, zorder=1)
+        ax.scatter([t], [i], color=tcn_color, s=70, zorder=3,
+                   edgecolor="white", linewidth=0.8)
+        ax.scatter([o], [i], color=own_color, s=70, zorder=3,
+                   edgecolor="white", linewidth=0.8)
+        sign = "+" if d >= 0 else ""
+        right = max(t, o)
+        ax.text(right + 0.003, i, f"{sign}{d*100:.1f} pp",
+                va="center", ha="left", fontsize=7,
+                color=line_color, fontweight="bold")
+
+    ax.set_yticks(y)
+    labels = [f"{group_for[s]} / {short_for[s]}" for s, _, _, _ in rows]
+    ax.set_yticklabels(labels, fontsize=8)
+    ax.invert_yaxis()
+
+    all_vals = [v for r in rows for v in (r[1], r[2])]
+    lo = max(0.5, min(all_vals) - 0.01)
+    ax.set_xlim(lo, 1.01)
+    ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
+    ax.set_xlabel("F1")
+    ax.set_title("Subclass F1 — Own vs TCN  (sorted by Δ)")
+    ax.grid(axis="x", alpha=0.3, linestyle=":")
+
+    from matplotlib.lines import Line2D
+    legend_els = [
+        Line2D([0], [0], color=tcn_color, marker="o", linestyle="None", markersize=7, label="TCN"),
+        Line2D([0], [0], color=own_color, marker="o", linestyle="None", markersize=7, label="Own"),
+        Line2D([0], [0], color=win_color, lw=2.5, label="Own better"),
+        Line2D([0], [0], color=loss_color, lw=2.5, label="Own worse"),
+    ]
+    ax.legend(handles=legend_els, fontsize=7, loc="lower left", framealpha=0.9)
+
+
+def plot_cm_delta(ax, other_cm, own_cm, classes, title, vmax_shared=None, show_ylabel=True):
+    """Row-normalized CM delta vs Own, sign-flipped so positive always = worse than Own."""
+    if other_cm is None or own_cm is None:
+        ax.set_visible(False)
+        return
+
+    def norm(cm):
+        rs = cm.sum(axis=1, keepdims=True)
+        return np.where(rs > 0, cm / rs, 0.0)
+
+    o = norm(own_cm)
+    x = norm(other_cm)
+    I_mask = np.eye(len(classes), dtype=bool)
+    err_delta = np.where(I_mask, o - x, x - o)  # positive ⇒ this model does worse at that cell
+
+    vmax = vmax_shared if vmax_shared is not None else max(np.abs(err_delta).max(), 1e-6)
+    im = ax.imshow(err_delta, cmap="RdBu_r", vmin=-vmax, vmax=vmax)
+    ax.set_xticks(range(len(classes)))
+    ax.set_yticks(range(len(classes)))
+    ax.set_xticklabels(classes, fontsize=8)
+    if show_ylabel:
+        ax.set_yticklabels(classes, fontsize=8)
+        ax.set_ylabel("True", fontsize=8)
+    else:
+        ax.set_yticklabels([])
+    ax.set_xlabel("Predicted", fontsize=8)
+    ax.set_title(title, fontsize=9)
+    for i in range(len(classes)):
+        for j in range(len(classes)):
+            v = err_delta[i, j]
+            sign = "+" if v > 0 else ""
+            ax.text(j, i, f"{sign}{v*100:.1f}", ha="center", va="center",
+                    fontsize=9,
+                    color="white" if abs(v) > vmax * 0.65 else "black")
+    return im
+
+
+def plot_reliability(ax, scores_data: dict, n_bins: int = 15):
+    """Reliability diagram: predicted max-prob confidence vs empirical accuracy, per model."""
+    bins = np.linspace(0, 1, n_bins + 1)
+    label_arr = np.array(EVAL_LABELS)
+
+    for model, sd in scores_data.items():
+        y_true = sd["y_true"]
+        y_scores = sd["y_scores"].astype(float)
+        row_sums = y_scores.sum(axis=1, keepdims=True)
+        if not np.allclose(row_sums, 1.0, atol=1e-2):
+            y_scores = y_scores / np.clip(row_sums, 1e-10, None)
+
+        pred_idx = np.argmax(y_scores, axis=1)
+        pred_label = label_arr[pred_idx]
+        conf = y_scores[np.arange(len(y_scores)), pred_idx]
+        correct = (pred_label == y_true).astype(float)
+
+        xs, ys = [], []
+        for lo, hi in zip(bins[:-1], bins[1:]):
+            mask = (conf >= lo) & (conf < hi) if hi < 1.0 else (conf >= lo) & (conf <= hi)
+            if mask.sum() >= 50:
+                xs.append(conf[mask].mean())
+                ys.append(correct[mask].mean())
+
+        # Expected Calibration Error (ECE): weighted |acc - conf| across bins
+        ece = 0.0
+        total = len(conf)
+        for lo, hi in zip(bins[:-1], bins[1:]):
+            mask = (conf >= lo) & (conf < hi) if hi < 1.0 else (conf >= lo) & (conf <= hi)
+            if mask.sum() > 0:
+                ece += (mask.sum() / total) * abs(conf[mask].mean() - correct[mask].mean())
+
+        ax.plot(xs, ys, "o-", color=COLORS.get(model, "gray"),
+                label=f"{MODEL_SHORT.get(model, model)} (ECE={ece:.3f})",
+                markersize=5, lw=1.6)
+
+    ax.plot([0, 1], [0, 1], "k--", alpha=0.4, lw=0.8, label="Perfect calibration")
+    ax.set_xlim(0, 1)
+    ax.set_ylim(0, 1)
+    ax.set_xlabel("Predicted confidence (max prob)")
+    ax.set_ylabel("Empirical accuracy")
+    ax.set_title("Reliability Diagram")
+    ax.legend(fontsize=8, loc="lower right")
+    ax.grid(alpha=0.3, linestyle=":")
+
+
 def _save_solo(plot_fn, *args, path, figsize=(8, 6), **kwargs):
     fig, ax = plt.subplots(figsize=figsize)
     plot_fn(ax, *args, **kwargs)
@@ -436,20 +660,83 @@ def main():
     # Solo saves
     graphs_dir = RESULTS_DIR / "graphs"
     graphs_dir.mkdir(exist_ok=True)
-    _save_solo(plot_macro_f1, data, path=graphs_dir / "macro_f1.png", figsize=(7, 5))
-    _save_solo(plot_metric_table, data, path=graphs_dir / "metric_table.png", figsize=(10, 3))
-    _save_solo(plot_pr_scatter, data, path=graphs_dir / "pr_scatter.png")
-    _save_solo(plot_inference_time, data, path=graphs_dir / "inference_time.png", figsize=(6, 5))
+    _save_solo(plot_macro_f1, data, path=graphs_dir / "macro_f1.svg", figsize=(7, 5))
+    _save_solo(plot_metric_table, data, path=graphs_dir / "metric_table.svg", figsize=(10, 3))
+    _save_solo(plot_pr_scatter, data, path=graphs_dir / "pr_scatter.svg")
+    _save_solo(plot_inference_time, data, path=graphs_dir / "inference_time.svg", figsize=(6, 5))
     for model in data:
         _save_solo(
             plot_confusion_matrix, data[model]["cm"], cm_classes,
             f"{MODEL_SHORT[model]} — Confusion Matrix",
-            path=graphs_dir / f"cm_{model}.png", figsize=(5, 4),
+            path=graphs_dir / f"cm_{model}.svg", figsize=(5, 4),
         )
     _save_solo(plot_subclass_group, data, SPEECH_SUBS, SPEECH_SHORT,
-               "Speech Subclasses — F1 by Model", path=graphs_dir / "speech_subclasses.png", figsize=(9, 6))
+               "Speech Subclasses — F1 by Model", path=graphs_dir / "speech_subclasses.svg", figsize=(9, 6))
     _save_solo(plot_subclass_group, data, MUSIC_SUBS, MUSIC_SHORT,
-               "Music Subclasses — F1 by Model", path=graphs_dir / "music_subclasses.png", figsize=(9, 6))
+               "Music Subclasses — F1 by Model", path=graphs_dir / "music_subclasses.svg", figsize=(9, 6))
+
+    _save_solo(plot_per_class_f1, data, path=graphs_dir / "per_class_f1.svg", figsize=(8, 5))
+    _save_solo(plot_subclass_heatmap, data, path=graphs_dir / "subclass_heatmap.svg", figsize=(13, 4))
+
+    # Confusion matrix deltas vs Own
+    if "own" in data and data["own"]["cm"] is not None:
+        others = [m for m in data if m != "own" and data[m]["cm"] is not None]
+        if others:
+            # Shared vmax so colors are comparable across the 4 panels.
+            def _norm(cm):
+                rs = cm.sum(axis=1, keepdims=True)
+                return np.where(rs > 0, cm / rs, 0.0)
+            o = _norm(data["own"]["cm"])
+            I_mask = np.eye(len(cm_classes), dtype=bool)
+            vmax_shared = 0.0
+            for m in others:
+                x = _norm(data[m]["cm"])
+                d = np.where(I_mask, o - x, x - o)
+                vmax_shared = max(vmax_shared, np.abs(d).max())
+            vmax_shared = max(vmax_shared, 1e-3)
+
+            fig_d, axes_d = plt.subplots(1, len(others), figsize=(4.2 * len(others), 4.2))
+            if len(others) == 1:
+                axes_d = [axes_d]
+            fig_d.suptitle("Confusion Matrix Δ vs Own  (red = worse than Own, values in pp)",
+                           fontsize=12, fontweight="bold")
+            im = None
+            for k, (ax_d, m) in enumerate(zip(axes_d, others)):
+                im = plot_cm_delta(ax_d, data[m]["cm"], data["own"]["cm"], cm_classes,
+                                   f"{MODEL_SHORT[m]} − Own", vmax_shared=vmax_shared,
+                                   show_ylabel=(k == 0))
+            if im is not None:
+                cbar = fig_d.colorbar(im, ax=axes_d, fraction=0.025, pad=0.02)
+                cbar.set_label("Δ error (pp)", fontsize=9)
+                ticks = cbar.get_ticks()
+                cbar.set_ticks(ticks)
+                cbar.set_ticklabels([f"{t*100:+.0f}" for t in ticks])
+            d_path = graphs_dir / "cm_deltas.svg"
+            fig_d.savefig(d_path, dpi=150, bbox_inches="tight")
+            plt.close(fig_d)
+            print(f"Saved → {d_path}")
+
+    # Standalone Own vs TCN delta (TCN as reference; blue ⇒ Own better, red ⇒ Own worse)
+    if "own" in data and "tcn" in data and data["own"]["cm"] is not None and data["tcn"]["cm"] is not None:
+        fig_ot, ax_ot = plt.subplots(figsize=(6, 5))
+        im_ot = plot_cm_delta(
+            ax_ot, data["own"]["cm"], data["tcn"]["cm"], cm_classes,
+            "Own vs TCN  (red = Own worse, blue = Own better)",
+        )
+        if im_ot is not None:
+            cbar = fig_ot.colorbar(im_ot, ax=ax_ot, fraction=0.045, pad=0.04)
+            cbar.set_label("Δ error (pp)", fontsize=9)
+            ticks = cbar.get_ticks()
+            cbar.set_ticks(ticks)
+            cbar.set_ticklabels([f"{t*100:+.1f}" for t in ticks])
+        ot_path = graphs_dir / "cm_delta_own_vs_tcn.svg"
+        fig_ot.savefig(ot_path, dpi=150, bbox_inches="tight")
+        plt.close(fig_ot)
+        print(f"Saved → {ot_path}")
+
+    if "own" in data and "tcn" in data:
+        _save_solo(plot_subclass_dumbbell_own_vs_tcn, data,
+                   path=graphs_dir / "subclass_dumbbell_own_vs_tcn.svg", figsize=(9, 6))
 
     # ROC / DET curves
     scores_data = load_scores(RESULTS_DIR)
@@ -460,34 +747,41 @@ def main():
             plot_roc_curves(axes_rd[0, j], scores_data, idx, lbl)
             plot_det_curves(axes_rd[1, j], scores_data, idx, lbl)
         fig_rd.tight_layout(rect=[0, 0, 1, 0.95])
-        rd_path = graphs_dir / "roc_det.png"
+        rd_path = graphs_dir / "roc_det.svg"
         fig_rd.savefig(rd_path, dpi=150, bbox_inches="tight")
         plt.close(fig_rd)
         print(f"Saved → {rd_path}")
 
+        _save_solo(plot_reliability, scores_data,
+                   path=graphs_dir / "reliability.svg", figsize=(7, 6))
+
     # Combined
-    fig = plt.figure(figsize=(18, 19))
+    fig = plt.figure(figsize=(20, 19))
     fig.suptitle("Model Evaluation Results", fontsize=14, fontweight="bold")
-    gs = GridSpec(4, 4, figure=fig, hspace=0.55, wspace=0.38, height_ratios=[0.6, 1.0, 1.0, 1.0])
+    gs = GridSpec(4, 20, figure=fig, hspace=0.55, wspace=1.2, height_ratios=[0.6, 1.0, 1.0, 1.0])
 
     plot_metric_table(fig.add_subplot(gs[0, :]), data)
 
-    plot_macro_f1(fig.add_subplot(gs[1, :2]), data)
-    plot_pr_scatter(fig.add_subplot(gs[1, 2]), data)
-    plot_inference_time(fig.add_subplot(gs[1, 3]), data)
+    plot_macro_f1(fig.add_subplot(gs[1, :10]), data)
+    plot_pr_scatter(fig.add_subplot(gs[1, 10:15]), data)
+    plot_inference_time(fig.add_subplot(gs[1, 15:]), data)
 
+    n_models = len(data)
+    cm_width = 20 // n_models
     for i, model in enumerate(data):
+        lo = i * cm_width
+        hi = (i + 1) * cm_width if i < n_models - 1 else 20
         plot_confusion_matrix(
-            fig.add_subplot(gs[2, i]),
+            fig.add_subplot(gs[2, lo:hi]),
             data[model]["cm"],
             cm_classes,
             f"{MODEL_SHORT[model]} — Confusion Matrix",
         )
 
-    plot_subclass_group(fig.add_subplot(gs[3, :2]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
-    plot_subclass_group(fig.add_subplot(gs[3, 2:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
+    plot_subclass_group(fig.add_subplot(gs[3, :10]), data, SPEECH_SUBS, SPEECH_SHORT, "Speech Subclasses — F1 by Model")
+    plot_subclass_group(fig.add_subplot(gs[3, 10:]), data, MUSIC_SUBS, MUSIC_SHORT, "Music Subclasses — F1 by Model")
 
-    out = RESULTS_DIR / "results.png"
+    out = RESULTS_DIR / "results.svg"
     plt.savefig(out, dpi=150, bbox_inches="tight")
     plt.close()
     print(f"Saved → {out}")
