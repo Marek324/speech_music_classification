@@ -7,6 +7,7 @@ from pathlib import Path
 import torch
 
 from ...evaluator import EvalResults, run_evaluation
+from ...seed import seed_all
 from ...wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
 from ..evaluation import run_nn_inference
@@ -54,6 +55,7 @@ def eval_tcn(
     *output_dir* is forwarded to ``run_evaluation()`` to route the saved ``.eval`` file
     into an experiment-specific directory instead of the default ``repo_root/results/``.
     """
+    seed_all()
     if cfg is None:
         cfg = get_config()
     model = _load_tcn_model(weights_path=weights_path, cfg=cfg, stats_path=stats_path)

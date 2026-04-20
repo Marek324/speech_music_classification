@@ -41,6 +41,7 @@ def _train_classic(model_name: str):
 
 
 def _eval_classic(model_name: str):
+    seed_all()
     eval_classic(model_name, save_to_file=True)
 
 
