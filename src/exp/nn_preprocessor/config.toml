@@ -15,6 +15,7 @@ optimizer = "sgd"
 lr = 1e-3
 seq_len = 128
 loss = "bce_with_logits"
+frontend = "log_mel_delta2"
 
 [tcn.model]
 n_filters = 16

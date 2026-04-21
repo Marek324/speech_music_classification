@@ -1,40 +1,40 @@
-Evaluation report — 2026-04-17 14:58:39 UTC
+Evaluation report — 2026-04-21 10:38:19 UTC
 
 ── Evaluation ────────────────────────────────────
-  Device     : NVIDIA A10
-  ms/frame   : 0.0043
-  Macro F1   : 0.9795  [0.9743, 0.9830]
-  Weighted F1: 0.9810
-  Accuracy   : 0.9810
-  Macro AUROC: 0.9983
+  Device     : NVIDIA RTX A6000
+  ms/frame   : 0.0060
+  Macro F1   : 0.9804  [0.9749, 0.9840]
+  Weighted F1: 0.9819
+  Accuracy   : 0.9819
+  Macro AUROC: 0.9984
 
   Class             F1       P       R               F1 CI
-  Speech        0.9816  0.9852  0.9781    [0.9799, 0.9832]
-  Music         0.9894  0.9905  0.9882    [0.9863, 0.9921]
-  Inactive      0.9674  0.9611  0.9738    [0.9531, 0.9767]
+  Speech        0.9819  0.9852  0.9787    [0.9801, 0.9836]
+  Music         0.9903  0.9907  0.9899    [0.9872, 0.9929]
+  Inactive      0.9690  0.9642  0.9739    [0.9549, 0.9781]
   ─────────────────────────────────────────────────────────
-  Macro         0.9795  0.9789  0.9800
+  Macro         0.9804  0.9800  0.9808
 
   Confusion matrix (rows=true, cols=pred):
                     Speech     Music  Inactive
-  Speech      [    417007       626      8728  ]
-  Music       [      1914    477411      3779  ]
-  Inactive    [      4343      3959    308724  ]
+  Speech      [    417274       489      8598  ]
+  Music       [      2010    478221      2873  ]
+  Inactive    [      4274      4012    308740  ]
 
 ── By subclass ────────────────────────────────────
   Subclass                      F1       P       R
-  music_acapella            0.9851  0.9905  0.9798
-  music_electronic          0.9918  0.9887  0.9948
-  music_folk                0.9809  0.9953  0.9669
-  music_hip-hop             0.9909  0.9906  0.9912
-  music_instrumental        0.9914  0.9936  0.9891
-  music_pop                 0.9956  0.9956  0.9955
-  music_rock                0.9983  0.9976  0.9990
-  noise                     0.9993  1.0000  0.9986
-  speech_clean              0.9868  0.9949  0.9788
-  speech_dirty              0.9845  0.9931  0.9760
-  speech_msom               0.9884  0.9852  0.9916
-  speech_multispeaker       0.9954  0.9984  0.9925
-  speech_noisy              0.9785  0.9887  0.9685
-  speech_som                0.9690  0.9599  0.9784
+  music_acapella            0.9897  0.9898  0.9896
+  music_electronic          0.9922  0.9892  0.9952
+  music_folk                0.9835  0.9941  0.9732
+  music_hip-hop             0.9916  0.9901  0.9931
+  music_instrumental        0.9904  0.9934  0.9873
+  music_pop                 0.9935  0.9955  0.9914
+  music_rock                0.9985  0.9975  0.9994
+  noise                     0.9994  1.0000  0.9988
+  speech_clean              0.9873  0.9947  0.9801
+  speech_dirty              0.9851  0.9926  0.9777
+  speech_msom               0.9885  0.9841  0.9929
+  speech_multispeaker       0.9954  0.9985  0.9924
+  speech_noisy              0.9784  0.9897  0.9674
+  speech_som                0.9700  0.9622  0.9779
   (F1/P/R of each subclass's primary class within its frames)
