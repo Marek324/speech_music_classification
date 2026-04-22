@@ -1,0 +1,40 @@
+Evaluation report — 2026-04-21 12:38:57 UTC
+
+── Evaluation ────────────────────────────────────
+  Device     : NVIDIA RTX A6000
+  ms/frame   : 0.0061
+  Macro F1   : 0.9752  [0.9688, 0.9793]
+  Weighted F1: 0.9771
+  Accuracy   : 0.9771
+  Macro AUROC: 0.9982
+
+  Class             F1       P       R               F1 CI
+  Speech        0.9751  0.9809  0.9695    [0.9731, 0.9770]
+  Music         0.9896  0.9903  0.9888    [0.9865, 0.9924]
+  Inactive      0.9607  0.9523  0.9693    [0.9428, 0.9721]
+  ─────────────────────────────────────────────────────────
+  Macro         0.9752  0.9745  0.9759
+
+  Confusion matrix (rows=true, cols=pred):
+                    Speech     Music  Inactive
+  Speech      [    413353       771     12237  ]
+  Music       [      2235    477716      3153  ]
+  Inactive    [      5835      3891    307300  ]
+
+── By subclass ────────────────────────────────────
+  Subclass                      F1       P       R
+  music_acapella            0.9873  0.9898  0.9848
+  music_electronic          0.9901  0.9885  0.9917
+  music_folk                0.9832  0.9949  0.9717
+  music_hip-hop             0.9945  0.9913  0.9976
+  music_instrumental        0.9893  0.9938  0.9848
+  music_pop                 0.9939  0.9955  0.9922
+  music_rock                0.9981  0.9976  0.9985
+  noise                     0.9992  1.0000  0.9985
+  speech_clean              0.9812  0.9941  0.9686
+  speech_dirty              0.9781  0.9894  0.9670
+  speech_msom               0.9874  0.9839  0.9909
+  speech_multispeaker       0.9921  0.9978  0.9865
+  speech_noisy              0.9706  0.9808  0.9605
+  speech_som                0.9590  0.9493  0.9690
+  (F1/P/R of each subclass's primary class within its frames)
