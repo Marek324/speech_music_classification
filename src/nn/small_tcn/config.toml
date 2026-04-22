@@ -1,8 +1,4 @@
 # SmallTCN config — small-footprint TCN aimed at matching the production
-# baseline F1 at a fraction of the parameter count.
-# Recipe: log_mel_delta2 frontend (cheap F1 boost) + n_filters=8 backbone
-# (≈¼ of the baseline backbone params, ablation-confirmed at parity).
-# No preprocessor, no tail — those were the bulk of TCNLSTM's 432K params.
 
 [tcn]
 name = "small"

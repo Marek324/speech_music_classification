@@ -10,6 +10,7 @@ from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
 MODELS = ["tcn_lstm", "small_tcn", "tcn", "decision_tree", "svm", "gmm"]
+NN_MODELS = ["tcn_lstm", "small_tcn", "tcn"]
 COLORS = {"tcn_lstm": "#E91E63", "small_tcn": "#009688", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
 MODEL_SHORT = {"tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
 
@@ -491,9 +492,10 @@ def plot_subclass_heatmap(ax, data):
     ax.set_title("Subclass F1 — all models × all subclasses")
 
 
-def plot_subclass_dumbbell_tcn_lstm_vs_tcn(ax, data):
-    """Dumbbell: per-subclass F1 for TCN+LSTM vs TCN; line colored by who wins; sorted by Δ."""
-    if "tcn_lstm" not in data or "tcn" not in data:
+def plot_subclass_dumbbell(ax, data, model_a: str, model_b: str):
+    """Dumbbell per-subclass F1: `model_a` vs `model_b`, sorted by Δ = f1(a) − f1(b).
+    Line color indicates winner (green if model_a wins, red if model_b wins)."""
+    if model_a not in data or model_b not in data:
         ax.set_visible(False)
         return
 
@@ -506,11 +508,11 @@ def plot_subclass_dumbbell_tcn_lstm_vs_tcn(ax, data):
 
     rows = []
     for sub in ALL_SUBS:
-        lstm_f1 = data["tcn_lstm"]["subclasses"].get(sub, {}).get("f1")
-        tcn_f1 = data["tcn"]["subclasses"].get(sub, {}).get("f1")
-        if lstm_f1 is None or tcn_f1 is None:
+        a_f1 = data[model_a]["subclasses"].get(sub, {}).get("f1")
+        b_f1 = data[model_b]["subclasses"].get(sub, {}).get("f1")
+        if a_f1 is None or b_f1 is None:
             continue
-        rows.append((sub, tcn_f1, lstm_f1, lstm_f1 - tcn_f1))
+        rows.append((sub, b_f1, a_f1, a_f1 - b_f1))
 
     rows.sort(key=lambda r: r[3], reverse=True)
 
@@ -518,18 +520,20 @@ def plot_subclass_dumbbell_tcn_lstm_vs_tcn(ax, data):
     y = np.arange(n)
     win_color = "#2E7D32"
     loss_color = "#C62828"
-    lstm_color = COLORS["tcn_lstm"]
-    tcn_color = COLORS["tcn"]
+    a_color = COLORS[model_a]
+    b_color = COLORS[model_b]
+    a_name = MODEL_SHORT[model_a]
+    b_name = MODEL_SHORT[model_b]
 
-    for i, (_, t, o, d) in enumerate(rows):
+    for i, (_, b_val, a_val, d) in enumerate(rows):
         line_color = win_color if d >= 0 else loss_color
-        ax.plot([t, o], [i, i], color=line_color, lw=2.2, alpha=0.75, zorder=1)
-        ax.scatter([t], [i], color=tcn_color, s=70, zorder=3,
+        ax.plot([b_val, a_val], [i, i], color=line_color, lw=2.2, alpha=0.75, zorder=1)
+        ax.scatter([b_val], [i], color=b_color, s=70, zorder=3,
                    edgecolor="white", linewidth=0.8)
-        ax.scatter([o], [i], color=lstm_color, s=70, zorder=3,
+        ax.scatter([a_val], [i], color=a_color, s=70, zorder=3,
                    edgecolor="white", linewidth=0.8)
         sign = "+" if d >= 0 else ""
-        right = max(t, o)
+        right = max(b_val, a_val)
         ax.text(right + 0.003, i, f"{sign}{d*100:.1f} pp",
                 va="center", ha="left", fontsize=7,
                 color=line_color, fontweight="bold")
@@ -544,15 +548,15 @@ def plot_subclass_dumbbell_tcn_lstm_vs_tcn(ax, data):
     ax.set_xlim(lo, 1.01)
     ax.xaxis.set_major_formatter(mticker.FormatStrFormatter("%.2f"))
     ax.set_xlabel("F1")
-    ax.set_title("Subclass F1 — TCN+LSTM vs TCN  (sorted by Δ)")
+    ax.set_title(f"Subclass F1 — {a_name} vs {b_name}  (sorted by Δ)")
     ax.grid(axis="x", alpha=0.3, linestyle=":")
 
     from matplotlib.lines import Line2D
     legend_els = [
-        Line2D([0], [0], color=tcn_color, marker="o", linestyle="None", markersize=7, label="TCN"),
-        Line2D([0], [0], color=lstm_color, marker="o", linestyle="None", markersize=7, label="TCN+LSTM"),
-        Line2D([0], [0], color=win_color, lw=2.5, label="TCN+LSTM better"),
-        Line2D([0], [0], color=loss_color, lw=2.5, label="TCN+LSTM worse"),
+        Line2D([0], [0], color=b_color, marker="o", linestyle="None", markersize=7, label=b_name),
+        Line2D([0], [0], color=a_color, marker="o", linestyle="None", markersize=7, label=a_name),
+        Line2D([0], [0], color=win_color, lw=2.5, label=f"{a_name} better"),
+        Line2D([0], [0], color=loss_color, lw=2.5, label=f"{a_name} worse"),
     ]
     ax.legend(handles=legend_els, fontsize=7, loc="lower left", framealpha=0.9)
 
@@ -735,7 +739,7 @@ def main():
         print(f"Saved → {ot_path}")
 
     if "tcn_lstm" in data and "tcn" in data:
-        _save_solo(plot_subclass_dumbbell_tcn_lstm_vs_tcn, data,
+        _save_solo(plot_subclass_dumbbell, data, "tcn_lstm", "tcn",
                    path=graphs_dir / "subclass_dumbbell_tcn_lstm_vs_tcn.svg", figsize=(9, 6))
 
     # ROC / DET curves
@@ -754,6 +758,110 @@ def main():
 
         _save_solo(plot_reliability, scores_data,
                    path=graphs_dir / "reliability.svg", figsize=(7, 6))
+
+    # ── NN-only comparison (TCN / SmallTCN / TCN+LSTM) ───────────────────────
+    nn_data = {m: data[m] for m in NN_MODELS if m in data}
+    if len(nn_data) >= 2:
+        _save_solo(plot_macro_f1, nn_data,
+                   path=graphs_dir / "nn_macro_f1.svg", figsize=(5, 5))
+        _save_solo(plot_metric_table, nn_data,
+                   path=graphs_dir / "nn_metric_table.svg", figsize=(10, 2.2))
+        _save_solo(plot_per_class_f1, nn_data,
+                   path=graphs_dir / "nn_per_class_f1.svg", figsize=(7, 5))
+        _save_solo(plot_subclass_heatmap, nn_data,
+                   path=graphs_dir / "nn_subclass_heatmap.svg", figsize=(13, 3))
+        _save_solo(plot_subclass_group, nn_data, SPEECH_SUBS, SPEECH_SHORT,
+                   "Speech Subclasses — NN Models",
+                   path=graphs_dir / "nn_speech_subclasses.svg", figsize=(8, 5))
+        _save_solo(plot_subclass_group, nn_data, MUSIC_SUBS, MUSIC_SHORT,
+                   "Music Subclasses — NN Models",
+                   path=graphs_dir / "nn_music_subclasses.svg", figsize=(8, 5))
+        _save_solo(plot_inference_time, nn_data,
+                   path=graphs_dir / "nn_inference_time.svg", figsize=(5, 5))
+
+        # Three CMs side by side — shared normalization range (always 0..1)
+        nn_cm_present = [m for m in nn_data if nn_data[m]["cm"] is not None]
+        if nn_cm_present:
+            fig_p, axes_p = plt.subplots(1, len(nn_cm_present),
+                                         figsize=(4 * len(nn_cm_present), 4))
+            if len(nn_cm_present) == 1:
+                axes_p = [axes_p]
+            for ax_p, m in zip(axes_p, nn_cm_present):
+                plot_confusion_matrix(ax_p, nn_data[m]["cm"], cm_classes,
+                                      f"{MODEL_SHORT[m]} — Confusion Matrix")
+            fig_p.suptitle("NN Models — Confusion Matrices",
+                           fontsize=12, fontweight="bold")
+            fig_p.tight_layout()
+            panel_path = graphs_dir / "nn_cm_panel.svg"
+            fig_p.savefig(panel_path, dpi=150, bbox_inches="tight")
+            plt.close(fig_p)
+            print(f"Saved → {panel_path}")
+
+        # CM deltas with TCN as reference: SmallTCN and TCN+LSTM vs TCN, shared vmax.
+        if "tcn" in nn_data and nn_data["tcn"]["cm"] is not None:
+            others = [m for m in ("small_tcn", "tcn_lstm")
+                      if m in nn_data and nn_data[m]["cm"] is not None]
+            if others:
+                def _norm(cm):
+                    rs = cm.sum(axis=1, keepdims=True)
+                    return np.where(rs > 0, cm / rs, 0.0)
+                ref_norm = _norm(nn_data["tcn"]["cm"])
+                I_mask = np.eye(len(cm_classes), dtype=bool)
+                vmax_shared = 0.0
+                for m in others:
+                    x = _norm(nn_data[m]["cm"])
+                    d = np.where(I_mask, ref_norm - x, x - ref_norm)
+                    vmax_shared = max(vmax_shared, np.abs(d).max())
+                vmax_shared = max(vmax_shared, 1e-3)
+
+                fig_nd, axes_nd = plt.subplots(1, len(others),
+                                               figsize=(4.8 * len(others), 4.5))
+                if len(others) == 1:
+                    axes_nd = [axes_nd]
+                fig_nd.suptitle(
+                    "Confusion Matrix Δ vs TCN  (red = worse than TCN, values in pp)",
+                    fontsize=12, fontweight="bold",
+                )
+                im = None
+                for k, (ax_nd, m) in enumerate(zip(axes_nd, others)):
+                    im = plot_cm_delta(
+                        ax_nd, nn_data[m]["cm"], nn_data["tcn"]["cm"], cm_classes,
+                        f"{MODEL_SHORT[m]} − TCN",
+                        vmax_shared=vmax_shared, show_ylabel=(k == 0),
+                    )
+                if im is not None:
+                    cbar = fig_nd.colorbar(im, ax=axes_nd, fraction=0.035, pad=0.02)
+                    cbar.set_label("Δ error (pp)", fontsize=9)
+                    ticks = cbar.get_ticks()
+                    cbar.set_ticks(ticks)
+                    cbar.set_ticklabels([f"{t*100:+.0f}" for t in ticks])
+                nd_path = graphs_dir / "nn_cm_deltas_vs_tcn.svg"
+                fig_nd.savefig(nd_path, dpi=150, bbox_inches="tight")
+                plt.close(fig_nd)
+                print(f"Saved → {nd_path}")
+
+        # Complementary dumbbell mirror (TCN+LSTM vs TCN already emitted above).
+        if "small_tcn" in nn_data and "tcn" in nn_data:
+            _save_solo(plot_subclass_dumbbell, data, "small_tcn", "tcn",
+                       path=graphs_dir / "subclass_dumbbell_small_tcn_vs_tcn.svg",
+                       figsize=(9, 6))
+
+    nn_scores_data = {m: scores_data[m] for m in NN_MODELS if m in scores_data}
+    if len(nn_scores_data) >= 2:
+        _save_solo(plot_reliability, nn_scores_data,
+                   path=graphs_dir / "nn_reliability.svg", figsize=(7, 6))
+
+        fig_nrd, axes_nrd = plt.subplots(2, 3, figsize=(15, 9))
+        fig_nrd.suptitle("ROC & DET — NN Models (One-vs-Rest)",
+                         fontsize=13, fontweight="bold")
+        for j, (idx, lbl) in enumerate(zip(range(3), EVAL_LABELS)):
+            plot_roc_curves(axes_nrd[0, j], nn_scores_data, idx, lbl)
+            plot_det_curves(axes_nrd[1, j], nn_scores_data, idx, lbl)
+        fig_nrd.tight_layout(rect=[0, 0, 1, 0.95])
+        nrd_path = graphs_dir / "nn_roc_det.svg"
+        fig_nrd.savefig(nrd_path, dpi=150, bbox_inches="tight")
+        plt.close(fig_nrd)
+        print(f"Saved → {nrd_path}")
 
     # Combined
     fig = plt.figure(figsize=(20, 19))

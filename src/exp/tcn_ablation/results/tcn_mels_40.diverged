@@ -1,2 +1,0 @@
-DIVERGED
-RuntimeError: The size of tensor a (40) must match the size of tensor b (80) at non-singleton dimension 1

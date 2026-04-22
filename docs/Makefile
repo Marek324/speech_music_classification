@@ -5,7 +5,7 @@
 # Edited by: dytrych AT fit vut cz
 #===========================================
 # asi budete chtit prejmenovat / you will probably rename:
-CO=projekt
+CO=speech_music_classification
 
 all: $(CO).pdf
 

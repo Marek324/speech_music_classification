@@ -13,3 +13,5 @@
 *.run.xml
 *.synctex.gz
 tmp/
+*.pdf
+*.ptc
