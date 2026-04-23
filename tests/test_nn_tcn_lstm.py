@@ -6,13 +6,13 @@ from pathlib import Path
 import pytest
 import torch
 
-from src.nn.tcn_lstm.config import (
+from src.nn.variants import (
+    TCNLSTM,
     _TCN_LSTM_DEFAULT,
     get_tcn_lstm_config,
     get_tcn_lstm_stats_path,
     get_tcn_lstm_weights_path,
 )
-from src.nn.tcn_lstm.model import TCNLSTM
 
 
 # ---------------------------------------------------------------------------

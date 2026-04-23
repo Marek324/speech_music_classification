@@ -137,7 +137,10 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `dataset.py` | **Shared** HF dataset loader, frame-label builder; params (sr/hop/n_fft) passed explicitly |
 | `evaluation.py` | **Shared** `run_nn_inference()` — generic inference loop for any `(1,3,T)`-output model |
 | `modelclass.py` | Abstract `NNModelClass` base: `train()`, `evaluate()`, `smoke_test()` |
-| `cli.py` | `nn_group` — dispatches to `tcn`, `tcn-lstm`, and `small-tcn` subgroups |
+| `cli.py` | `nn_group` — registers the canonical `tcn` group and auto-adds every variant's Click group from `VARIANTS` |
+| `variant.py` | **Shared** `make_variant()` factory — builds the config loader, Click group, and `SpeechMusicDetector` subclass for each TCN variant from a pre-parsed config dict + naming/path params |
+| `variants.py` | Reads `variants.toml` + repo-root `config.toml[dataset]`, calls `make_variant(...)` per entry, and auto-injects per-variant symbols (`SmallTCN`, `small_tcn_group`, `get_small_tcn_config`, `_SMALL_TCN_DEFAULT`, …) plus a `VARIANTS` registry. Adding a variant is a TOML-only change. |
+| `variants.toml` | Declarative registry of all TCN variants (SmallTCN, TCNLSTM). No `[dataset]` — inherited from repo-root `config.toml`. |
 
 #### TCN (`src/nn/tcn/`)
 | File | Purpose |
@@ -154,23 +157,15 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
 | `cache/nn/tcn_mel_*.pt` | Precomputed mel chunks per (dataset, split, frontend params, seq_len); shared across ablation variants. *(not in git — auto-synced via `cache/` to `Marek324/butfit-bp-artifacts` on HF)* |
 
-#### TCNLSTM (`src/nn/tcn_lstm/`)
-| File | Purpose |
-|------|---------|
-| `model.py` | `TCNLSTM` — delta² frontend + conv1d preprocessor + TCN backbone + LSTM tail (combined-experiment winner) |
-| `config.py` / `config.toml` | Baked defaults; `get_tcn_lstm_config()` supports flat overrides |
-| `cli.py` | Click group `tcn-lstm`: train/eval/smoke-test/smoke-test-online |
-| `weights/tcn_lstm/tcn_lstm.safetensors` | Trained weights *(not in git — download via HF)* |
-| `weights/tcn_lstm/tcn_lstm_preprocess_stats.pt` | Log-mel normalization stats *(not in git)* |
+#### Variants (`variants.py`, `variants.toml`)
+SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, ~52K params) and TCNLSTM (delta² + conv1d preprocessor + TCN + LSTM tail, combined-experiment winner) are declared as `[variants.<name>]` blocks in `variants.toml`. `variants.py` loads each block through `make_variant(...)` (`src/nn/variant.py`) and auto-exports one class, one Click group, three getters, and one `_DEFAULT` dict per variant, plus a `VARIANTS` registry dict. The `[dataset]` block is inherited from repo-root `config.toml` — variant TOML blocks only carry `[tcn]` + `[tcn.model]`. Adding a new variant is a TOML-only edit; Python picks it up automatically (including CLI registration).
 
-#### SmallTCN (`src/nn/small_tcn/`)
-| File | Purpose |
+| Weights / stats | Purpose |
 |------|---------|
-| `model.py` | `SmallTCN` — delta² frontend + n_filters=8 TCN, no preprocessor/tail (small-footprint variant, ~52K params) |
-| `config.py` / `config.toml` | Baked defaults; `get_small_tcn_config()` supports flat overrides |
-| `cli.py` | Click group `small-tcn`: train/eval/smoke-test/smoke-test-online |
-| `weights/small_tcn/tcn_small.safetensors` | Trained weights *(not in git — download via HF)* |
-| `weights/small_tcn/tcn_small_preprocess_stats.pt` | Log-mel normalization stats *(not in git)* |
+| `weights/tcn_lstm/tcn_lstm.safetensors` | Trained TCNLSTM weights *(not in git — download via HF)* |
+| `weights/tcn_lstm/tcn_lstm_preprocess_stats.pt` | TCNLSTM log-mel normalization stats *(not in git)* |
+| `weights/small_tcn/tcn_small.safetensors` | Trained SmallTCN weights *(not in git — download via HF)* |
+| `weights/small_tcn/tcn_small_preprocess_stats.pt` | SmallTCN log-mel normalization stats *(not in git)* |
 
 ### Classic models (`src/classic/`)
 | File | Purpose |

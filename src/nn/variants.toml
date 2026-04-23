@@ -1,0 +1,84 @@
+# TCN variant registry — consumed by src/nn/variants.py.
+#
+# Add a new variant: append a [variants.<name>] block with the same shape as the
+# two below. No Python edits required — src/nn/variants.py auto-registers the
+# CLI group, weight paths, config loader, and module class.
+#
+# Dataset is NOT defined here; it's inherited from repo-root config.toml[dataset].
+# A variant may still override with a [variants.<name>.dataset] block if needed.
+
+[variants.tcn_lstm]
+display_name = "TCNLSTM"
+cli_group    = "tcn-lstm"
+group_help   = "TCNLSTM — delta2 frontend + conv1d preprocessor + TCN + LSTM tail (combined-experiment winner)."
+weights_stem = "lstm"
+subdir       = "tcn_lstm"
+
+[variants.tcn_lstm.tcn]
+name = "lstm"
+frontend = "log_mel_delta2"
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+n_mfcc = 20
+f_min = 27.5
+f_max = 8000.0
+optimizer = "sgd"
+lr = 1e-3
+seq_len = 128
+batch_size = 32
+augment = true
+loss = "bce_with_logits"
+
+[variants.tcn_lstm.tcn.model]
+backbone = "tcn"
+preprocessor = "conv1d"
+n_filters = 16
+kernel_size = 5
+n_layers = 4
+n_stacks = 3
+n_heads = 4
+dropout = 0.5
+n_classes = 3
+use_weight_norm = true
+activation = "relu"
+tail = "lstm"
+tail_width = 32
+
+[variants.small_tcn]
+display_name = "SmallTCN"
+cli_group    = "small-tcn"
+group_help   = "SmallTCN — small-footprint TCN: log_mel_delta2 + n_filters=8."
+weights_stem = "small"
+subdir       = "small_tcn"
+
+[variants.small_tcn.tcn]
+name = "small"
+frontend = "log_mel_delta2"
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+n_mfcc = 20
+f_min = 27.5
+f_max = 8000.0
+optimizer = "sgd"
+lr = 1e-3
+seq_len = 128
+batch_size = 32
+augment = true
+loss = "bce_with_logits"
+
+[variants.small_tcn.tcn.model]
+backbone = "tcn"
+preprocessor = "none"
+n_filters = 8
+kernel_size = 5
+n_layers = 4
+n_stacks = 3
+n_heads = 4
+dropout = 0.5
+n_classes = 3
+use_weight_norm = true
+activation = "relu"

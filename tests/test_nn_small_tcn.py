@@ -6,13 +6,13 @@ from pathlib import Path
 import pytest
 import torch
 
-from src.nn.small_tcn.config import (
+from src.nn.variants import (
+    SmallTCN,
     _SMALL_TCN_DEFAULT,
     get_small_tcn_config,
     get_small_tcn_stats_path,
     get_small_tcn_weights_path,
 )
-from src.nn.small_tcn.model import SmallTCN
 
 
 # ---------------------------------------------------------------------------
