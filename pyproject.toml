@@ -19,15 +19,18 @@ dependencies = [
     "pyannote-audio>=4.0.4",
     "pyarrow>=18.0.0",
     "pydub>=0.25.1",
+    "reflex>=0.6",
     "safetensors>=0.4.0",
     "silero-vad>=6.2.1",
     "soundfile>=0.13.1",
+    "sounddevice>=0.4.6",
     "tomli>=2.4.0",
     "torch==2.8.0",
     "torchaudio==2.8.0",
     "torchcodec==0.7.0",
     "tqdm>=4.67.0",
     "wandb>=0.16.0",
+    "psutil>=7.2.2",
 ]
 
 [project.scripts]

@@ -1,0 +1,32 @@
+[transitions]
+# Source of per-model `_scores.npz` files. Default: project-root results/, the
+# canonical eval output location. Override only if benching alternative
+# checkpoints (e.g. a separate weights branch).
+scores_dir = "results"
+
+# Models to analyse, in display order (top of every table / bar group).
+models = ["tcn_lstm", "small_tcn", "tcn", "decision_tree", "svm", "gmm"]
+
+# Per-model frame periods (ms). Derived from config.toml hop lengths; kept
+# explicit here so the analysis is self-contained and doesn't need to import
+# every model's config. Update if any model's hop changes.
+[transitions.ms_per_frame]
+decision_tree = 10.0
+gmm = 15.0
+svm = 15.0
+tcn = 23.219954648526077          # 1000 * 512 / 22050
+tcn_lstm = 23.219954648526077
+small_tcn = 23.219954648526077
+
+[transitions.metrics]
+# Right-censor cap on detection latency (ms). Transitions whose new label
+# isn't matched within this window are recorded as missed.
+latency_cap_ms = 2000
+
+# ±guard band around true transitions: frames inside this band are excluded
+# from the "stable region" used to count spurious y_pred flips.
+stable_guard_ms = 500
+
+# ±window around true transitions used for the "near vs stable" accuracy
+# breakdown.
+boundary_window_ms = 500

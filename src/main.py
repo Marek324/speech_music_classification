@@ -6,6 +6,7 @@ import logging
 import click
 
 from .classic.cli import classic_group
+from .demo.cli import demo_cmd
 from .exp.cli import exp_group
 from .logging_config import setup_logging
 from .nn.cli import nn_group
@@ -19,5 +20,6 @@ def cli(verbose: bool):
 
 
 cli.add_command(classic_group)
+cli.add_command(demo_cmd)
 cli.add_command(exp_group)
 cli.add_command(nn_group)

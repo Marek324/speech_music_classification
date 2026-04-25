@@ -378,7 +378,13 @@ def run_evaluation(
 
         if y_scores is not None:
             scores_path = results_dir / f"{output_name}_scores.npz"
-            np.savez(scores_path, y_true=y_true, y_scores=y_scores)
+            extras = {}
+            if clip_ids is not None:
+                extras["clip_ids"] = clip_ids
+            if subclasses is not None:
+                extras["subclasses"] = subclasses
+            extras["y_pred"] = y_pred
+            np.savez(scores_path, y_true=y_true, y_scores=y_scores, **extras)
             log.info("Saved scores to %s", scores_path)
 
     log.info("\n%s", report)

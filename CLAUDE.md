@@ -9,9 +9,10 @@ uv run smclassifier nn tcn <command>           # TCN model (paper baseline)
 uv run smclassifier nn tcn-lstm <command>      # TCN+LSTM hybrid (delta2 + conv1d + LSTM tail)
 uv run smclassifier nn small-tcn <command>     # small-footprint TCN (delta2 + n_filters=8)
 uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
+uv run smclassifier demo                       # Reflex web UI: mic/file streaming for all 6 models (auto-inits on first run)
 ```
 TCN / TCN+LSTM / SmallTCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
-Classic commands: `train`, `eval`, `smoke-test`, `mic` (placeholder)
+Classic commands: `train`, `eval`, `smoke-test`
 
 ## Architecture
 Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible** (`src_papers/tcn.pdf`).
@@ -178,6 +179,18 @@ SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, ~52K params) a
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
 | `cli.py` | Click CLI per model: train, eval, smoke-test |
 | `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights *(not in git — download via HF)* |
+| `streaming.py` | `StreamingClassifier` — push raw audio samples, get per-hop labels (consumed by `src/demo/`) |
+
+### Streaming demo (`src/demo/`)
+Reflex web UI for live speech/music classification across all six models (DT/GMM/SVM + TCN/TCN-LSTM/SmallTCN).
+| File | Purpose |
+|------|---------|
+| `runner.py` | `ClassicRunner` / `NNRunner` — uniform streaming wrapper; remaps labels to display space `{-1, 0, +1}` |
+| `source.py` | `MicSource` (sounddevice) / `FileSource` (soundfile + librosa) — async chunk producers |
+| `weights_check.py` | `has_weights(name)` — filesystem probe used to badge the model picker |
+| `cli.py` | `demo run` / `demo init` Click commands — launch `reflex run` via subprocess |
+| `rxconfig.py` | Reflex config; `app_name = "ui"` |
+| `ui/ui.py` | Reflex `DemoState` + page: model picker, mic/file tabs, recharts line chart |
 
 ### Experiments (`src/exp/tcn_ablation/`)
 | File | Purpose |

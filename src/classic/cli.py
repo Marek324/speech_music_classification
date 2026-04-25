@@ -45,11 +45,6 @@ def _eval_classic(model_name: str):
     eval_classic(model_name, save_to_file=True)
 
 
-def _mic_classic(model_name: str, device: int | None, duration: float):
-    from .streaming import run_mic
-    run_mic(model_name, device=device, duration=duration)
-
-
 def _smoke_test_classic(model_name: str):
     config.init_config(None, model_name=model_name)
     seed_all()
@@ -121,12 +116,6 @@ def _add_model_commands(group: click.Group, model_name: str):
     @group.command("smoke-test")
     def smoke_test():
         _smoke_test_classic(model_name)
-
-    @group.command("mic")
-    @click.option("--device", type=int, default=None, help="Input device index (sounddevice).")
-    @click.option("--duration", type=float, default=0.0, help="Seconds to run; 0 = until Ctrl+C.")
-    def mic_cmd(device: int | None, duration: float):
-        _mic_classic(model_name, device=device, duration=duration)
 
 
 @click.group("classic")
