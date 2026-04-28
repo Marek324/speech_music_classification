@@ -9,8 +9,10 @@ rate. ``MicSource`` uses sounddevice (PortAudio resamples as needed);
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -36,6 +38,26 @@ def _keep_input_device(name: str) -> bool:
     if low == "jack":
         return False
     return not any(low.startswith(p) for p in _ALSA_ALIAS_PREFIXES)
+
+
+@contextlib.contextmanager
+def _silence_fd(fd: int):
+    """Temporarily redirect a low-level file descriptor to /dev/null.
+
+    PortAudio/ALSA print directly to stderr from C when an ``Pa_OpenStream`` call
+    fails (e.g. ``paInvalidSampleRate`` for hw: devices), bypassing Python's
+    logging. The MicSource fallback already recovers from these failures, so we
+    silence the C-level fd around the first open attempt.
+    """
+    saved = os.dup(fd)
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    try:
+        os.dup2(devnull, fd)
+        yield
+    finally:
+        os.dup2(saved, fd)
+        os.close(saved)
+        os.close(devnull)
 
 
 def list_input_devices() -> list[dict]:
@@ -246,11 +268,13 @@ class MicSource:
         self._queue = asyncio.Queue()
 
         # Try the model's sample rate first; if the device refuses it, fall
-        # back to its native rate and resample.
+        # back to its native rate and resample. PortAudio/ALSA print to stderr
+        # from C on the failed attempt, so silence fd 2 around it.
         dev_sr = self.sr
         dev_blocksize = self.chunk_samples
         try:
-            self._stream = self._open_stream(sd, dev_sr, dev_blocksize)
+            with _silence_fd(2):
+                self._stream = self._open_stream(sd, dev_sr, dev_blocksize)
         except sd.PortAudioError as exc:
             if "Invalid sample rate" not in str(exc):
                 raise

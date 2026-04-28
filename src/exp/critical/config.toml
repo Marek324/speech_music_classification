@@ -1,0 +1,47 @@
+# critical-set evaluation experiment.
+#
+# Drives `eval_classic` / `eval_tcn` against the hand-curated `crit` tier and
+# produces per-recording timeline visualizations alongside the standard `.eval`
+# reports + `_scores.npz` files.
+#
+# `dataset.url` may be either:
+#   - a HuggingFace hub identifier (used once the crit tier is uploaded), or
+#   - a path resolvable as a local directory laid out as
+#     `{url}/test/{speech,music,inactive}/part_*.parquet` (the staging output
+#     of `scripts/dataset/build.py --only-critical-set`).
+# The path may be absolute or relative to the repo root. The canonical loaders
+# in `src/nn/dataset.py` and `src/input_handler.py` switch routes automatically.
+
+[critical]
+# Models to evaluate. Drop any name to skip; missing weights are also skipped
+# with a warning. NN model names cover the canonical TCN plus every entry of
+# `src/nn/variants.toml`.
+models = ["decision_tree", "gmm", "svm", "tcn", "small_tcn", "tcn_lstm"]
+
+[critical.dataset]
+url = "scripts/dataset/speech_music_dataset/crit"
+name = "crit"
+
+[critical.frame_ms]
+# Per-frame hop in milliseconds. Used to convert the per-frame y_true/y_pred
+# arrays in `_scores.npz` into a time axis for the timeline plots.
+# NN: stft_hop_samples / sample_rate * 1000 → 512/22050*1000 = 23.22 ms.
+# Classic: from `[buffers.<model>]` in the repo-root `config.toml`.
+tcn = 23.22
+small_tcn = 23.22
+tcn_lstm = 23.22
+decision_tree = 10.0
+gmm = 15.0
+svm = 15.0
+
+[critical.viz]
+# Seconds of audio per timeline panel. Clips longer than this split into
+# multiple stacked panels so each row stays readable.
+panel_seconds = 30.0
+# Maximum panels per output file. Clips that need more spill into sibling
+# files with a `_p2.svg`, `_p3.svg`, ... suffix so each SVG stays manageable.
+max_panels_per_file = 4
+# Figure width in inches per second of audio (timeline-density knob).
+inches_per_second = 0.4
+# Per-row height in inches.
+row_height = 0.45

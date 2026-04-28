@@ -1,0 +1,55 @@
+Evaluation report — 2026-04-27 23:25:40 UTC
+
+── Evaluation ────────────────────────────────────
+  Device     : Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz
+  ms/frame   : 0.0238
+  Macro F1   : 0.4861  [0.3704, 0.5782]
+  Weighted F1: 0.5117
+  Accuracy   : 0.4922
+  Macro AUROC: 0.7939
+
+  Class             F1       P       R               F1 CI
+  Speech        0.5512  0.8954  0.3981    [0.4642, 0.6309]
+  Music         0.4409  0.2916  0.9041    [0.2241, 0.6119]
+  Inactive      0.4661  0.7101  0.3469    [0.2823, 0.6249]
+  ─────────────────────────────────────────────────────────
+  Macro         0.4861  0.6323  0.5497
+
+  Confusion matrix (rows=true, cols=pred):
+                    Speech     Music  Inactive
+  Speech      [     48289     67812      5194  ]
+  Music       [      3534     37795       473  ]
+  Inactive    [      2109     24021     13880  ]
+
+── By subclass ────────────────────────────────────
+  Subclass                      F1       P       R
+  music_acapella            1.0000  1.0000  1.0000
+  music_beatbox             0.9477  0.9396  0.9559
+  music_electronic          1.0000  1.0000  1.0000
+  music_extreme             0.9984  1.0000  0.9969
+  music_folk                1.0000  1.0000  1.0000
+  music_hip-hop             1.0000  1.0000  1.0000
+  music_instrumental        1.0000  1.0000  1.0000
+  music_pop                 1.0000  1.0000  1.0000
+  music_rock                1.0000  1.0000  1.0000
+  noise_ambient             0.9998  1.0000  0.9996
+  noise_babble              0.0000  0.0000  0.0000
+  noise_machinery           0.0000  0.0000  0.0000
+  noise_outdoor             0.0000  0.0000  0.0000
+  noise_wildlife            0.9697  1.0000  0.9412
+  speech_clean              0.9858  0.9776  0.9940
+  speech_msom               0.3084  0.9955  0.1825
+  speech_multispeaker       0.8536  0.9967  0.7465
+  speech_noisy_0db          0.5634  0.9507  0.4003
+  speech_noisy_neg3db       0.3940  0.9502  0.2485
+  speech_som                0.9616  0.9423  0.9816
+  speech_switching_1000ms   0.6326  0.4655  0.9870
+  speech_switching_2000ms   0.7314  0.5842  0.9777
+  speech_switching_3class_1000ms  0.6021  0.4367  0.9691
+  speech_switching_3class_2000ms  0.6719  0.5150  0.9663
+  speech_switching_3class_4000ms  0.7973  0.6804  0.9627
+  speech_switching_3class_500ms  0.5659  0.4118  0.9045
+  speech_switching_4000ms   0.7880  0.6866  0.9245
+  speech_switching_500ms    0.6182  0.4540  0.9685
+  speech_whisper            0.0000  0.0000  0.0000
+  (F1/P/R of each subclass's primary class within its frames)

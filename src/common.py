@@ -20,7 +20,7 @@ def subclass_primary(name: str) -> int:
         return LABEL_MAP["speech"]
     if name.startswith("music"):
         return LABEL_MAP["music"]
-    if name == "noise" or name.startswith("inactive"):
+    if name == "noise" or name.startswith("noise_") or name.startswith("inactive"):
         return LABEL_MAP["inactive"]
     raise ValueError(f"Unknown subclass: {name!r}")
 

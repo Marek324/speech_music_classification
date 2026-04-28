@@ -3,10 +3,12 @@
 
 import click
 
-from .latency.cli import latency_group
+from .complexity.cli import complexity_group
+from .critical.cli import critical_group
 from .nn_architecture.cli import nn_architecture_group
 from .nn_preprocessor.cli import nn_preprocessor_group
 from .small_tcn_pareto.cli import small_tcn_pareto_group
+from .small_tcn_stacks.cli import small_tcn_stacks_group
 from .tcn_ablation.cli import tcn_ablation_group
 from .tcn_combined.cli import tcn_combined_group
 from .tcn_frontend.cli import tcn_frontend_group
@@ -20,10 +22,12 @@ def exp_group():
     pass
 
 
-exp_group.add_command(latency_group)
+exp_group.add_command(complexity_group)
+exp_group.add_command(critical_group)
 exp_group.add_command(nn_architecture_group)
 exp_group.add_command(nn_preprocessor_group)
 exp_group.add_command(small_tcn_pareto_group)
+exp_group.add_command(small_tcn_stacks_group)
 exp_group.add_command(tcn_ablation_group)
 exp_group.add_command(tcn_combined_group)
 exp_group.add_command(tcn_frontend_group)

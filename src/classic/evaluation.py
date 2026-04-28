@@ -14,17 +14,26 @@ from . import MODELS, FeatExtractor
 log = logging.getLogger(__name__)
 
 
-def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray, np.ndarray]:
+def get_predictions(
+    model_name: str,
+    dataset_override: dict | None = None,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, float, np.ndarray, np.ndarray]:
     """
     Load model and test data, run inference.
     Returns (y_true, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids).
     Labels: -1=speech, 1=music, 2=inactive.
     y_scores: (N, 3) — columns [speech, music, inactive].
     clip_ids: (N,) int — per-frame source-clip index.
+
+    *dataset_override*: optional ``{"url", "name"}`` dict that replaces the
+    ``[dataset]`` section in the loaded config — used by ``src/exp/critical/``
+    to point eval at a non-default tier.
     """
     from .. import config
 
-    config.init_config(None, model_name=model_name)
+    if dataset_override is not None:
+        config.reset_config()
+    config.init_config(None, model_name=model_name, dataset_override=dataset_override)
     model = MODELS[model_name](model_name)
     model.load()
 
@@ -71,17 +80,31 @@ def get_predictions(model_name: str) -> tuple[np.ndarray, np.ndarray, np.ndarray
     return y, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids
 
 
-def eval_classic(model_name: str, save_to_file: bool = True):
-    """Evaluate classic model on test split. Uses main evaluator for metrics and output."""
-    y_true, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids = get_predictions(model_name)
+def eval_classic(
+    model_name: str,
+    save_to_file: bool = True,
+    dataset_override: dict | None = None,
+    output_name: str | None = None,
+    output_dir=None,
+):
+    """Evaluate classic model on test split. Uses main evaluator for metrics and output.
+
+    *dataset_override* / *output_name* / *output_dir* are forwarded through so
+    experiment harnesses (e.g. ``src/exp/critical/``) can re-route eval to a
+    non-default tier and a non-default results directory.
+    """
+    y_true, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids = get_predictions(
+        model_name, dataset_override=dataset_override,
+    )
     return run_evaluation(
         y_true,
         y_pred,
         subclasses,
         time_per_frame_ns,
-        output_name=model_name,
+        output_name=output_name or model_name,
         save_to_file=save_to_file,
         device=_device_label(False),
+        output_dir=output_dir,
         y_scores=y_scores,
         clip_ids=clip_ids,
     )

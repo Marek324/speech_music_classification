@@ -8,7 +8,43 @@ import numpy as np
 import soundfile as sf
 from datasets import Audio
 from pydub import AudioSegment
-from torchcodec.decoders import AudioDecoder
+
+# torchcodec is referenced here only for `isinstance` checks; we never invoke
+# its codec. But `datasets.features.audio.Audio.encode_example` also does
+# `from torchcodec.encoders import AudioEncoder` at the top — even when the
+# row is already pre-encoded WAV bytes (our case), so the import has to
+# resolve. When the wheel can't load (e.g. FFmpeg 8 / missing CUDA NPP on the
+# host), install fake `torchcodec` / `torchcodec.decoders` / `torchcodec.encoders`
+# modules in sys.modules so that import line succeeds without loading the C
+# library. The fakes are only ever referenced (never instantiated) because
+# every row we hand to HF is `{"bytes": <wav>, "path": None}`, which short-
+# circuits through the dict-passthrough branch of encode_example.
+try:
+    from torchcodec.decoders import AudioDecoder
+except (ImportError, RuntimeError):
+    import sys
+    import types
+
+    class AudioDecoder:  # type: ignore[no-redef]
+        """Sentinel — torchcodec unavailable; no real instances exist."""
+
+    class _VideoDecoderStub:
+        """Sentinel — datasets.features.features imports this for isinstance."""
+
+    class _AudioEncoderStub:
+        """Sentinel — torchcodec unavailable; never instantiated."""
+
+    _tc = types.ModuleType("torchcodec")
+    _tc_decoders = types.ModuleType("torchcodec.decoders")
+    _tc_decoders.AudioDecoder = AudioDecoder
+    _tc_decoders.VideoDecoder = _VideoDecoderStub
+    _tc_encoders = types.ModuleType("torchcodec.encoders")
+    _tc_encoders.AudioEncoder = _AudioEncoderStub
+    _tc.decoders = _tc_decoders
+    _tc.encoders = _tc_encoders
+    sys.modules.setdefault("torchcodec", _tc)
+    sys.modules.setdefault("torchcodec.decoders", _tc_decoders)
+    sys.modules.setdefault("torchcodec.encoders", _tc_encoders)
 
 from labeling import SR
 

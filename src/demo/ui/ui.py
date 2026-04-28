@@ -9,8 +9,11 @@ from __future__ import annotations
 import asyncio
 import gc
 import logging
+import time
+import wave
 from pathlib import Path
 
+import numpy as np
 import psutil
 import reflex as rx
 
@@ -44,7 +47,18 @@ _MODEL_LABELS: dict[str, str] = {
 _LABEL_NAME = {-1: "speech", 0: "inactive", 1: "music"}
 _LABEL_COLOR = {-1: "blue", 0: "gray", 1: "crimson"}
 
-_WINDOW_SEC = 5.0
+# Chart is a fixed-size rolling window of N predictions; bucket width comes from
+# the active runner (chunk_samples / sr), so the visible window length naturally
+# scales with the model's output rate (~2 s for DT @100 Hz, ~3 s for GMM/SVM
+# @67 Hz, ~4.6 s for TCN @43 Hz).
+_N_BUCKETS = 200
+# State→frontend flush rate. The chunk loop accumulates labels and only writes
+# to ``self.predictions`` every ``round(frame_rate / _UI_HZ)`` predictions, so
+# every model lands near this UI rate regardless of its native output rate.
+_UI_HZ = 12.0
+
+_PLAYBACK_SEC = 3.0
+_PLAYBACK_FILE = "playback.wav"
 _RESOURCE_POLL_SEC = 1.0
 _NCPU = psutil.cpu_count(logical=True) or 1
 
@@ -73,6 +87,14 @@ class DemoState(rx.State):
     desktop_gain_db: int = 0
     devices: list[dict] = []             # PortAudio inputs, populated on_load
     monitor_sources: list[dict] = []     # Pulse *.monitor sources, populated on_load
+
+    # Rolling audio buffer for "Play last 3s". Backend-only (underscore-prefixed),
+    # holds raw float32 PCM bytes in a bytearray so per-chunk append + trim is
+    # one in-place memmove instead of two allocations. ``playback_filename`` is
+    # the cache-busted name under ``rx.get_upload_dir()`` rendered into src.
+    _audio_buffer: bytearray = bytearray()
+    _audio_buffer_sr: int = 0
+    playback_filename: str = ""
 
     # System resource stats (polled by monitor_resources background task).
     cpu_percent: float = 0.0       # process CPU, normalized over all cores (0-100)
@@ -254,11 +276,45 @@ class DemoState(rx.State):
         self.model_name = name
         self.status_msg = ""
         self.predictions = []
+        self._reset_audio_buffer()
 
     @rx.event
     def set_mode(self, mode: str):
         self.mode = mode
         self.predictions = []
+        self._reset_audio_buffer()
+
+    def _reset_audio_buffer(self) -> None:
+        self._audio_buffer = bytearray()
+        self._audio_buffer_sr = 0
+        self.playback_filename = ""
+
+    def _append_audio(self, chunk: np.ndarray, sr: int) -> None:
+        self._audio_buffer_sr = sr
+        keep_bytes = int(sr * _PLAYBACK_SEC) * 4  # float32 mono
+        self._audio_buffer.extend(chunk.astype(np.float32, copy=False).tobytes())
+        excess = len(self._audio_buffer) - keep_bytes
+        if excess > 0:
+            del self._audio_buffer[:excess]
+
+    @rx.event
+    def play_last_3s(self):
+        if not self._audio_buffer or self._audio_buffer_sr <= 0:
+            self.status_msg = "No audio captured yet."
+            return
+        samples = np.frombuffer(bytes(self._audio_buffer), dtype=np.float32)
+        int16 = (np.clip(samples, -1.0, 1.0) * 32767.0).astype(np.int16)
+        upload_dir = Path(rx.get_upload_dir())
+        upload_dir.mkdir(parents=True, exist_ok=True)
+        out_path = upload_dir / _PLAYBACK_FILE
+        with wave.open(str(out_path), "wb") as w:
+            w.setnchannels(1)
+            w.setsampwidth(2)
+            w.setframerate(self._audio_buffer_sr)
+            w.writeframes(int16.tobytes())
+        # Cache-busting query string forces the browser to re-fetch and the
+        # ``key`` on rx.el.audio to remount, restarting playback.
+        self.playback_filename = f"{_PLAYBACK_FILE}?v={int(time.time() * 1000)}"
 
     @rx.event
     async def handle_upload(self, files: list[rx.UploadFile]):
@@ -289,6 +345,7 @@ class DemoState(rx.State):
                 return
             self.running = True
             self.predictions = []
+            self._reset_audio_buffer()
             self.status_msg = f"Loading {_MODEL_LABELS[self.model_name]} weights…"
             model_name = self.model_name
             primary = None if self.mic_device < 0 else self.mic_device
@@ -342,27 +399,33 @@ class DemoState(rx.State):
             )
         saw_chunk = False
         errored = False
+        runner_sr = int(runner.sr)
+        bucket_dt = runner.chunk_samples / runner_sr
+        flush_every = max(1, round((runner_sr / runner.chunk_samples) / _UI_HZ))
+        labels_buf: list[int] = []
+        pending_labels: list[int] = []
         try:
             async for chunk in source.chunks():
-                if not saw_chunk:
-                    async with self:
-                        if not self.running:
-                            break
-                        self.status_msg = "Listening…"
-                    saw_chunk = True
-                else:
-                    async with self:
-                        if not self.running:
-                            break
                 preds = runner.push(chunk)
-                if not preds:
-                    continue
-                new_points = [{"t": round(p.t, 3), "label": p.label} for p in preds]
-                now_t = new_points[-1]["t"]
-                cutoff = now_t - _WINDOW_SEC
+                if preds:
+                    pending_labels.extend(p.label for p in preds)
+                flush = len(pending_labels) >= flush_every
                 async with self:
-                    kept = [d for d in self.predictions if d["t"] >= cutoff]
-                    self.predictions = kept + new_points
+                    if not self.running:
+                        break
+                    if not saw_chunk:
+                        self.status_msg = "Listening…"
+                        saw_chunk = True
+                    self._append_audio(chunk, runner_sr)
+                    if flush:
+                        labels_buf.extend(pending_labels)
+                        pending_labels.clear()
+                        if len(labels_buf) > _N_BUCKETS:
+                            del labels_buf[: len(labels_buf) - _N_BUCKETS]
+                        self.predictions = [
+                            {"t": round(i * bucket_dt, 3), "label": labels_buf[i]}
+                            for i in range(len(labels_buf))
+                        ]
         except Exception as exc:
             log.exception("mic loop crashed")
             errored = True
@@ -391,6 +454,7 @@ class DemoState(rx.State):
                 return
             self.running = True
             self.predictions = []
+            self._reset_audio_buffer()
             self.status_msg = f"Loading {_MODEL_LABELS[self.model_name]} weights…"
             model_name = self.model_name
             path = self.uploaded_file_path
@@ -416,17 +480,30 @@ class DemoState(rx.State):
             path=path, sr=runner.sr, chunk_samples=runner.chunk_samples, realtime=True
         )
         errored = False
+        runner_sr = int(runner.sr)
+        bucket_dt = runner.chunk_samples / runner_sr
+        flush_every = max(1, round((runner_sr / runner.chunk_samples) / _UI_HZ))
+        labels_buf: list[int] = []
+        pending_labels: list[int] = []
         try:
             async for chunk in source.chunks():
+                preds = runner.push(chunk)
+                if preds:
+                    pending_labels.extend(p.label for p in preds)
+                flush = len(pending_labels) >= flush_every
                 async with self:
                     if not self.running:
                         break
-                preds = runner.push(chunk)
-                if not preds:
-                    continue
-                new_points = [{"t": round(p.t, 3), "label": p.label} for p in preds]
-                async with self:
-                    self.predictions = self.predictions + new_points
+                    self._append_audio(chunk, runner_sr)
+                    if flush:
+                        labels_buf.extend(pending_labels)
+                        pending_labels.clear()
+                        if len(labels_buf) > _N_BUCKETS:
+                            del labels_buf[: len(labels_buf) - _N_BUCKETS]
+                        self.predictions = [
+                            {"t": round(i * bucket_dt, 3), "label": labels_buf[i]}
+                            for i in range(len(labels_buf))
+                        ]
         except Exception as exc:
             log.exception("file loop crashed")
             errored = True
@@ -778,6 +855,33 @@ def _chart() -> rx.Component:
     return rx.cond(DemoState.has_predictions, chart, empty)
 
 
+def _playback_row() -> rx.Component:
+    return rx.hstack(
+        rx.button(
+            rx.icon(tag="rotate-ccw", size=16),
+            "Play last 3s",
+            on_click=DemoState.play_last_3s,
+            color_scheme="indigo",
+            variant="soft",
+            size="2",
+        ),
+        rx.cond(
+            DemoState.playback_filename != "",
+            rx.el.audio(
+                src=rx.get_upload_url(DemoState.playback_filename),
+                controls=True,
+                auto_play=True,
+                key=DemoState.playback_filename,
+                style={"height": "32px", "flex": "1"},
+            ),
+            rx.fragment(),
+        ),
+        spacing="3",
+        align="center",
+        width="100%",
+    )
+
+
 def _right_panel() -> rx.Component:
     return rx.card(
         rx.vstack(
@@ -800,6 +904,7 @@ def _right_panel() -> rx.Component:
             rx.separator(),
             _status_row(),
             _chart(),
+            _playback_row(),
             spacing="4",
             width="100%",
         ),

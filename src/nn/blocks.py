@@ -13,6 +13,23 @@ _ACTIVATIONS = {
 }
 
 
+def _legacy_weight_norm_load_hook(state_dict, prefix, *_):
+    """Rename legacy weight_norm keys to the parametrizations layout in-place.
+
+    Pre-hooks run before ``load_state_dict`` validates keys, so checkpoints
+    saved under the deprecated ``nn.utils.weight_norm`` (``weight_g`` /
+    ``weight_v``) load cleanly into modules that now use
+    ``nn.utils.parametrizations.weight_norm`` (``parametrizations.weight.
+    original0`` / ``original1``).
+    """
+    g_key = prefix + "weight_g"
+    v_key = prefix + "weight_v"
+    if g_key in state_dict:
+        state_dict[prefix + "parametrizations.weight.original0"] = state_dict.pop(g_key)
+    if v_key in state_dict:
+        state_dict[prefix + "parametrizations.weight.original1"] = state_dict.pop(v_key)
+
+
 class CausalConv1d(nn.Module):
     """
     1-D convolution that is strictly causal.
@@ -51,8 +68,12 @@ class TCNResidualBlock(nn.Module):
         self.conv2 = CausalConv1d(out_channels, out_channels, kernel_size, dilation)
 
         if use_weight_norm:
-            nn.utils.weight_norm(self.conv1.conv)
-            nn.utils.weight_norm(self.conv2.conv)
+            for c in (self.conv1.conv, self.conv2.conv):
+                nn.utils.parametrizations.weight_norm(c)
+                # Existing checkpoints were saved under the legacy weight_g /
+                # weight_v layout — remap on load so they bind to the new
+                # parametrizations.weight.original0 / original1 params.
+                c._register_load_state_dict_pre_hook(_legacy_weight_norm_load_hook)
             self.bn1 = None
             self.bn2 = None
         else:

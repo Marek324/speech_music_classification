@@ -2,6 +2,9 @@
 # Dataset loading and iteration for NN models — shared across TCN and future models.
 # Config params (sr, hop, n_fft) are passed explicitly; no model-specific config dependency.
 
+import io
+from pathlib import Path
+
 import numpy as np
 import torch
 from datasets import Audio, load_dataset
@@ -39,8 +42,71 @@ def _timestamps_to_frame_labels(labels_list, n_frames, sample_rate, hop_length) 
     return frame_labels
 
 
+def _decode_audio_bytes(raw: dict, target_sr: int) -> np.ndarray:
+    """Decode a local-parquet `{"bytes","path"}` audio struct → mono float32 @ target_sr."""
+    import soundfile as sf
+
+    if raw.get("bytes") is not None:
+        data, src_sr = sf.read(io.BytesIO(raw["bytes"]), dtype="float32", always_2d=False)
+    elif raw.get("path"):
+        data, src_sr = sf.read(raw["path"], dtype="float32", always_2d=False)
+    else:
+        raise ValueError("audio struct has neither 'bytes' nor 'path'")
+    if data.ndim == 2:
+        data = data.mean(axis=1).astype(np.float32, copy=False)
+    if src_sr != target_sr:
+        import librosa
+        data = librosa.resample(
+            data.astype(np.float32, copy=False),
+            orig_sr=src_sr, target_sr=target_sr, res_type="polyphase",
+        )
+    return np.ascontiguousarray(data, dtype=np.float32)
+
+
+def _is_local_dataset(ds_link: str) -> bool:
+    """True iff ``ds_link`` resolves to an existing local directory of parquet shards."""
+    try:
+        return Path(ds_link).expanduser().is_dir()
+    except OSError:
+        return False
+
+
+def _local_parquet_shards(ds_root: Path, split: str) -> list[str]:
+    shards = sorted(ds_root.joinpath(split).glob("*/part_*.parquet"))
+    if not shards:
+        raise FileNotFoundError(
+            f"No parquet shards found under {ds_root / split}/*/part_*.parquet"
+        )
+    return [str(s) for s in shards]
+
+
 def get_nn_dataset(ds_link: str, split: str, sample_rate: int, name: str = "full"):
-    """Load HF dataset once. Resample to given sample_rate."""
+    """Load dataset once. Resample to ``sample_rate``.
+
+    Two routes:
+    - HF hub identifier (e.g. ``Marek324/speech-music-classification``) — load
+      via ``load_dataset(ds_link, name=name, split=split)`` and cast the audio
+      column to ``Audio(sampling_rate=sample_rate)`` so HF resamples on access.
+    - Local directory laid out as ``{ds_link}/{split}/{modality}/part_*.parquet``
+      (the staging output of ``scripts/dataset/build.py``) — load the parquet
+      shards directly, leave the audio column as a raw ``{bytes,path}`` struct,
+      and let ``iter_nn_rows`` decode + resample bytes via soundfile + librosa.
+      The local route deliberately avoids HF's Audio decode path because that
+      pulls in torchcodec, which fails to load on hosts with FFmpeg 8 / no
+      CUDA NPP libs.
+    """
+    if _is_local_dataset(ds_link):
+        shards = _local_parquet_shards(Path(ds_link).expanduser(), split)
+        ds = load_dataset("parquet", data_files={split: shards}, split=split)
+        # Parquet shards written via `Dataset.from_dict(features={"audio": Audio(...)})`
+        # carry an `Audio(decode=True)` feature in the schema metadata. HF would
+        # then call `decode_example` on every access — pulling in torchcodec,
+        # which fails to load on this host. Re-cast with decode=False so the
+        # column comes through as a raw {bytes, path} struct; iter_nn_rows
+        # decodes via soundfile in the dict-no-`array`-key branch below.
+        if "audio" in ds.column_names:
+            ds = ds.cast_column("audio", Audio(sampling_rate=sample_rate, decode=False))
+        return ds
     return load_dataset(ds_link, name=name, split=split).cast_column(
         "audio",
         Audio(sampling_rate=sample_rate, num_channels=1),
@@ -66,7 +132,11 @@ def iter_nn_rows(
             break
         raw = row["audio"]
         if isinstance(raw, dict):
-            audio = raw["array"]
+            if "array" in raw:
+                audio = raw["array"]
+            else:
+                # Local-parquet path: raw {"bytes", "path"} struct, decode here.
+                audio = _decode_audio_bytes(raw, target_sr=sr)
         elif hasattr(raw, "get_all_samples"):
             audio = raw.get_all_samples().data
             if hasattr(audio, "cpu"):

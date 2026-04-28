@@ -2,10 +2,12 @@
 # Marek Hric
 
 import hashlib
+import io
 import json
 import logging
 import time
 from collections import Counter
+from pathlib import Path
 from typing import Any, Dict, Optional
 
 import librosa
@@ -40,6 +42,43 @@ def _safe_feats(feats: np.ndarray) -> np.ndarray:
     if np.any(np.isnan(feats)) or np.any(np.isinf(feats)):
         return np.zeros_like(feats)
     return feats
+
+
+def _is_local_dataset(ds_link: str) -> bool:
+    """True iff ``ds_link`` resolves to a local directory of parquet shards."""
+    try:
+        return Path(ds_link).expanduser().is_dir()
+    except OSError:
+        return False
+
+
+def _local_parquet_shards(ds_root: Path, split: str) -> list[str]:
+    shards = sorted(ds_root.joinpath(split).glob("*/part_*.parquet"))
+    if not shards:
+        raise FileNotFoundError(
+            f"No parquet shards found under {ds_root / split}/*/part_*.parquet"
+        )
+    return [str(s) for s in shards]
+
+
+def _decode_audio_struct(raw: dict, target_sr: int) -> np.ndarray:
+    """Decode a local-parquet `{"bytes","path"}` audio struct → mono float32 @ target_sr."""
+    import soundfile as sf
+
+    if raw.get("bytes") is not None:
+        data, src_sr = sf.read(io.BytesIO(raw["bytes"]), dtype="float32", always_2d=False)
+    elif raw.get("path"):
+        data, src_sr = sf.read(raw["path"], dtype="float32", always_2d=False)
+    else:
+        raise ValueError("audio struct has neither 'bytes' nor 'path'")
+    if data.ndim == 2:
+        data = data.mean(axis=1).astype(np.float32, copy=False)
+    if src_sr != target_sr:
+        data = librosa.resample(
+            data.astype(np.float32, copy=False),
+            orig_sr=src_sr, target_sr=target_sr, res_type="polyphase",
+        )
+    return np.ascontiguousarray(data, dtype=np.float32)
 
 
 class InputHandler:
@@ -113,8 +152,12 @@ class InputHandler:
             "subclasses": Counter(),
         }
 
-        cache_path = self._cache_path(ds_link, ds_split, ds_revision, ds_name)
-        if cache_path.exists():
+        is_local = _is_local_dataset(ds_link)
+        # Local-path datasets bypass the feature cache: rebuilds change parquet
+        # contents but not the path, so a cached fingerprint would mask updates.
+        # Local crit is small, so re-extraction is cheap.
+        cache_path = None if is_local else self._cache_path(ds_link, ds_split, ds_revision, ds_name)
+        if cache_path is not None and cache_path.exists():
             log.info("Loading features from cache: %s", cache_path)
             data = np.load(cache_path, allow_pickle=False)
             self.X = data["X"]
@@ -135,12 +178,25 @@ class InputHandler:
             log.info("Loaded %d frames from cache.", len(self.X))
             return
 
-        dataset = load_dataset(
-            ds_link, name=ds_name, split=ds_split, revision=ds_revision
-        ).cast_column(
-            "audio",
-            Audio(sampling_rate=self.sr, num_channels=self.channels),
-        )
+        if is_local:
+            shards = _local_parquet_shards(Path(ds_link).expanduser(), ds_split)
+            # Parquet shards carry an `Audio(decode=True)` feature in their HF
+            # schema metadata; without an override HF would invoke torchcodec
+            # on every access (broken on hosts with FFmpeg 8 / no CUDA NPP).
+            # cast_column(..., decode=False) keeps the struct shape but skips
+            # the eager decode; _process_row decodes via soundfile.
+            dataset = load_dataset("parquet", data_files={ds_split: shards}, split=ds_split)
+            if "audio" in dataset.column_names:
+                dataset = dataset.cast_column(
+                    "audio", Audio(sampling_rate=self.sr, decode=False),
+                )
+        else:
+            dataset = load_dataset(
+                ds_link, name=ds_name, split=ds_split, revision=ds_revision
+            ).cast_column(
+                "audio",
+                Audio(sampling_rate=self.sr, num_channels=self.channels),
+            )
         assert isinstance(dataset, Dataset)
 
         process_fn = self._process_row
@@ -182,14 +238,15 @@ class InputHandler:
         self.X = np.nan_to_num(self.X, nan=0.0, posinf=0.0, neginf=0.0)
         log.info("Aggregation done.")
 
-        log.info("Saving features to cache: %s", cache_path)
-        np.savez(
-            cache_path,
-            X=self.X,
-            y=self.y,
-            subclasses=np.array(self.subclasses),
-            clip_ids=self.clip_ids,
-        )
+        if cache_path is not None:
+            log.info("Saving features to cache: %s", cache_path)
+            np.savez(
+                cache_path,
+                X=self.X,
+                y=self.y,
+                subclasses=np.array(self.subclasses),
+                clip_ids=self.clip_ids,
+            )
 
     def _init_microphone_mode(self) -> None:
         self.st_buffer = np.zeros(0, dtype=np.float32)
@@ -216,10 +273,16 @@ class InputHandler:
 
     def _process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
         self.fextractor.reset()
-        audio = row["audio"].get_all_samples().data
-        if hasattr(audio, "cpu"):
-            audio = audio.cpu()
-        audio = np.asarray(audio, dtype=np.float32).squeeze()
+        raw = row["audio"]
+        if isinstance(raw, dict) and "array" not in raw:
+            # Local-parquet path: raw {"bytes","path"} struct, decode here.
+            # _decode_audio_struct returns mono float32 already at self.sr.
+            audio = _decode_audio_struct(raw, target_sr=self.sr)
+        else:
+            audio = raw.get_all_samples().data
+            if hasattr(audio, "cpu"):
+                audio = audio.cpu()
+            audio = np.asarray(audio, dtype=np.float32).squeeze()
 
         # GMM/SVM extractor runs at 8kHz, input dataset is at self.sr; resample
         # so that the streaming path sees exactly what mic inference would see.

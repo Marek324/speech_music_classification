@@ -8,6 +8,11 @@ from typing import Any, Dict, Literal, Optional
 class TierName(Enum):
     mid = "mid"
     full = "full"
+    # `crit` is a hand-curated test-only tier (see scripts/dataset/crit/). Kept
+    # in the enum so the staging-layout helpers and tier-keyed dicts work, but
+    # it's hidden from the build.py CLI tier choices — crit is opted in/out
+    # via --no-critical-set / --only-critical-set instead.
+    crit = "crit"
 
 
 # Parent directory for Hub upload: contains ``mid/``, ``full/`` (one subfolder per build).
@@ -58,6 +63,7 @@ class MultispeakerAugEntry:
 MULTISPEAKER_AUG_SOURCES: Dict[TierName, tuple[MultispeakerAugEntry, ...]] = {
     TierName.mid: (MultispeakerAugEntry("speech_clean", 36.0),),
     TierName.full: (MultispeakerAugEntry("speech_clean", 180.0),),
+    TierName.crit: (),
 }
 
 
@@ -104,6 +110,10 @@ HF_SPLIT_NAMES: tuple[str, ...] = ("train", "validation", "test")
 TIER_SPLIT_FRACTIONS: Dict[TierName, Dict[str, float]] = {
     TierName.mid:  {"train": 0.80, "validation": 0.10, "test": 0.10},
     TierName.full: {"train": 0.84, "validation": 0.08, "test": 0.08},
+    # crit is test-only; the value is unused (crit_process hardcodes the test
+    # writer) but the entry is required so TIER_SPLIT_FRACTIONS[tier_key]
+    # lookups in build.py don't KeyError.
+    TierName.crit: {"test": 1.0},
 }
 
 
@@ -126,6 +136,7 @@ AUGMENT_SOURCES: Dict[TierName, tuple[AugmentEntry, ...]] = {
         AugmentEntry("speech_som", "speech_clean", 180.0),
         AugmentEntry("speech_msom", "speech_multispeaker", 120.0),
     ),
+    TierName.crit: (),
 }
 
 
@@ -160,6 +171,7 @@ NOISE_AUG_SOURCES: Dict[TierName, tuple[NoiseAugEntry, ...]] = {
     TierName.full: (
         NoiseAugEntry("speech_clean", 480.0),
     ),
+    TierName.crit: (),
 }
 
 

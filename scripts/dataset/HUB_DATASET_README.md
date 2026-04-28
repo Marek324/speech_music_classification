@@ -23,12 +23,17 @@ configs:
         path: mid/validation/**/*.parquet
       - split: test
         path: mid/test/**/*.parquet
+  - config_name: crit
+    data_files:
+      - split: test
+        path: crit/test/**/*.parquet
 ---
 
 ## Tiers
 
 - **mid** — 1200 min target (40% speech / 40% music / 20% inactive), including synthetic augmentations.
 - **full** — 6000 min target, same mix.
+- **crit** — small hand-curated stress-test set (test split only) sourced from `scripts/dataset/crit/manifest.toml`.
 
 ## Structure
 

@@ -1,0 +1,2417 @@
+# Critical-set recordings - hand-picked test clips that stress the trained
+# classifiers. Drop the audio file under recordings/ and add a TOML block here.
+#
+# Required: file, cls, subclass.
+# Labels: either inline `labels = [...]` (hand-curated) OR detector="vad"|"music"|"silence"
+#         (run automatic labeler - same code path as the mid/full HF sources).
+#         The two are mutually exclusive - exactly one must be set.
+#
+# All entries are emitted to the test split; no train/validation in this tier.
+# Each row in `labels` covers a half-open [start, end) interval in milliseconds.
+#
+# Sample blocks (delete or replace once real recordings exist):
+
+# [handpicked_clean_speech_01]
+# file        = "recordings/handpicked_clean_speech_01.wav"
+# cls         = "speech"
+# subclass    = "clean"
+# source_url  = "https://librivox.org/..."
+# license     = "Public Domain"
+# notes       = "Studio-quality narration with no background music."
+# labels = [
+#   { label = "speech", start = 0, end = 12340 },
+# ]
+
+# [edge_case_music_under_speech]
+# file        = "recordings/edge_case_music_under_speech.flac"
+# cls         = "speech"
+# subclass    = "noisy"
+# detector    = "vad"
+# notes       = "Faint background music - challenging for the music head."
+
+[music_jumpup]
+file     = "sources/music/jumpup.mp3"
+cls      = "music"
+subclass = "extreme"
+notes    = "Hardcore jumpup - distorted percussion + vocal samples; OOD vs FMA training distribution."
+labels = [
+  { label = "music", start = 0, end = 220021 },
+]
+
+[music_speedcore]
+file     = "sources/music/speedcore.mp3"
+cls      = "music"
+subclass = "extreme"
+notes    = "Speedcore - extreme BPM + heavy distortion that surfaces as broadband noise on log-mel."
+labels = [
+  { label = "music", start = 0, end = 221161 },
+]
+
+[music_beatbox]
+file     = "recordings/beatbox.wav"
+cls      = "music"
+subclass = "beatbox"
+notes    = "Beatbox - vocal-only 'music' with intermittent spoken-word breaks; pure timbre is human voice (mouth percussion, chest tones, vocal samples), so a frame-level classifier has to switch between music and speech without any instrumental scaffolding to anchor on."
+labels = [
+  { label = "music",  start = 589,    end = 8482 },
+  { label = "music",  start = 9133,   end = 16637 },
+  { label = "music",  start = 17593,  end = 30208 },
+  { label = "speech", start = 31161,  end = 33598 },
+  { label = "speech", start = 35476,  end = 36158 },
+  { label = "music",  start = 36692,  end = 54075 },
+  { label = "speech", start = 54075,  end = 54678 },
+  { label = "music",  start = 54678,  end = 80970 },
+  { label = "speech", start = 80970,  end = 81522 },
+  { label = "music",  start = 81522,  end = 94193 },
+  { label = "speech", start = 94193,  end = 95015 },
+  { label = "music",  start = 95015,  end = 98646 },
+  { label = "speech", start = 98646,  end = 99493 },
+  { label = "music",  start = 99493,  end = 107342 },
+  { label = "speech", start = 107342, end = 107677 },
+  { label = "music",  start = 107677, end = 143811 },
+  { label = "speech", start = 143811, end = 144308 },
+  { label = "music",  start = 144308, end = 163437 },
+]
+
+[speech_clean_0]
+file     = "recordings/s_clean_0.wav"
+cls      = "speech"
+subclass = "clean"
+notes    = "Clean studio narration."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean_1]
+file     = "recordings/s_clean_1.wav"
+cls      = "speech"
+subclass = "clean"
+notes    = "Clean studio narration."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean_2]
+file     = "recordings/s_clean_2.wav"
+cls      = "speech"
+subclass = "clean"
+notes    = "Clean studio narration."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean_3]
+file     = "recordings/s_clean_3.wav"
+cls      = "speech"
+subclass = "clean"
+notes    = "Clean studio narration."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean_4]
+file     = "recordings/s_clean_4.wav"
+cls      = "speech"
+subclass = "clean"
+notes    = "Clean studio narration."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean_5]
+file     = "recordings/s_clean_5.wav"
+cls      = "speech"
+subclass = "clean"
+notes    = "Clean studio narration."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_whisper]
+file     = "recordings/s_whisper.wav"
+cls      = "speech"
+subclass = "whisper"
+notes    = "Whispered speech - OOD vs LibriSpeech modal-voicing training distribution."
+labels = [
+  { label = "speech", start = 220, end = 3023 },
+  { label = "speech", start = 3692, end = 6161 },
+  { label = "speech", start = 7458, end = 9885 },
+  { label = "speech", start = 12751, end = 17312 },
+]
+
+[speech_clean0_airport_0db]
+file     = "recordings/s_clean_0_airport_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (airport.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.9211 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_airport_neg3db]
+file     = "recordings/s_clean_0_airport_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (airport.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.8913 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_birdsong_0db]
+file     = "recordings/s_clean_0_birdsong_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (birdsong.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.7630 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_birdsong_neg3db]
+file     = "recordings/s_clean_0_birdsong_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (birdsong.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.5409 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_cafeteria_0db]
+file     = "recordings/s_clean_0_cafeteria_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (cafeteria.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.7629 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_cafeteria_neg3db]
+file     = "recordings/s_clean_0_cafeteria_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (cafeteria.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.6842 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_cooler_fan_0db]
+file     = "recordings/s_clean_0_cooler_fan_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (cooler_fan.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.9217 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_cooler_fan_neg3db]
+file     = "recordings/s_clean_0_cooler_fan_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (cooler_fan.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.8728 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_fireplace_0db]
+file     = "recordings/s_clean_0_fireplace_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (fireplace.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.1254 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_fireplace_neg3db]
+file     = "recordings/s_clean_0_fireplace_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (fireplace.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.0886 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_rain_0db]
+file     = "recordings/s_clean_0_rain_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (rain.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.5689 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_rain_neg3db]
+file     = "recordings/s_clean_0_rain_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (rain.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.4023 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_street_0db]
+file     = "recordings/s_clean_0_street_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_0.wav) + noise (street.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.9590 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean0_street_neg3db]
+file     = "recordings/s_clean_0_street_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_0.wav) + noise (street.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.9233 to avoid clip)."
+labels = [
+  { label = "speech", start = 514, end = 3230 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "speech", start = 29250, end = 31198 },
+]
+
+[speech_clean1_airport_0db]
+file     = "recordings/s_clean_1_airport_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (airport.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_airport_neg3db]
+file     = "recordings/s_clean_1_airport_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (airport.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_birdsong_0db]
+file     = "recordings/s_clean_1_birdsong_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (birdsong.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_birdsong_neg3db]
+file     = "recordings/s_clean_1_birdsong_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (birdsong.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.8155 to avoid clip)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_cafeteria_0db]
+file     = "recordings/s_clean_1_cafeteria_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (cafeteria.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_cafeteria_neg3db]
+file     = "recordings/s_clean_1_cafeteria_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (cafeteria.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_cooler_fan_0db]
+file     = "recordings/s_clean_1_cooler_fan_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (cooler_fan.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_cooler_fan_neg3db]
+file     = "recordings/s_clean_1_cooler_fan_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (cooler_fan.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_fireplace_0db]
+file     = "recordings/s_clean_1_fireplace_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (fireplace.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.2065 to avoid clip)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_fireplace_neg3db]
+file     = "recordings/s_clean_1_fireplace_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (fireplace.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.1461 to avoid clip)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_rain_0db]
+file     = "recordings/s_clean_1_rain_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (rain.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.9274 to avoid clip)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_rain_neg3db]
+file     = "recordings/s_clean_1_rain_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (rain.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.6582 to avoid clip)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_street_0db]
+file     = "recordings/s_clean_1_street_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_1.wav) + noise (street.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean1_street_neg3db]
+file     = "recordings/s_clean_1_street_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_1.wav) + noise (street.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 578, end = 3646 },
+  { label = "speech", start = 4034, end = 8815 },
+  { label = "speech", start = 9186, end = 13374 },
+  { label = "speech", start = 13826, end = 15070 },
+  { label = "speech", start = 15330, end = 20619 },
+  { label = "speech", start = 21154, end = 23758 },
+  { label = "speech", start = 24098, end = 27806 },
+  { label = "speech", start = 28162, end = 31258 },
+]
+
+[speech_clean2_airport_0db]
+file     = "recordings/s_clean_2_airport_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (airport.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_airport_neg3db]
+file     = "recordings/s_clean_2_airport_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (airport.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_birdsong_0db]
+file     = "recordings/s_clean_2_birdsong_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (birdsong.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.8319 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_birdsong_neg3db]
+file     = "recordings/s_clean_2_birdsong_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (birdsong.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.6362 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_cafeteria_0db]
+file     = "recordings/s_clean_2_cafeteria_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (cafeteria.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_cafeteria_neg3db]
+file     = "recordings/s_clean_2_cafeteria_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (cafeteria.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_cooler_fan_0db]
+file     = "recordings/s_clean_2_cooler_fan_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (cooler_fan.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_cooler_fan_neg3db]
+file     = "recordings/s_clean_2_cooler_fan_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (cooler_fan.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_fireplace_0db]
+file     = "recordings/s_clean_2_fireplace_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (fireplace.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.1623 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_fireplace_neg3db]
+file     = "recordings/s_clean_2_fireplace_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (fireplace.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.1145 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_rain_0db]
+file     = "recordings/s_clean_2_rain_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (rain.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.6478 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_rain_neg3db]
+file     = "recordings/s_clean_2_rain_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (rain.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.4683 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_street_0db]
+file     = "recordings/s_clean_2_street_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_2.wav) + noise (street.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean2_street_neg3db]
+file     = "recordings/s_clean_2_street_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_2.wav) + noise (street.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 1854 },
+  { label = "speech", start = 2402, end = 5278 },
+  { label = "speech", start = 5442, end = 6398 },
+  { label = "speech", start = 7010, end = 7806 },
+  { label = "speech", start = 8002, end = 8990 },
+  { label = "speech", start = 9282, end = 10142 },
+  { label = "speech", start = 10306, end = 10974 },
+  { label = "speech", start = 11106, end = 12350 },
+  { label = "speech", start = 12546, end = 13406 },
+  { label = "speech", start = 13602, end = 15294 },
+  { label = "speech", start = 15490, end = 16350 },
+  { label = "speech", start = 16546, end = 17406 },
+  { label = "speech", start = 17666, end = 18782 },
+  { label = "speech", start = 18914, end = 20574 },
+  { label = "speech", start = 20994, end = 23262 },
+  { label = "speech", start = 23650, end = 24958 },
+  { label = "speech", start = 25314, end = 26238 },
+  { label = "speech", start = 26498, end = 27390 },
+  { label = "speech", start = 27554, end = 29022 },
+  { label = "speech", start = 29634, end = 30686 },
+  { label = "speech", start = 31074, end = 32638 },
+]
+
+[speech_clean3_airport_0db]
+file     = "recordings/s_clean_3_airport_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (airport.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_airport_neg3db]
+file     = "recordings/s_clean_3_airport_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (airport.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_birdsong_0db]
+file     = "recordings/s_clean_3_birdsong_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (birdsong.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.8635 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_birdsong_neg3db]
+file     = "recordings/s_clean_3_birdsong_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (birdsong.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.6764 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_cafeteria_0db]
+file     = "recordings/s_clean_3_cafeteria_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (cafeteria.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_cafeteria_neg3db]
+file     = "recordings/s_clean_3_cafeteria_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (cafeteria.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_cooler_fan_0db]
+file     = "recordings/s_clean_3_cooler_fan_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (cooler_fan.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_cooler_fan_neg3db]
+file     = "recordings/s_clean_3_cooler_fan_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (cooler_fan.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_fireplace_0db]
+file     = "recordings/s_clean_3_fireplace_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (fireplace.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.1728 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_fireplace_neg3db]
+file     = "recordings/s_clean_3_fireplace_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (fireplace.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.1226 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_rain_0db]
+file     = "recordings/s_clean_3_rain_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (rain.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.7582 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_rain_neg3db]
+file     = "recordings/s_clean_3_rain_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (rain.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.5366 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_street_0db]
+file     = "recordings/s_clean_3_street_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_3.wav) + noise (street.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean3_street_neg3db]
+file     = "recordings/s_clean_3_street_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_3.wav) + noise (street.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.9713 to avoid clip)."
+labels = [
+  { label = "speech", start = 290, end = 4302 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "speech", start = 7426, end = 10453 },
+  { label = "speech", start = 10722, end = 14568 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "speech", start = 18754, end = 20719 },
+  { label = "speech", start = 21090, end = 25707 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "speech", start = 32610, end = 34782 },
+]
+
+[speech_clean4_airport_0db]
+file     = "recordings/s_clean_4_airport_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (airport.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_airport_neg3db]
+file     = "recordings/s_clean_4_airport_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (airport.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_birdsong_0db]
+file     = "recordings/s_clean_4_birdsong_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (birdsong.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.9276 to avoid clip)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_birdsong_neg3db]
+file     = "recordings/s_clean_4_birdsong_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (birdsong.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.6658 to avoid clip)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_cafeteria_0db]
+file     = "recordings/s_clean_4_cafeteria_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (cafeteria.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_cafeteria_neg3db]
+file     = "recordings/s_clean_4_cafeteria_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (cafeteria.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_cooler_fan_0db]
+file     = "recordings/s_clean_4_cooler_fan_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (cooler_fan.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_cooler_fan_neg3db]
+file     = "recordings/s_clean_4_cooler_fan_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (cooler_fan.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_fireplace_0db]
+file     = "recordings/s_clean_4_fireplace_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (fireplace.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.1649 to avoid clip)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_fireplace_neg3db]
+file     = "recordings/s_clean_4_fireplace_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (fireplace.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.1167 to avoid clip)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_rain_0db]
+file     = "recordings/s_clean_4_rain_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (rain.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.7215 to avoid clip)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_rain_neg3db]
+file     = "recordings/s_clean_4_rain_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (rain.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.5108 to avoid clip)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_street_0db]
+file     = "recordings/s_clean_4_street_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_4.wav) + noise (street.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean4_street_neg3db]
+file     = "recordings/s_clean_4_street_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_4.wav) + noise (street.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 450, end = 3819 },
+  { label = "speech", start = 4098, end = 6110 },
+  { label = "speech", start = 6562, end = 8094 },
+  { label = "speech", start = 8386, end = 12382 },
+  { label = "speech", start = 13026, end = 13950 },
+  { label = "speech", start = 14178, end = 15966 },
+  { label = "speech", start = 16162, end = 21918 },
+  { label = "speech", start = 22050, end = 23294 },
+  { label = "speech", start = 23522, end = 27390 },
+  { label = "speech", start = 27682, end = 29854 },
+  { label = "speech", start = 30274, end = 32510 },
+]
+
+[speech_clean5_airport_0db]
+file     = "recordings/s_clean_5_airport_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (airport.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_airport_neg3db]
+file     = "recordings/s_clean_5_airport_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (airport.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_birdsong_0db]
+file     = "recordings/s_clean_5_birdsong_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (birdsong.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.9842 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_birdsong_neg3db]
+file     = "recordings/s_clean_5_birdsong_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (birdsong.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.7272 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_cafeteria_0db]
+file     = "recordings/s_clean_5_cafeteria_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (cafeteria.mp3) mixed at target +0.0 dB SNR (actual -0.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_cafeteria_neg3db]
+file     = "recordings/s_clean_5_cafeteria_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (cafeteria.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_cooler_fan_0db]
+file     = "recordings/s_clean_5_cooler_fan_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (cooler_fan.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_cooler_fan_neg3db]
+file     = "recordings/s_clean_5_cooler_fan_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (cooler_fan.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_fireplace_0db]
+file     = "recordings/s_clean_5_fireplace_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (fireplace.mp3) mixed at target +0.0 dB SNR (actual +0.00) (mix scaled by 0.1774 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_fireplace_neg3db]
+file     = "recordings/s_clean_5_fireplace_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (fireplace.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.1256 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_rain_0db]
+file     = "recordings/s_clean_5_rain_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (rain.mp3) mixed at target +0.0 dB SNR (actual -0.00) (mix scaled by 0.8023 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_rain_neg3db]
+file     = "recordings/s_clean_5_rain_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (rain.mp3) mixed at target -3.0 dB SNR (actual -3.00) (mix scaled by 0.5604 to avoid clip)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_street_0db]
+file     = "recordings/s_clean_5_street_0db.wav"
+cls      = "speech"
+subclass = "noisy_0db"
+notes    = "Speech (s_clean_5.wav) + noise (street.mp3) mixed at target +0.0 dB SNR (actual +0.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[speech_clean5_street_neg3db]
+file     = "recordings/s_clean_5_street_neg3db.wav"
+cls      = "speech"
+subclass = "noisy_neg3db"
+notes    = "Speech (s_clean_5.wav) + noise (street.mp3) mixed at target -3.0 dB SNR (actual -3.00)."
+labels = [
+  { label = "speech", start = 258, end = 7070 },
+  { label = "speech", start = 7330, end = 10014 },
+  { label = "speech", start = 10242, end = 14334 },
+  { label = "speech", start = 14658, end = 16222 },
+  { label = "speech", start = 16482, end = 18686 },
+  { label = "speech", start = 18978, end = 22078 },
+  { label = "speech", start = 22338, end = 26782 },
+  { label = "speech", start = 27042, end = 30526 },
+  { label = "speech", start = 30690, end = 33502 },
+]
+
+[inactive_airport]
+file     = "sources/inactive/airport.mp3"
+cls      = "inactive"
+subclass = "babble"
+detector = "silence"
+notes    = "Airport terminal - distant babble + announcements; voice-like inactive content."
+
+[inactive_birdsong]
+file     = "sources/inactive/birdsong.mp3"
+cls      = "inactive"
+subclass = "wildlife"
+detector = "silence"
+notes    = "Bird song - narrowband tonal calls; OOD for inactive training distribution."
+
+[inactive_cafeteria]
+file     = "sources/inactive/cafeteria.mp3"
+cls      = "inactive"
+subclass = "babble"
+detector = "silence"
+notes    = "Cafeteria - overlapping crowd babble; voice-like inactive content."
+
+[inactive_cooler_fan]
+file     = "sources/inactive/cooler_fan.mp3"
+cls      = "inactive"
+subclass = "machinery"
+detector = "silence"
+notes    = "Cooler fan - steady mechanical hum / broadband noise."
+
+[inactive_fireplace]
+file     = "sources/inactive/fireplace.mp3"
+cls      = "inactive"
+subclass = "ambient"
+detector = "silence"
+notes    = "Fireplace - low-rate crackling impulses + bed of broadband hiss."
+
+[inactive_rain]
+file     = "sources/inactive/rain.mp3"
+cls      = "inactive"
+subclass = "ambient"
+detector = "silence"
+notes    = "Rain - broadband stochastic noise, weather ambience."
+
+[inactive_street]
+file     = "sources/inactive/street.mp3"
+cls      = "inactive"
+subclass = "outdoor"
+detector = "silence"
+notes    = "Street - traffic, footsteps, distant voices; OOD outdoor mix."
+
+[music_instrumental]
+file     = "sources/music/instrumental.mp3"
+cls      = "music"
+subclass = "instrumental"
+notes    = "Instrumental music — in-distribution baseline matching the FMA instrumental genre used in training."
+labels = [
+  { label = "music", start = 0, end = 40000 },
+]
+
+[music_electronic]
+file     = "sources/music/electronic.mp3"
+cls      = "music"
+subclass = "electronic"
+notes    = "Mainstream electronic / EDM — in-distribution baseline matching the FMA electronic genre (contrast with OOD jumpup/speedcore)."
+labels = [
+  { label = "music", start = 0, end = 40000 },
+]
+
+[music_pop]
+file     = "sources/music/pop.mp3"
+cls      = "music"
+subclass = "pop"
+notes    = "Mainstream pop — in-distribution baseline matching the FMA pop genre."
+labels = [
+  { label = "music", start = 0, end = 33000 },
+]
+
+[music_rock]
+file     = "sources/music/rock.mp3"
+cls      = "music"
+subclass = "rock"
+notes    = "Rock — in-distribution baseline matching the FMA rock genre."
+labels = [
+  { label = "music", start = 0, end = 40000 },
+]
+
+[music_hip_hop]
+file     = "sources/music/hiphop.mp3"
+cls      = "music"
+subclass = "hip-hop"
+notes    = "Hip-hop — in-distribution baseline matching the FMA hip-hop genre. Rap vocals + sampled/programmed beats."
+labels = [
+  { label = "music", start = 0, end = 35000 },
+]
+
+[music_folk]
+file     = "sources/music/folk.mp3"
+cls      = "music"
+subclass = "folk"
+notes    = "Folk — in-distribution baseline matching the FMA folk genre. Acoustic guitar + vocals."
+labels = [
+  { label = "music", start = 0, end = 35000 },
+]
+
+[music_acapella]
+file     = "sources/music/acapella.mp3"
+cls      = "music"
+subclass = "acapella"
+notes    = "Acapella — in-distribution baseline matching the bel_canto training source. Vocal-only music with melodic/operatic content (contrast with OOD beatbox)."
+labels = [
+  { label = "music", start = 0, end = 40000 },
+]
+
+[speech_som_0]
+file     = "recordings/som_clean0_instrumental_10db.wav"
+cls      = "speech"
+subclass = "som"
+notes    = "Speech (s_clean_0.wav) over music (instrumental.mp3) at +10.0 dB SNR — in-distribution speech_som baseline; manually relabelled with explicit speech/music spans covering the full clip."
+labels = [
+  { label = "music", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 3230 },
+  { label = "music", start = 3230, end = 3362 },
+  { label = "speech", start = 3362, end = 5406 },
+  { label = "music", start = 5406, end = 6274 },
+  { label = "speech", start = 6274, end = 8670 },
+  { label = "music", start = 8670, end = 8898 },
+  { label = "speech", start = 8898, end = 11678 },
+  { label = "music", start = 11678, end = 12386 },
+  { label = "speech", start = 12386, end = 17630 },
+  { label = "music", start = 17630, end = 18434 },
+  { label = "speech", start = 18434, end = 22622 },
+  { label = "music", start = 22622, end = 23010 },
+  { label = "speech", start = 23010, end = 24030 },
+  { label = "music", start = 24030, end = 24418 },
+  { label = "speech", start = 24418, end = 26046 },
+  { label = "music", start = 26046, end = 26402 },
+  { label = "speech", start = 26402, end = 28798 },
+  { label = "music", start = 28798, end = 29250 },
+  { label = "speech", start = 29250, end = 31198 },
+  { label = "music", start = 31198, end = 31650 },
+]
+
+[speech_som_1]
+file     = "recordings/som_clean3_electronic_10db.wav"
+cls      = "speech"
+subclass = "som"
+notes    = "Speech (s_clean_3.wav) over music (electronic.mp3) at +10.0 dB SNR — in-distribution speech_som baseline; manually relabelled with explicit speech/music spans covering the full clip."
+labels = [
+  { label = "music", start = 0, end = 290 },
+  { label = "speech", start = 290, end = 4510 },
+  { label = "music", start = 4510, end = 4770 },
+  { label = "speech", start = 4770, end = 6878 },
+  { label = "music", start = 6878, end = 7426 },
+  { label = "speech", start = 7426, end = 10287 },
+  { label = "music", start = 10287, end = 10722 },
+  { label = "speech", start = 10722, end = 14654 },
+  { label = "music", start = 14654, end = 14786 },
+  { label = "speech", start = 14786, end = 18398 },
+  { label = "music", start = 18398, end = 18754 },
+  { label = "speech", start = 18754, end = 20636 },
+  { label = "music", start = 20636, end = 21090 },
+  { label = "speech", start = 21090, end = 25686 },
+  { label = "music", start = 25686, end = 25986 },
+  { label = "speech", start = 25986, end = 27838 },
+  { label = "music", start = 27838, end = 28226 },
+  { label = "speech", start = 28226, end = 30814 },
+  { label = "music", start = 30814, end = 31586 },
+  { label = "speech", start = 31586, end = 32190 },
+  { label = "music", start = 32190, end = 32610 },
+  { label = "speech", start = 32610, end = 34782 },
+  { label = "music", start = 34782, end = 34955 },
+]
+
+[speech_multispeaker]
+file     = "recordings/s_multispeaker.wav"
+cls      = "speech"
+subclass = "multispeaker"
+notes    = "Multispeaker — overlapping speakers (cocktail-party effect). In-distribution baseline matching the synthetic speech_multispeaker training subclass; the training side is LibriMix-style overlay of two clean speakers, this is real-world continuous overlap."
+labels = [
+  { label = "speech", start = 3778, end = 31454 },
+  { label = "speech", start = 31714, end = 32171 },
+]
+
+[speech_msom_0]
+file     = "recordings/msom_multispeaker_folk_10db.wav"
+cls      = "speech"
+subclass = "msom"
+notes    = "Multispeaker speech (multispeaker.mp3) over music (folk.mp3) at +10.0 dB SNR — in-distribution speech_msom baseline; music fills non-speech gaps so every frame is labelled."
+labels = [
+  { label = "music", start = 0, end = 3778 },
+  { label = "speech", start = 3778, end = 31454 },
+  { label = "music", start = 31454, end = 31714 },
+  { label = "speech", start = 31714, end = 32171 },
+]
+
+[speech_msom_1]
+file     = "recordings/msom_multispeaker_rock_10db.wav"
+cls      = "speech"
+subclass = "msom"
+notes    = "Multispeaker speech (multispeaker.mp3) over music (rock.mp3) at +10.0 dB SNR — in-distribution speech_msom baseline; music fills non-speech gaps so every frame is labelled."
+labels = [
+  { label = "music", start = 0, end = 3778 },
+  { label = "speech", start = 3778, end = 31454 },
+  { label = "music", start = 31454, end = 31714 },
+  { label = "speech", start = 31714, end = 32171 },
+]
+
+[switching_500ms]
+file     = "recordings/switching_500ms.wav"
+cls      = "speech"
+subclass = "switching_500ms"
+notes    = "Speech↔music alternation at 500 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
+labels = [
+  { label = "inactive", start = 0, end = 500 },
+  { label = "music", start = 500, end = 1000 },
+  { label = "inactive", start = 1000, end = 1014 },
+  { label = "speech", start = 1014, end = 1500 },
+  { label = "music", start = 1500, end = 2000 },
+  { label = "speech", start = 2000, end = 2500 },
+  { label = "music", start = 2500, end = 3000 },
+  { label = "speech", start = 3000, end = 3500 },
+  { label = "music", start = 3500, end = 4000 },
+  { label = "speech", start = 4000, end = 4500 },
+  { label = "music", start = 4500, end = 5000 },
+  { label = "speech", start = 5000, end = 5500 },
+  { label = "music", start = 5500, end = 6000 },
+  { label = "speech", start = 6000, end = 6230 },
+  { label = "inactive", start = 6230, end = 6362 },
+  { label = "speech", start = 6362, end = 6500 },
+  { label = "music", start = 6500, end = 7000 },
+  { label = "speech", start = 7000, end = 7500 },
+  { label = "music", start = 7500, end = 8000 },
+  { label = "speech", start = 8000, end = 8500 },
+  { label = "music", start = 8500, end = 9000 },
+  { label = "speech", start = 9000, end = 9500 },
+  { label = "music", start = 9500, end = 10000 },
+  { label = "speech", start = 10000, end = 10406 },
+  { label = "inactive", start = 10406, end = 10500 },
+  { label = "music", start = 10500, end = 11000 },
+  { label = "inactive", start = 11000, end = 11500 },
+  { label = "music", start = 11500, end = 12000 },
+  { label = "inactive", start = 12000, end = 12274 },
+  { label = "speech", start = 12274, end = 12500 },
+  { label = "music", start = 12500, end = 13000 },
+  { label = "speech", start = 13000, end = 13500 },
+  { label = "music", start = 13500, end = 14000 },
+  { label = "speech", start = 14000, end = 14500 },
+  { label = "music", start = 14500, end = 15000 },
+  { label = "speech", start = 15000, end = 15500 },
+  { label = "music", start = 15500, end = 16000 },
+  { label = "speech", start = 16000, end = 16500 },
+  { label = "music", start = 16500, end = 17000 },
+  { label = "speech", start = 17000, end = 17170 },
+  { label = "inactive", start = 17170, end = 17398 },
+  { label = "speech", start = 17398, end = 17500 },
+  { label = "music", start = 17500, end = 18000 },
+  { label = "speech", start = 18000, end = 18500 },
+  { label = "music", start = 18500, end = 19000 },
+  { label = "speech", start = 19000, end = 19500 },
+  { label = "music", start = 19500, end = 20000 },
+  { label = "speech", start = 20000, end = 20500 },
+  { label = "music", start = 20500, end = 21000 },
+  { label = "speech", start = 21000, end = 21500 },
+  { label = "music", start = 21500, end = 22000 },
+  { label = "speech", start = 22000, end = 22500 },
+  { label = "music", start = 22500, end = 23000 },
+  { label = "speech", start = 23000, end = 23178 },
+  { label = "inactive", start = 23178, end = 23500 },
+  { label = "music", start = 23500, end = 24000 },
+  { label = "inactive", start = 24000, end = 24386 },
+  { label = "speech", start = 24386, end = 24500 },
+  { label = "music", start = 24500, end = 25000 },
+  { label = "speech", start = 25000, end = 25500 },
+  { label = "music", start = 25500, end = 26000 },
+  { label = "speech", start = 26000, end = 26500 },
+  { label = "music", start = 26500, end = 27000 },
+  { label = "speech", start = 27000, end = 27500 },
+  { label = "music", start = 27500, end = 28000 },
+  { label = "speech", start = 28000, end = 28500 },
+  { label = "music", start = 28500, end = 29000 },
+  { label = "speech", start = 29000, end = 29500 },
+  { label = "music", start = 29500, end = 30000 },
+]
+
+[switching_1000ms]
+file     = "recordings/switching_1000ms.wav"
+cls      = "speech"
+subclass = "switching_1000ms"
+notes    = "Speech↔music alternation at 1000 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
+labels = [
+  { label = "inactive", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 1000 },
+  { label = "music", start = 1000, end = 2000 },
+  { label = "speech", start = 2000, end = 3000 },
+  { label = "music", start = 3000, end = 4000 },
+  { label = "speech", start = 4000, end = 5000 },
+  { label = "music", start = 5000, end = 6000 },
+  { label = "speech", start = 6000, end = 6230 },
+  { label = "inactive", start = 6230, end = 6362 },
+  { label = "speech", start = 6362, end = 7000 },
+  { label = "music", start = 7000, end = 8000 },
+  { label = "speech", start = 8000, end = 9000 },
+  { label = "music", start = 9000, end = 10000 },
+  { label = "speech", start = 10000, end = 10406 },
+  { label = "inactive", start = 10406, end = 11000 },
+  { label = "music", start = 11000, end = 12000 },
+  { label = "inactive", start = 12000, end = 12274 },
+  { label = "speech", start = 12274, end = 13000 },
+  { label = "music", start = 13000, end = 14000 },
+  { label = "speech", start = 14000, end = 15000 },
+  { label = "music", start = 15000, end = 16000 },
+  { label = "speech", start = 16000, end = 16670 },
+  { label = "inactive", start = 16670, end = 16898 },
+  { label = "speech", start = 16898, end = 17000 },
+  { label = "music", start = 17000, end = 18000 },
+  { label = "speech", start = 18000, end = 19000 },
+  { label = "music", start = 19000, end = 20000 },
+  { label = "speech", start = 20000, end = 21000 },
+  { label = "music", start = 21000, end = 22000 },
+  { label = "speech", start = 22000, end = 22678 },
+  { label = "inactive", start = 22678, end = 23000 },
+  { label = "music", start = 23000, end = 24000 },
+  { label = "inactive", start = 24000, end = 24386 },
+  { label = "speech", start = 24386, end = 25000 },
+  { label = "music", start = 25000, end = 26000 },
+  { label = "speech", start = 26000, end = 27000 },
+  { label = "music", start = 27000, end = 28000 },
+  { label = "speech", start = 28000, end = 29000 },
+  { label = "music", start = 29000, end = 30000 },
+]
+
+[switching_2000ms]
+file     = "recordings/switching_2000ms.wav"
+cls      = "speech"
+subclass = "switching_2000ms"
+notes    = "Speech↔music alternation at 2000 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
+labels = [
+  { label = "inactive", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 2000 },
+  { label = "music", start = 2000, end = 4000 },
+  { label = "speech", start = 4000, end = 5230 },
+  { label = "inactive", start = 5230, end = 5362 },
+  { label = "speech", start = 5362, end = 6000 },
+  { label = "music", start = 6000, end = 8000 },
+  { label = "speech", start = 8000, end = 9406 },
+  { label = "inactive", start = 9406, end = 10000 },
+  { label = "music", start = 10000, end = 12000 },
+  { label = "inactive", start = 12000, end = 12274 },
+  { label = "speech", start = 12274, end = 14000 },
+  { label = "music", start = 14000, end = 16000 },
+  { label = "speech", start = 16000, end = 16670 },
+  { label = "inactive", start = 16670, end = 16898 },
+  { label = "speech", start = 16898, end = 18000 },
+  { label = "music", start = 18000, end = 20000 },
+  { label = "speech", start = 20000, end = 21678 },
+  { label = "inactive", start = 21678, end = 22000 },
+  { label = "music", start = 22000, end = 24000 },
+  { label = "inactive", start = 24000, end = 24386 },
+  { label = "speech", start = 24386, end = 26000 },
+  { label = "music", start = 26000, end = 28000 },
+  { label = "speech", start = 28000, end = 30000 },
+]
+
+[switching_4000ms]
+file     = "recordings/switching_4000ms.wav"
+cls      = "speech"
+subclass = "switching_4000ms"
+notes    = "Speech↔music alternation at 4000 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
+labels = [
+  { label = "inactive", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 3230 },
+  { label = "inactive", start = 3230, end = 3362 },
+  { label = "speech", start = 3362, end = 4000 },
+  { label = "music", start = 4000, end = 8000 },
+  { label = "speech", start = 8000, end = 9406 },
+  { label = "inactive", start = 9406, end = 10274 },
+  { label = "speech", start = 10274, end = 12000 },
+  { label = "music", start = 12000, end = 16000 },
+  { label = "speech", start = 16000, end = 16670 },
+  { label = "inactive", start = 16670, end = 16898 },
+  { label = "speech", start = 16898, end = 19678 },
+  { label = "inactive", start = 19678, end = 20000 },
+  { label = "music", start = 20000, end = 24000 },
+  { label = "inactive", start = 24000, end = 24386 },
+  { label = "speech", start = 24386, end = 28000 },
+  { label = "music", start = 28000, end = 30000 },
+]
+
+[switching_3class_500ms]
+file     = "recordings/switching_3class_500ms.wav"
+cls      = "speech"
+subclass = "switching_3class_500ms"
+notes    = "Speech / music / inactive cycle at 500 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
+labels = [
+  { label = "inactive", start = 0, end = 500 },
+  { label = "music", start = 500, end = 1000 },
+  { label = "inactive", start = 1000, end = 1500 },
+  { label = "inactive", start = 1500, end = 1514 },
+  { label = "speech", start = 1514, end = 2000 },
+  { label = "music", start = 2000, end = 2500 },
+  { label = "inactive", start = 2500, end = 3000 },
+  { label = "speech", start = 3000, end = 3500 },
+  { label = "music", start = 3500, end = 4000 },
+  { label = "inactive", start = 4000, end = 4500 },
+  { label = "speech", start = 4500, end = 5000 },
+  { label = "music", start = 5000, end = 5500 },
+  { label = "inactive", start = 5500, end = 6000 },
+  { label = "speech", start = 6000, end = 6500 },
+  { label = "music", start = 6500, end = 7000 },
+  { label = "inactive", start = 7000, end = 7500 },
+  { label = "speech", start = 7500, end = 8000 },
+  { label = "music", start = 8000, end = 8500 },
+  { label = "inactive", start = 8500, end = 9000 },
+  { label = "speech", start = 9000, end = 9230 },
+  { label = "inactive", start = 9230, end = 9362 },
+  { label = "speech", start = 9362, end = 9500 },
+  { label = "music", start = 9500, end = 10000 },
+  { label = "inactive", start = 10000, end = 10500 },
+  { label = "speech", start = 10500, end = 11000 },
+  { label = "music", start = 11000, end = 11500 },
+  { label = "inactive", start = 11500, end = 12000 },
+  { label = "speech", start = 12000, end = 12500 },
+  { label = "music", start = 12500, end = 13000 },
+  { label = "inactive", start = 13000, end = 13500 },
+  { label = "speech", start = 13500, end = 14000 },
+  { label = "music", start = 14000, end = 14500 },
+  { label = "inactive", start = 14500, end = 15000 },
+  { label = "speech", start = 15000, end = 15406 },
+  { label = "inactive", start = 15406, end = 15500 },
+  { label = "music", start = 15500, end = 16000 },
+  { label = "inactive", start = 16000, end = 16500 },
+  { label = "inactive", start = 16500, end = 17000 },
+  { label = "music", start = 17000, end = 17500 },
+  { label = "inactive", start = 17500, end = 18000 },
+  { label = "inactive", start = 18000, end = 18274 },
+  { label = "speech", start = 18274, end = 18500 },
+  { label = "music", start = 18500, end = 19000 },
+  { label = "inactive", start = 19000, end = 19500 },
+  { label = "speech", start = 19500, end = 20000 },
+  { label = "music", start = 20000, end = 20500 },
+  { label = "inactive", start = 20500, end = 21000 },
+  { label = "speech", start = 21000, end = 21500 },
+  { label = "music", start = 21500, end = 22000 },
+  { label = "inactive", start = 22000, end = 22500 },
+  { label = "speech", start = 22500, end = 23000 },
+  { label = "music", start = 23000, end = 23500 },
+  { label = "inactive", start = 23500, end = 24000 },
+  { label = "speech", start = 24000, end = 24500 },
+  { label = "music", start = 24500, end = 25000 },
+  { label = "inactive", start = 25000, end = 25500 },
+  { label = "speech", start = 25500, end = 25670 },
+  { label = "inactive", start = 25670, end = 25898 },
+  { label = "speech", start = 25898, end = 26000 },
+  { label = "music", start = 26000, end = 26500 },
+  { label = "inactive", start = 26500, end = 27000 },
+  { label = "speech", start = 27000, end = 27500 },
+  { label = "music", start = 27500, end = 28000 },
+  { label = "inactive", start = 28000, end = 28500 },
+  { label = "speech", start = 28500, end = 29000 },
+  { label = "music", start = 29000, end = 29500 },
+  { label = "inactive", start = 29500, end = 30000 },
+]
+
+[switching_3class_1000ms]
+file     = "recordings/switching_3class_1000ms.wav"
+cls      = "speech"
+subclass = "switching_3class_1000ms"
+notes    = "Speech / music / inactive cycle at 1000 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
+labels = [
+  { label = "inactive", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 1000 },
+  { label = "music", start = 1000, end = 2000 },
+  { label = "inactive", start = 2000, end = 3000 },
+  { label = "speech", start = 3000, end = 4000 },
+  { label = "music", start = 4000, end = 5000 },
+  { label = "inactive", start = 5000, end = 6000 },
+  { label = "speech", start = 6000, end = 7000 },
+  { label = "music", start = 7000, end = 8000 },
+  { label = "inactive", start = 8000, end = 9000 },
+  { label = "speech", start = 9000, end = 9230 },
+  { label = "inactive", start = 9230, end = 9362 },
+  { label = "speech", start = 9362, end = 10000 },
+  { label = "music", start = 10000, end = 11000 },
+  { label = "inactive", start = 11000, end = 12000 },
+  { label = "speech", start = 12000, end = 13000 },
+  { label = "music", start = 13000, end = 14000 },
+  { label = "inactive", start = 14000, end = 15000 },
+  { label = "speech", start = 15000, end = 15406 },
+  { label = "inactive", start = 15406, end = 16000 },
+  { label = "music", start = 16000, end = 17000 },
+  { label = "inactive", start = 17000, end = 18000 },
+  { label = "inactive", start = 18000, end = 18274 },
+  { label = "speech", start = 18274, end = 19000 },
+  { label = "music", start = 19000, end = 20000 },
+  { label = "inactive", start = 20000, end = 21000 },
+  { label = "speech", start = 21000, end = 22000 },
+  { label = "music", start = 22000, end = 23000 },
+  { label = "inactive", start = 23000, end = 24000 },
+  { label = "speech", start = 24000, end = 24670 },
+  { label = "inactive", start = 24670, end = 24898 },
+  { label = "speech", start = 24898, end = 25000 },
+  { label = "music", start = 25000, end = 26000 },
+  { label = "inactive", start = 26000, end = 27000 },
+  { label = "speech", start = 27000, end = 28000 },
+  { label = "music", start = 28000, end = 29000 },
+  { label = "inactive", start = 29000, end = 30000 },
+]
+
+[switching_3class_2000ms]
+file     = "recordings/switching_3class_2000ms.wav"
+cls      = "speech"
+subclass = "switching_3class_2000ms"
+notes    = "Speech / music / inactive cycle at 2000 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
+labels = [
+  { label = "inactive", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 2000 },
+  { label = "music", start = 2000, end = 4000 },
+  { label = "inactive", start = 4000, end = 6000 },
+  { label = "speech", start = 6000, end = 7230 },
+  { label = "inactive", start = 7230, end = 7362 },
+  { label = "speech", start = 7362, end = 8000 },
+  { label = "music", start = 8000, end = 10000 },
+  { label = "inactive", start = 10000, end = 12000 },
+  { label = "speech", start = 12000, end = 13406 },
+  { label = "inactive", start = 13406, end = 14000 },
+  { label = "music", start = 14000, end = 16000 },
+  { label = "inactive", start = 16000, end = 18000 },
+  { label = "inactive", start = 18000, end = 18274 },
+  { label = "speech", start = 18274, end = 20000 },
+  { label = "music", start = 20000, end = 22000 },
+  { label = "inactive", start = 22000, end = 24000 },
+  { label = "speech", start = 24000, end = 24670 },
+  { label = "inactive", start = 24670, end = 24898 },
+  { label = "speech", start = 24898, end = 26000 },
+  { label = "music", start = 26000, end = 28000 },
+  { label = "inactive", start = 28000, end = 30000 },
+]
+
+[switching_3class_4000ms]
+file     = "recordings/switching_3class_4000ms.wav"
+cls      = "speech"
+subclass = "switching_3class_4000ms"
+notes    = "Speech / music / inactive cycle at 4000 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
+labels = [
+  { label = "inactive", start = 0, end = 514 },
+  { label = "speech", start = 514, end = 3230 },
+  { label = "inactive", start = 3230, end = 3362 },
+  { label = "speech", start = 3362, end = 4000 },
+  { label = "music", start = 4000, end = 8000 },
+  { label = "inactive", start = 8000, end = 12000 },
+  { label = "speech", start = 12000, end = 13406 },
+  { label = "inactive", start = 13406, end = 14274 },
+  { label = "speech", start = 14274, end = 16000 },
+  { label = "music", start = 16000, end = 20000 },
+  { label = "inactive", start = 20000, end = 24000 },
+  { label = "speech", start = 24000, end = 24670 },
+  { label = "inactive", start = 24670, end = 24898 },
+  { label = "speech", start = 24898, end = 27678 },
+  { label = "inactive", start = 27678, end = 28000 },
+  { label = "music", start = 28000, end = 30000 },
+]

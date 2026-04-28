@@ -11,10 +11,18 @@ Config = Dict[str, Any]
 _cfg: Optional[Config] = None
 
 
-def init_config(config_file_path: Path | None = None, model_name: str = "decision_tree") -> Config:
+def init_config(
+    config_file_path: Path | None = None,
+    model_name: str = "decision_tree",
+    dataset_override: Optional[Dict[str, Any]] = None,
+) -> Config:
     """
     Load config and merge model-specific settings.
     Pass model_name to select buffers/settings for that model.
+
+    *dataset_override*: when provided, replaces the loaded ``[dataset]`` section
+    (used by experiment harnesses that point eval at a non-default tier — e.g.
+    ``src/exp/critical/`` running against a local crit-tier parquet directory).
     """
     global _cfg
     if _cfg is not None:
@@ -43,10 +51,18 @@ def init_config(config_file_path: Path | None = None, model_name: str = "decisio
         "buffers": copy.deepcopy(buffers_by_model[model_name]),
         "features": copy.deepcopy(raw.get("features", {})),
     }
-    if "dataset" in raw:
+    if dataset_override is not None:
+        _cfg["dataset"] = copy.deepcopy(dataset_override)
+    elif "dataset" in raw:
         _cfg["dataset"] = raw["dataset"]
 
     return _cfg
+
+
+def reset_config() -> None:
+    """Clear the singleton — required when re-initialising with a different override."""
+    global _cfg
+    _cfg = None
 
 
 def get_config() -> Config:

@@ -15,7 +15,19 @@ from pydub import AudioSegment
 from pyannote.audio import Model
 from pyannote.audio.pipelines import VoiceActivityDetection
 from silero_vad import get_speech_timestamps, load_silero_vad
-from torchcodec.decoders import AudioDecoder
+
+# torchcodec.AudioDecoder is only used here for ``isinstance`` checks and type
+# hints; the HF datasets pipeline yields real AudioDecoder instances when
+# Audio decoding is enabled. If torchcodec fails to import (the wheel needs
+# CUDA NPP libs that aren't always installed system-wide — see issue notes),
+# fall back to a unique sentinel class so every isinstance(..., AudioDecoder)
+# returns False and the dict/numpy code paths run unchanged. The HF builds
+# (mid/full) still need a working torchcodec at runtime; the crit tier doesn't.
+try:
+    from torchcodec.decoders import AudioDecoder
+except (ImportError, RuntimeError):
+    class AudioDecoder:  # type: ignore[no-redef]
+        """Sentinel — torchcodec unavailable; no real instances exist."""
 
 SR = 16_000
 
