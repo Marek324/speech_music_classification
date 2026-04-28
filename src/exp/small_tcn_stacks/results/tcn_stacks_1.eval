@@ -1,0 +1,40 @@
+Evaluation report — 2026-04-28 12:15:46 UTC
+
+── Evaluation ────────────────────────────────────
+  Device     : Intel(R) Xeon(R) Platinum 8358 CPU @ 2.60GHz
+  ms/frame   : 0.0042
+  Macro F1   : 0.9722  [0.9653, 0.9769]
+  Weighted F1: 0.9738
+  Accuracy   : 0.9737
+  Macro AUROC: 0.9972
+
+  Class             F1       P       R               F1 CI
+  Speech        0.9738  0.9687  0.9789    [0.9701, 0.9769]
+  Music         0.9825  0.9862  0.9789    [0.9774, 0.9865]
+  Inactive      0.9603  0.9617  0.9589    [0.9425, 0.9717]
+  ─────────────────────────────────────────────────────────
+  Macro         0.9722  0.9722  0.9722
+
+  Confusion matrix (rows=true, cols=pred):
+                    Speech     Music  Inactive
+  Speech      [    417381      1975      7005  ]
+  Music       [      5098    472898      5108  ]
+  Inactive    [      8400      4619    304007  ]
+
+── By subclass ────────────────────────────────────
+  Subclass                      F1       P       R
+  music_acapella            0.9833  0.9901  0.9765
+  music_electronic          0.9876  0.9899  0.9854
+  music_folk                0.9700  0.9959  0.9453
+  music_hip-hop             0.9831  0.9890  0.9773
+  music_instrumental        0.9851  0.9952  0.9752
+  music_pop                 0.9958  0.9950  0.9965
+  music_rock                0.9965  0.9976  0.9954
+  noise                     0.9965  1.0000  0.9930
+  speech_clean              0.9850  0.9886  0.9815
+  speech_dirty              0.9812  0.9859  0.9765
+  speech_msom               0.9786  0.9847  0.9726
+  speech_multispeaker       0.9952  0.9972  0.9932
+  speech_noisy              0.9775  0.9821  0.9729
+  speech_som                0.9617  0.9474  0.9766
+  (F1/P/R of each subclass's primary class within its frames)
