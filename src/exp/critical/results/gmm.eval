@@ -1,8 +1,8 @@
-Evaluation report — 2026-04-27 22:54:08 UTC
+Evaluation report — 2026-04-29 12:31:46 UTC
 
 ── Evaluation ────────────────────────────────────
   Device     : Intel(R) Core(TM) i5-8300H CPU @ 2.30GHz
-  ms/frame   : 126.5411
+  ms/frame   : 93.2520
   Macro F1   : 0.4375  [0.3436, 0.5181]
   Weighted F1: 0.4658
   Accuracy   : 0.4586

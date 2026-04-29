@@ -32,16 +32,19 @@ from src.demo.weights_check import (
     NN_MODELS,
     all_status,
 )
+from src.nn.variants import VARIANTS
 
 log = logging.getLogger(__name__)
 
-_MODEL_LABELS: dict[str, str] = {
+_CLASSIC_LABELS = {
     "decision_tree": "Decision Tree",
     "gmm": "GMM",
     "svm": "SVM",
+}
+_MODEL_LABELS: dict[str, str] = {
+    **_CLASSIC_LABELS,
     "tcn": "TCN (paper)",
-    "tcn_lstm": "TCN + LSTM",
-    "small_tcn": "Small TCN",
+    **{name: v.ui_label for name, v in VARIANTS.items()},
 }
 
 _LABEL_NAME = {-1: "speech", 0: "inactive", 1: "music"}
@@ -195,8 +198,9 @@ class DemoState(rx.State):
         self.mic_device = -1
         self.audio_source_mode = _SOURCE_MIC
         self.desktop_source = self.monitor_sources[0]["name"] if self.monitor_sources else ""
-        # Default to the first model that has weights, preferring tcn.
-        preferred = ["tcn", "tcn_lstm", "small_tcn", "decision_tree", "gmm", "svm"]
+        # Default to the first model that has weights, preferring tcn, then
+        # variants in TOML order, then classic models.
+        preferred = ["tcn", *VARIANTS.keys(), *CLASSIC_MODELS]
         for name in preferred:
             if self.weights_status.get(name):
                 self.model_name = name

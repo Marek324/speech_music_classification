@@ -1,21 +1,22 @@
 # Project: butfit-bp — Speech/Music Classifier
 
 ## Goal
-Beat the existing DT/GMM/SVM baselines and achieve >= **.85 F1 macro on 3-class evaluation** with a causal TCN that can run online (streaming). Currently overfitting; training is ongoing.
+Beat the existing DT/GMM/SVM baselines and achieve >= **.85 F1 macro on 3-class evaluation** with a causal TCN that can run online (streaming). Target met (TCN macro F1 = 0.9752). Project is now in the **writeup phase**: drafting docs/chapters/05–07, cleaning up code, and producing visualizations. No new experiments unless the docs reveal a gap that requires them.
 
 ## CLI
 ```
 uv run smclassifier nn tcn <command>           # TCN model (paper baseline)
 uv run smclassifier nn tcn-lstm <command>      # TCN+LSTM hybrid (delta2 + conv1d + LSTM tail)
-uv run smclassifier nn small-tcn <command>     # small-footprint TCN (delta2 + n_filters=8)
+uv run smclassifier nn small-tcn <command>     # small-footprint TCN (delta2 + n_filters=8, n_stacks=3)
+uv run smclassifier nn smaller-tcn <command>   # SmallTCN recipe with n_stacks=1 (RF≤seq_len)
 uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
-uv run smclassifier demo                       # Reflex web UI: mic/file streaming for all 6 models (auto-inits on first run)
+uv run smclassifier demo                       # Reflex web UI: mic/file streaming for all 7 models (auto-inits on first run)
 ```
-TCN / TCN+LSTM / SmallTCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
+TCN / TCN+LSTM / SmallTCN / SmallerTCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
 Classic commands: `train`, `eval`, `smoke-test`
 
 ## Architecture
-Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible** (`src_papers/tcn.pdf`).
+Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible**. Deviations and their justifications are tracked in `differences/tcn.md`.
 
 ### Paper-prescribed hyperparameter bounds
 | Parameter | Paper search space | Current config |
@@ -27,11 +28,11 @@ Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possibl
 | dropout | 0.05–0.5 | 0.5 |
 
 ### Paper-prescribed training (§3.5)
-- Optimizer: SGD, momentum=0.9 *(currently using Adam due to stability issues with 16h dataset)*
+- Optimizer: SGD, momentum=0.9 (production matches paper)
 - LR schedule: ÷10 when val loss doesn't improve for 3 epochs (`ReduceLROnPlateau`)
 - Early stopping: 5 epochs without improvement
 - Batch: 32 × fixed-length chunks
-- Loss: binary cross-entropy
+- Loss: `BCEWithLogitsLoss` (numerically equivalent to paper's BCE; see `differences/tcn.md` §2)
 
 ## Dataset
 HuggingFace: `Marek324/speech-music-classification`. TCN is configured for the **full** tier in `config.toml` → `[dataset] name = "full"`. The mid-tier tables below describe a previously uploaded snapshot and are kept for historical reference; full-tier counts differ.
@@ -141,7 +142,7 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `cli.py` | `nn_group` — registers the canonical `tcn` group and auto-adds every variant's Click group from `VARIANTS` |
 | `variant.py` | **Shared** `make_variant()` factory — builds the config loader, Click group, and `SpeechMusicDetector` subclass for each TCN variant from a pre-parsed config dict + naming/path params |
 | `variants.py` | Reads `variants.toml` + repo-root `config.toml[dataset]`, calls `make_variant(...)` per entry, and auto-injects per-variant symbols (`SmallTCN`, `small_tcn_group`, `get_small_tcn_config`, `_SMALL_TCN_DEFAULT`, …) plus a `VARIANTS` registry. Adding a variant is a TOML-only change. |
-| `variants.toml` | Declarative registry of all TCN variants (SmallTCN, TCNLSTM). No `[dataset]` — inherited from repo-root `config.toml`. |
+| `variants.toml` | Declarative registry of all TCN variants (SmallTCN, SmallerTCN, TCNLSTM). No `[dataset]` — inherited from repo-root `config.toml`. |
 
 #### TCN (`src/nn/tcn/`)
 | File | Purpose |
@@ -159,7 +160,7 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `cache/nn/tcn_mel_*.pt` | Precomputed mel chunks per (dataset, split, frontend params, seq_len); shared across ablation variants. *(not in git — auto-synced via `cache/` to `Marek324/butfit-bp-artifacts` on HF)* |
 
 #### Variants (`variants.py`, `variants.toml`)
-SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, ~52K params) and TCNLSTM (delta² + conv1d preprocessor + TCN + LSTM tail, combined-experiment winner) are declared as `[variants.<name>]` blocks in `variants.toml`. `variants.py` loads each block through `make_variant(...)` (`src/nn/variant.py`) and auto-exports one class, one Click group, three getters, and one `_DEFAULT` dict per variant, plus a `VARIANTS` registry dict. The `[dataset]` block is inherited from repo-root `config.toml` — variant TOML blocks only carry `[tcn]` + `[tcn.model]`. Adding a new variant is a TOML-only edit; Python picks it up automatically (including CLI registration).
+SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, `n_stacks=3`, ~52K params), SmallerTCN (same recipe with `n_stacks=1`, RF=121 frames ≤ training `seq_len=128`, ~47K params), and TCNLSTM (delta² + conv1d preprocessor + TCN + LSTM tail, combined-experiment winner) are declared as `[variants.<name>]` blocks in `variants.toml`. `variants.py` loads each block through `make_variant(...)` (`src/nn/variant.py`) and auto-exports one class, one Click group, three getters, and one `_DEFAULT` dict per variant, plus a `VARIANTS` registry dict. The `[dataset]` block is inherited from repo-root `config.toml` — variant TOML blocks only carry `[tcn]` + `[tcn.model]`. Adding a new variant is a TOML-only edit; Python picks it up automatically (including CLI registration).
 
 | Weights / stats | Purpose |
 |------|---------|
@@ -167,13 +168,15 @@ SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, ~52K params) a
 | `weights/tcn_lstm/tcn_lstm_preprocess_stats.pt` | TCNLSTM log-mel normalization stats *(not in git)* |
 | `weights/small_tcn/tcn_small.safetensors` | Trained SmallTCN weights *(not in git — download via HF)* |
 | `weights/small_tcn/tcn_small_preprocess_stats.pt` | SmallTCN log-mel normalization stats *(not in git)* |
+| `weights/smaller_tcn/tcn_smaller.safetensors` | Trained SmallerTCN weights (sourced from `small_tcn_stacks/tcn_stacks_1`) *(not in git — download via HF)* |
+| `weights/smaller_tcn/tcn_smaller_preprocess_stats.pt` | SmallerTCN log-mel normalization stats *(not in git)* |
 
 ### Classic models (`src/classic/`)
 | File | Purpose |
 |------|---------|
 | `modelclass.py` | Abstract base: `fit()`, `save()`, `load()` via joblib |
 | `feat_extractor.py` | `FeatExtractor` — stateful frame-level feature extraction (30ms/15ms hop); **call `reset()` between clips** |
-| `gmm.py` | Two-GMM density classifier (speech GMM vs music GMM); 8 components, diag covariance |
+| `gmm.py` | Three-GMM density classifier (one per class: speech / music / inactive); 8 components, diag covariance; argmax over per-class log-likelihoods. Paper has 2 GMMs + threshold; we extend to 3-class — see `differences/gmm_svm.md` §9 |
 | `decisiontree.py` | Decision tree with exponential-forgetting smoothing on last decisions |
 | `svm.py` | `SVC(kernel='rbf', C=1, γ=3)`; balanced subsampling to 50k/class at train time |
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
@@ -182,7 +185,7 @@ SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, ~52K params) a
 | `streaming.py` | `StreamingClassifier` — push raw audio samples, get per-hop labels (consumed by `src/demo/`) |
 
 ### Streaming demo (`src/demo/`)
-Reflex web UI for live speech/music classification across all six models (DT/GMM/SVM + TCN/TCN-LSTM/SmallTCN).
+Reflex web UI for live speech/music classification across all seven models (DT/GMM/SVM + TCN/TCN-LSTM/SmallTCN/SmallerTCN).
 | File | Purpose |
 |------|---------|
 | `runner.py` | `ClassicRunner` / `NNRunner` — uniform streaming wrapper; remaps labels to display space `{-1, 0, +1}` |
@@ -237,26 +240,45 @@ use_weight_norm = false              # model key — mixed overrides work in one
 
 ### TCN — Lemaire & Holzapfel ISMIR 2019
 
+Full deviation tracking lives in `differences/tcn.md`. Highlights only here:
+
 | Aspect | Paper | This implementation |
 |--------|-------|---------------------|
-| Optimizer | SGD, momentum=0.9 | Adam, lr=1e-3, weight_decay=1e-4 |
-| Normalization | WeightNorm (keras-tcn reference) | `BatchNorm1d` after each conv |
+| Optimizer | SGD, momentum=0.9 | SGD, momentum=0.9 ✓ (Adam+BN exists as ablation variant — see `differences/tcn.md` §12) |
+| Normalization | WeightNorm (keras-tcn reference) | WeightNorm ✓ |
+| Loss | BCE | `BCEWithLogitsLoss` (math-equivalent, numerically stable — `differences/tcn.md` §2) |
 | Spectrogram caching + aug on cached spectra (§3.4) | Power spectrum pre-saved; aug applied to saved spectra | `cache/nn/tcn_mel_*.pt` caches normalized log-mel; `augment_mel()` operates on the cached tensor ✓ |
 | Augmentation pipeline (§3.7, Schlüter & Grill 2015) | Time stretch + pitch shift + Gaussian filter + loudness + block mix | Loudness only (±6 dB gain in log-mel space) — see `differences/tcn.md` §10 |
 | Post-processing | Duration thresholds (§3.6) to smooth predictions | Not implemented |
-| Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training |
+| Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training. SmallerTCN variant (`n_stacks=1`, RF=121) is the only checkpoint where train-time RF ≤ seq_len |
 
 ### GMM & SVM — Khonglah & Prasanna DSP 2016
+
+Full deviation tracking lives in `differences/gmm_svm.md`. Highlights only here:
 
 | Aspect | Paper | This implementation |
 |--------|-------|---------------------|
 | SVM kernel | RBF, C=1, γ=3 (libSVM) | RBF, C=1, γ=3 (`sklearn.svm.SVC`) ✓ |
 | SVM training scale | ~2400 1s-window vectors from 160 clips | Frame-level; subsampled to 50k/class |
+| SVM smoothing | none | 20-frame rolling decision buffer — `differences/gmm_svm.md` §11 |
 | Feature window | 1s non-overlapping | 1s rolling (`lt_len_ms=1000`) ✓ |
 | GMM components | 8, diagonal covariance | 8, diagonal ✓ |
+| GMM structure | 2 GMMs (speech / music) + threshold | 3 GMMs (speech / music / inactive) + argmax — `differences/gmm_svm.md` §9 |
 | GMM smoothing | ~1s window over log-likelihood delta | 66-frame rolling buffer (~1s @ 15ms hop) ✓ |
-| Scaling | Log-mel normalization per clip | `RobustScaler` (GMM) / `StandardScaler` (SVM) |
+| Scaling | Log-mel normalization per clip | `RobustScaler` (GMM, ±10 clip) / `StandardScaler` (SVM) |
 | Non-linear mapping | Sigmoid on log-likelihood delta before threshold | Not implemented |
+
+### Decision Tree — Lavner & Ruinskiy EURASIP 2009
+
+Full deviation tracking lives in `differences/dt.md`. Highlights:
+
+| Aspect | Paper | This implementation |
+|--------|-------|---------------------|
+| Classifier | 3-stage Bayesian + rule-based sieve | sklearn `DecisionTreeClassifier` (single learned tree, CART) — `differences/dt.md` §1 |
+| Output classes | 2 (speech / music) | 3 (speech / music / inactive) |
+| Feature selection | "Automatic" per paper | Fixed 19-component vector + `SelectKBest(k=10)` ANOVA-F |
+| Smoothing | Uniform average over past segments | 30-frame deque, exponential decay (factor 0.9) — `differences/dt.md` §5 |
+| Inference granularity | Per-segment | Per-frame (streaming, 10 ms hop) |
 
 ## Inference
 
@@ -272,8 +294,34 @@ Feature extraction is stateful — `FeatExtractor.reset()` must be called betwee
 Labels: `-1` = speech, `1` = music, `2` = inactive
 
 ## Status
-- **TCN**: done — 3-class F1=0.9033 (target met)
-- **Classic baselines**: DT done; SVM and GMM retrained pending — both updated to closer match paper (SVM: SGDClassifier→SVC RBF C=1 γ=3; both: lt_len_ms 600→1000; GMM: smoothing buffer 20→66 frames)
-- **Dataset (mid tier)**: historical snapshot; numbers in the mid-tier tables above reflect that snapshot, not the current HF upload
-- **Dataset (full tier)**: rescaled to 6000 min (100h); AMI replaced with LibriMix-style synthetic multispeaker; all subclasses should now hit 100% of target; TCN config points here
-- **Next**: rebuild full tier; retrain TCN + SVM/GMM off the new mel cache
+
+Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `weights/` are the artefacts the thesis describes.
+
+### Test-split macro F1 (full tier, deployed checkpoints)
+
+| Model | Macro F1 | Source |
+|---|---:|---|
+| TCN+LSTM | 0.9846 | `results/tcn_lstm.eval` |
+| TCN | 0.9752 | `results/tcn.eval` |
+| SmallTCN | 0.9766 | `results/small_tcn.eval` |
+| SmallerTCN | 0.9722 | `results/smaller_tcn.eval` |
+| SVM | 0.8750 | `results/svm.eval` |
+| DT | 0.8376 | `results/decision_tree.eval` |
+| GMM | 0.8250 | `results/gmm.eval` |
+
+All models clear the 0.85 project target except GMM (0.825, just below). TCN family clears it by 12+ pp.
+
+### Other artefacts
+
+- **Dataset (mid tier)**: historical snapshot; the mid-tier tables in this doc reflect that snapshot, not the current HF upload.
+- **Dataset (full tier)**: 6000 min (100 h) on `Marek324/speech-music-classification` config `full`; all subclasses hit ~100% of target after the Bresenham split fix.
+- **Critical-set evaluation**: hand-curated adversarial clips at `scripts/dataset/speech_music_dataset/crit` and via `Marek324/speech-music-classification` config `crit`. All seven models evaluated; results in `src/exp/critical/results/`.
+- **Experiment notes**: every `src/exp/*/results/notes.md` was refreshed against current `.eval` data on 2026-04-29 — those are the canonical narrative source for the docs chapters.
+- **Deviation docs**: `differences/{tcn,gmm_svm,dt}.md` track every deliberate departure from the reference papers.
+
+### What's left
+
+- Draft `docs/chapters/05_evaluation.tex`, `06_experiments_analyses.tex`, `07_conclusion.tex` from the experiment notes.
+- Refresh stale claims in `docs/chapters/03_classification.tex` (currently says GMM is 2-class with zero F1 on inactive — actual code is 3-GMM, see `differences/gmm_svm.md` §9).
+- Code cleanup pass.
+- Visualizations: `scripts/visualize_results.py` is the canonical entry point — outputs SVG to `results/`.

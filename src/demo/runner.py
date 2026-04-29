@@ -167,11 +167,18 @@ class NNRunner:
         self._torch = None
 
 
+def _variant_runners() -> dict[str, Callable[[], Runner]]:
+    # Imported lazily so module import stays cheap; the demo loads torch via
+    # NNRunner construction, not via this dict's existence.
+    from ..nn.variants import VARIANTS
+    # Each lambda binds `name` via default-arg trick to avoid late-binding bugs.
+    return {name: (lambda n=name: NNRunner(n)) for name in VARIANTS}
+
+
 RUNNERS: dict[str, Callable[[], Runner]] = {
     "decision_tree": lambda: ClassicRunner("decision_tree"),
     "gmm": lambda: ClassicRunner("gmm"),
     "svm": lambda: ClassicRunner("svm"),
     "tcn": lambda: NNRunner("tcn"),
-    "tcn_lstm": lambda: NNRunner("tcn_lstm"),
-    "small_tcn": lambda: NNRunner("small_tcn"),
+    **_variant_runners(),
 }

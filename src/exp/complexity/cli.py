@@ -44,6 +44,7 @@ _RESULTS_DIR = Path(__file__).parent / "results"
 _COLORS = {
     "tcn_lstm": "#E91E63",
     "small_tcn": "#009688",
+    "smaller_tcn": "#4DB6AC",
     "tcn": "#2196F3",
     "decision_tree": "#4CAF50",
     "svm": "#FF9800",
@@ -52,6 +53,7 @@ _COLORS = {
 _MODEL_SHORT = {
     "tcn_lstm": "TCN+LSTM",
     "small_tcn": "SmallTCN",
+    "smaller_tcn": "SmallerTCN",
     "tcn": "TCN",
     "decision_tree": "DT",
     "svm": "SVM",

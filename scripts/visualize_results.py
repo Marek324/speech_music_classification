@@ -9,10 +9,10 @@ import numpy as np
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
-MODELS = ["tcn_lstm", "small_tcn", "tcn", "decision_tree", "svm", "gmm"]
-NN_MODELS = ["tcn_lstm", "small_tcn", "tcn"]
-COLORS = {"tcn_lstm": "#E91E63", "small_tcn": "#009688", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
-MODEL_SHORT = {"tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
+MODELS = ["tcn_lstm", "small_tcn", "smaller_tcn", "tcn", "decision_tree", "svm", "gmm"]
+NN_MODELS = ["tcn_lstm", "small_tcn", "smaller_tcn", "tcn"]
+COLORS = {"tcn_lstm": "#E91E63", "small_tcn": "#009688", "smaller_tcn": "#4DB6AC", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
+MODEL_SHORT = {"tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "smaller_tcn": "SmallerTCN", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
 
 SPEECH_SUBS = [
     "speech_clean", "speech_dirty", "speech_multispeaker",
@@ -357,13 +357,20 @@ EVAL_LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Inactive"}
 
 
 def load_scores(results_dir: Path) -> dict:
-    """Load *_scores.npz files. Returns {model_name: {"y_true": ..., "y_scores": ...}}."""
+    """Load *_scores.npz files for known models. Returns {model_name: {"y_true": ..., "y_scores": ...}}."""
     data = {}
-    for npz_path in sorted(results_dir.glob("*_scores.npz")):
-        model = npz_path.stem.replace("_scores", "")
+    for model in MODELS:
+        npz_path = results_dir / f"{model}_scores.npz"
+        if not npz_path.exists():
+            continue
         d = np.load(npz_path)
         data[model] = {"y_true": d["y_true"], "y_scores": d["y_scores"]}
     return data
+
+
+def _has_continuous_scores(sd: dict, class_idx: int, min_unique: int = 50) -> bool:
+    """ROC/DET only meaningful when the score column has a usable threshold range."""
+    return len(np.unique(sd["y_scores"][:, class_idx])) >= min_unique
 
 
 def plot_roc_curves(ax, scores_data: dict, class_idx: int, class_label: int):
@@ -374,6 +381,8 @@ def plot_roc_curves(ax, scores_data: dict, class_idx: int, class_label: int):
         y_binary = (sd["y_true"] == class_label).astype(int)
         if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
             continue
+        if not _has_continuous_scores(sd, class_idx):
+            continue  # e.g. decision tree has 3-5 unique probs → degenerate curve
         fpr, tpr, _ = roc_curve(y_binary, sd["y_scores"][:, class_idx])
         auc = roc_auc_score(y_binary, sd["y_scores"][:, class_idx])
         ax.plot(fpr, tpr, color=COLORS.get(model, "gray"), lw=1.5,
@@ -384,7 +393,7 @@ def plot_roc_curves(ax, scores_data: dict, class_idx: int, class_label: int):
     ax.set_xlabel("FPR")
     ax.set_ylabel("TPR")
     ax.set_title(f"ROC — {EVAL_LABEL_NAMES[class_label]} vs Rest")
-    ax.legend(fontsize=7)
+    ax.legend(fontsize=7, loc="lower right")
 
 
 def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
@@ -392,14 +401,19 @@ def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
     from sklearn.metrics import det_curve
     from scipy.stats import norm
 
+    # Clip to the visible probit range so off-screen tails don't connect through
+    # the plot interior. xlim is ±3σ → fpr/fnr ∈ [norm.cdf(-3.2), norm.cdf(3.2)].
+    lo = norm.cdf(-3.2)
+    hi = norm.cdf(3.2)
     for model, sd in scores_data.items():
         y_binary = (sd["y_true"] == class_label).astype(int)
         if y_binary.sum() == 0 or y_binary.sum() == len(y_binary):
             continue
+        if not _has_continuous_scores(sd, class_idx):
+            continue
         fpr, fnr, _ = det_curve(y_binary, sd["y_scores"][:, class_idx])
-        eps = np.finfo(fpr.dtype).eps
-        fpr = np.clip(fpr, eps, 1 - eps)
-        fnr = np.clip(fnr, eps, 1 - eps)
+        fpr = np.clip(fpr, lo, hi)
+        fnr = np.clip(fnr, lo, hi)
         ax.plot(norm.ppf(fpr), norm.ppf(fnr), color=COLORS.get(model, "gray"),
                 lw=1.5, label=MODEL_SHORT.get(model, model))
     ticks = [0.001, 0.01, 0.05, 0.20, 0.5, 0.80, 0.95, 0.99, 0.999]
@@ -416,7 +430,7 @@ def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
     ax.set_xlabel("FPR")
     ax.set_ylabel("FNR (Miss Rate)")
     ax.set_title(f"DET — {EVAL_LABEL_NAMES[class_label]} vs Rest")
-    ax.legend(fontsize=7)
+    ax.legend(fontsize=7, loc="upper right")
 
 
 def plot_per_class_f1(ax, data):
@@ -797,10 +811,10 @@ def main():
             plt.close(fig_p)
             print(f"Saved → {panel_path}")
 
-        # CM deltas with TCN as reference: SmallTCN and TCN+LSTM vs TCN, shared vmax.
+        # CM deltas with TCN as reference: every NN variant vs TCN, shared vmax.
         if "tcn" in nn_data and nn_data["tcn"]["cm"] is not None:
-            others = [m for m in ("small_tcn", "tcn_lstm")
-                      if m in nn_data and nn_data[m]["cm"] is not None]
+            others = [m for m in NN_MODELS if m != "tcn"
+                      and m in nn_data and nn_data[m]["cm"] is not None]
             if others:
                 def _norm(cm):
                     rs = cm.sum(axis=1, keepdims=True)
@@ -841,10 +855,13 @@ def main():
                 print(f"Saved → {nd_path}")
 
         # Complementary dumbbell mirror (TCN+LSTM vs TCN already emitted above).
-        if "small_tcn" in nn_data and "tcn" in nn_data:
-            _save_solo(plot_subclass_dumbbell, data, "small_tcn", "tcn",
-                       path=graphs_dir / "subclass_dumbbell_small_tcn_vs_tcn.svg",
-                       figsize=(9, 6))
+        for m in NN_MODELS:
+            if m in ("tcn", "tcn_lstm"):
+                continue
+            if m in nn_data and "tcn" in nn_data:
+                _save_solo(plot_subclass_dumbbell, data, m, "tcn",
+                           path=graphs_dir / f"subclass_dumbbell_{m}_vs_tcn.svg",
+                           figsize=(9, 6))
 
     nn_scores_data = {m: scores_data[m] for m in NN_MODELS if m in scores_data}
     if len(nn_scores_data) >= 2:

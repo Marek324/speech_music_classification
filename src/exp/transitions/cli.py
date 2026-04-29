@@ -39,11 +39,11 @@ _GRAPHS_DIR = _RESULTS_DIR / "graphs"
 _REPO_ROOT = _HERE.parent.parent.parent
 
 _MODEL_SHORT = {
-    "tcn": "TCN", "tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN",
+    "tcn": "TCN", "tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "smaller_tcn": "SmallerTCN",
     "decision_tree": "DT", "gmm": "GMM", "svm": "SVM",
 }
 _MODEL_COLOR = {
-    "tcn": "#2196F3", "tcn_lstm": "#E91E63", "small_tcn": "#009688",
+    "tcn": "#2196F3", "tcn_lstm": "#E91E63", "small_tcn": "#009688", "smaller_tcn": "#4DB6AC",
     "decision_tree": "#4CAF50", "gmm": "#9C27B0", "svm": "#FF9800",
 }
 

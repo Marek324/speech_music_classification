@@ -35,6 +35,9 @@ _results_dir = Path(__file__).resolve().parent.parent.parent / "results"
 
 @dataclass(frozen=True)
 class Variant:
+    name: str
+    display_name: str
+    ui_label: str
     cls: type
     group: click.Group
     get_config: Callable[..., Dict[str, Any]]
@@ -47,6 +50,7 @@ def make_variant(
     *,
     name: str,
     display_name: str,
+    ui_label: str | None = None,
     cli_group: str,
     group_help: str,
     weights_stem: str,
@@ -59,6 +63,7 @@ def make_variant(
     ----------
     name         : stable module/output identifier ("small_tcn", "tcn_lstm").
     display_name : class name + log-prefix ("SmallTCN", "TCNLSTM").
+    ui_label     : user-facing label for the demo picker ("Small TCN"). Falls back to display_name.
     cli_group    : Click subgroup name ("small-tcn", "tcn-lstm").
     group_help   : docstring shown in `nn --help`.
     weights_stem : suffix after `tcn_` in the weights filename; the canonical
@@ -191,6 +196,9 @@ def make_variant(
         log.info("%s smoke-test-online passed.", display_name)
 
     return Variant(
+        name=name,
+        display_name=display_name,
+        ui_label=ui_label or display_name,
         cls=_Variant,
         group=group,
         get_config=get_config,

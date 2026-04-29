@@ -50,6 +50,7 @@ for _name, _spec in _RAW.get("variants", {}).items():
     _v = make_variant(
         name=_name,
         display_name=_spec["display_name"],
+        ui_label=_spec.get("ui_label"),
         cli_group=_spec["cli_group"],
         group_help=_spec["group_help"],
         weights_stem=_spec["weights_stem"],

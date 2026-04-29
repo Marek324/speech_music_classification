@@ -18,11 +18,13 @@
 %   projekt-30-prilohy-appendices-en.tex - přílohy v angličtině / appendices in English
 %==============================================================================
 %\documentclass[]{fitthesis} % bez zadání - pro začátek práce, aby nebyl problém s překladem
-\documentclass[english]{fitthesis} % without assignment - for the work start to avoid compilation problem
+%\documentclass[english]{fitthesis} % without assignment (no assignment/ PDFs needed)
+\documentclass[english,zadani]{fitthesis} % inserts assignment/assignment.pdf (or assignment_bw.pdf with print/cprint)
 %\documentclass[zadani]{fitthesis} % odevzdani do IS VUT a/nebo tisk s barevnými odkazy - odkazy jsou barevné
-%\documentclass[english,zadani]{fitthesis} % for submission to the IS VUT and/or print with color links - links are color
 %\documentclass[zadani,print]{fitthesis} % pro černobílý tisk - odkazy jsou černé
 %\documentclass[english,zadani,print]{fitthesis} % for the black and white print - links are black
+% Se zapnutým zadani: vloží se assignment/assignment.pdf (obrazovka) nebo assignment/assignment_bw.pdf (print/cprint).
+% With zadani: inserts assignment/assignment.pdf (screen) or assignment/assignment_bw.pdf (print/cprint).
 %\documentclass[zadani,cprint]{fitthesis} % pro barevný tisk - odkazy jsou černé, znak VUT barevný
 %\documentclass[english,zadani,cprint]{fitthesis} % for the print - links are black, logo is color
 % * Je-li práce psaná v anglickém jazyce, je zapotřebí u třídy použít 

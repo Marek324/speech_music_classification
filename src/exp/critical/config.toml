@@ -16,7 +16,7 @@
 # Models to evaluate. Drop any name to skip; missing weights are also skipped
 # with a warning. NN model names cover the canonical TCN plus every entry of
 # `src/nn/variants.toml`.
-models = ["decision_tree", "gmm", "svm", "tcn", "small_tcn", "tcn_lstm"]
+models = ["decision_tree", "gmm", "svm", "tcn", "small_tcn", "smaller_tcn", "tcn_lstm"]
 
 [critical.dataset]
 url = "scripts/dataset/speech_music_dataset/crit"
@@ -29,6 +29,7 @@ name = "crit"
 # Classic: from `[buffers.<model>]` in the repo-root `config.toml`.
 tcn = 23.22
 small_tcn = 23.22
+smaller_tcn = 23.22
 tcn_lstm = 23.22
 decision_tree = 10.0
 gmm = 15.0

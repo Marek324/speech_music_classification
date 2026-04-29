@@ -37,7 +37,7 @@ _REPO_ROOT = _HERE.parent.parent.parent  # /home/marek/bp
 _LABEL_NAME = {-1: "speech", 1: "music", 2: "inactive"}
 _LABEL_COLOR = {-1: "#2196F3", 1: "#DC143C", 2: "#9E9E9E"}
 _MODEL_SHORT = {
-    "tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "tcn": "TCN",
+    "tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "smaller_tcn": "SmallerTCN", "tcn": "TCN",
     "decision_tree": "DT", "svm": "SVM", "gmm": "GMM",
 }
 

@@ -9,6 +9,7 @@
 
 [variants.tcn_lstm]
 display_name = "TCNLSTM"
+ui_label     = "TCN + LSTM"
 cli_group    = "tcn-lstm"
 group_help   = "TCNLSTM — delta2 frontend + conv1d preprocessor + TCN + LSTM tail (combined-experiment winner)."
 weights_stem = "lstm"
@@ -48,6 +49,7 @@ tail_width = 32
 
 [variants.small_tcn]
 display_name = "SmallTCN"
+ui_label     = "Small TCN"
 cli_group    = "small-tcn"
 group_help   = "SmallTCN — small-footprint TCN: log_mel_delta2 + n_filters=8."
 weights_stem = "small"
@@ -77,6 +79,44 @@ n_filters = 8
 kernel_size = 5
 n_layers = 4
 n_stacks = 3
+n_heads = 4
+dropout = 0.5
+n_classes = 3
+use_weight_norm = true
+activation = "relu"
+
+[variants.smaller_tcn]
+display_name = "SmallerTCN"
+ui_label     = "Smaller TCN"
+cli_group    = "smaller-tcn"
+group_help   = "SmallerTCN — SmallTCN recipe with n_stacks=1 (RF=121 frames ≤ training seq_len=128)."
+weights_stem = "smaller"
+subdir       = "smaller_tcn"
+
+[variants.smaller_tcn.tcn]
+name = "smaller"
+frontend = "log_mel_delta2"
+sample_rate = 22050
+n_fft = 1024
+hop_length = 512
+n_mels = 80
+n_mfcc = 20
+f_min = 27.5
+f_max = 8000.0
+optimizer = "sgd"
+lr = 1e-3
+seq_len = 128
+batch_size = 32
+augment = true
+loss = "bce_with_logits"
+
+[variants.smaller_tcn.tcn.model]
+backbone = "tcn"
+preprocessor = "none"
+n_filters = 8
+kernel_size = 5
+n_layers = 4
+n_stacks = 1
 n_heads = 4
 dropout = 0.5
 n_classes = 3

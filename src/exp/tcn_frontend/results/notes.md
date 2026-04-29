@@ -6,23 +6,23 @@ Sweep of fixed (non-learned) spectral front-ends feeding the baseline TCN (SGD, 
 
 | Variant | Channels | Macro F1 | CI | Δ vs base |
 |---|---|---|---|---|
-| **log_mel_delta2** | 240 (mel+Δ+ΔΔ) | **0.9799** | [0.9748, 0.9834] | +0.0053 |
-| **log_mel_delta** | 160 (mel+Δ) | **0.9795** | [0.9743, 0.9830] | +0.0049 |
-| log_mel_128 | 128 | 0.9753 | [0.9698, 0.9792] | +0.0007 |
-| baseline (log_mel_80) | 80 | 0.9746 | [0.9688, 0.9787] | 0.0 |
-| log_mel_40 | 40 | 0.9741 | [0.9684, 0.9781] | −0.0005 |
-| pcen | 80 | 0.9556 | [0.9470, 0.9623] | −0.0190 |
-| mfcc_20 | 20 | diverged | — | — |
-| mfcc_40 | 40 | diverged | — | — |
+| **log_mel_delta2** | 240 (mel+Δ+ΔΔ) | **0.9816** | [0.9765, 0.9849] | +0.0064 |
+| **log_mel_delta** | 160 (mel+Δ) | **0.9804** | [0.9749, 0.9840] | +0.0052 |
+| mfcc_40 | 40 | 0.9764 | [0.9703, 0.9804] | +0.0012 |
+| mfcc_20 | 20 | 0.9752 | [0.9688, 0.9793] | 0.0000 |
+| baseline (log_mel_80) | 80 | 0.9752 | [0.9687, 0.9794] | 0.0 |
+| log_mel_128 | 128 | 0.9750 | [0.9681, 0.9793] | −0.0002 |
+| log_mel_40 | 40 | 0.9730 | [0.9661, 0.9774] | −0.0022 |
+| pcen | 80 | 0.9532 | [0.9435, 0.9600] | −0.0220 |
 
 ## Conclusion
 
-**Temporal derivatives help; mel-bin count does not.** Going from 40 → 80 → 128 mel bins produces no measurable change (all within ±0.001 of baseline). But concatenating first-order deltas (+0.005) or first+second (+0.005) cleanly clears the baseline CI. The signal is *temporal dynamics*, not *finer frequency resolution* — unsurprising given the receptive-field gap: the TCN sees 181 frames but still benefits from pre-computed short-term derivatives that a single small conv layer apparently can't learn as cleanly.
+**Temporal derivatives help; mel-bin count does not.** Going from 40 → 80 → 128 mel bins produces no measurable change (all within ±0.002 of baseline). But concatenating first-order deltas (+0.0052) or first+second (+0.0064) cleanly clears the baseline CI. The signal is *temporal dynamics*, not *finer frequency resolution* — unsurprising given the receptive-field gap: the TCN sees 181 frames but still benefits from pre-computed short-term derivatives that a single small conv layer apparently can't learn as cleanly.
 
-`delta2` edges `delta` by 0.0004 — within noise. Either is a safe win; `delta2` is chosen downstream for stacking.
+`delta2` edges `delta` by 0.0012 — within noise. Either is a safe win; `delta2` is chosen downstream for stacking.
 
-**PCEN loses.** Per-channel energy normalization, normally a robust choice, drops 1.9 pp. Plausibly because our log-mel stats are already z-normalized per-clip, and PCEN's AGC-like dynamics double-normalize the signal, stripping level cues the classifier was using (particularly for `inactive`/`noise`).
+**MFCC is essentially flat.** 20 and 40 cepstral coefficients land within 0.0012 of baseline. The DCT decorrelation isn't actively useful (TCN handles correlated channels fine) but isn't harmful either. With 4× fewer channels at `mfcc_20`, this is the cheapest frontend that doesn't regress — useful evidence that the bottleneck is not at the spectral representation.
 
-**MFCC diverged** at both 20 and 40 coefficients. Most likely cause: cached mean/std normalization stats are hardcoded for log-mel power; reusing them for MFCC produces out-of-distribution inputs at init and the model never recovers. Needs its own stats path to be revisited.
+**PCEN loses.** Per-channel energy normalization, normally a robust choice, drops 2.2 pp. Plausibly because our log-mel stats are already z-normalized per-clip, and PCEN's AGC-like dynamics double-normalize the signal, stripping level cues the classifier was using (particularly for `inactive`/`noise` — F1 falls from 0.96 to 0.93 there).
 
-**Takeaway.** Adopt `log_mel_delta2` as the frontend. It stacks with preprocessor and capacity gains (see combined experiment → 0.9855).
+**Takeaway.** Adopt `log_mel_delta2` as the frontend. It stacks with preprocessor and capacity gains in the combined experiment.

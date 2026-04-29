@@ -107,9 +107,14 @@ def get_nn_dataset(ds_link: str, split: str, sample_rate: int, name: str = "full
         if "audio" in ds.column_names:
             ds = ds.cast_column("audio", Audio(sampling_rate=sample_rate, decode=False))
         return ds
+    # decode=False keeps the audio column as a raw {bytes, path} struct,
+    # bypassing HF's Audio decode path. That avoids pulling in torchcodec, which
+    # fails to load on hosts with FFmpeg 8 / no CUDA NPP libs (libnppicc.so.12).
+    # iter_nn_rows then decodes via soundfile in the same code path the
+    # local-parquet route already uses.
     return load_dataset(ds_link, name=name, split=split).cast_column(
         "audio",
-        Audio(sampling_rate=sample_rate, num_channels=1),
+        Audio(sampling_rate=sample_rate, decode=False),
     )
 
 

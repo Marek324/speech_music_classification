@@ -1079,15 +1079,15 @@ Management}{\@fit@EN}%
 
 } % !phd_summary
 
-%zadani / assignment
+%zadani / assignment (color vs black & white for print / cprint)
+\def\fitthesis@assignmentpdf{assignment/assignment.pdf}%
+\ifPrint\def\fitthesis@assignmentpdf{assignment/assignment_bw.pdf}\fi
 \iftoggle{zadaniTwop}{
   \cleardoublepage
-  \includepdf[pages=-,offset=-0.1cm -0.2cm]{zadani.pdf}
-  %\ifzadani\includepdf[pages=-,offset=0.6cm -1.7cm]{assignment.pdf}\fi
+  \includepdf[pages=-,offset=-0.1cm -0.2cm]{\fitthesis@assignmentpdf}
 }{
   \ifzadani
-    \includepdf[pages=-,offset=0.6cm -1.7cm]{zadani.pdf}
-    %\ifzadani\includepdf[pages=-,offset=0.6cm -1.7cm]{assignment.pdf}\fi
+    \includepdf[pages=-,offset=0.6cm -1.7cm]{\fitthesis@assignmentpdf}
   \fi
 }
 

@@ -3,7 +3,7 @@
 # is measured before torch is touched at all (load_ms for the first NN model
 # is then dominated by weight load alone, since _prewarm_torch handles the
 # one-time torch + safetensors import).
-models = ["decision_tree", "gmm", "svm", "small_tcn", "tcn", "tcn_lstm"]
+models = ["decision_tree", "gmm", "svm", "small_tcn", "smaller_tcn", "tcn", "tcn_lstm"]
 
 # Trial structure
 warmup_pushes = 10
