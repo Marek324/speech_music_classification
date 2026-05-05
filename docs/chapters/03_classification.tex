@@ -1,6 +1,6 @@
 \chapter{Classification Approaches}
 \label{cap:classification_approaches}
-The following chapter describes the general architecture of existing classifiers, presents models selected as references to the proposed solution, and adjustments made to these models to make them fit the task of on-line speech and music classification.
+The following chapter describes the general architecture of existing classifiers, presents models selected as references for the proposed solution, and adjustments made to these models to make them fit the task of 3-class on-line speech and music classification.
 
 \section{Overview}
 
@@ -14,7 +14,7 @@ Classifiers are algorithms whose goal is to assign an input sample to one of a s
 
 Figure~\ref{fig:general_classifier} illustrates a minimal processing pipeline of a generic classification system.
 
-The first stage of the pipeline consists of pre-processing steps, which are largely influenced by the architecture of specific classifier and its application.
+The first stage of the pipeline consists of pre-processing steps, which are largely influenced by the architecture of the specific classifier and its application.
 In the case of on-line audio classification, buffering and segmentation of the input signal are required due to the constraints described in \cref{subsec:constraints}.
 
 Raw input samples do not provide a robust representation of an audio signal, which motivates the use of feature extraction in the majority of audio classification pipelines.
@@ -23,104 +23,233 @@ Although a speech and music classifier can operate as a standalone application, 
 As a module in this context, classifiers often serve to prevent subsequent processing stages from wasting computational resources or from operating on inactive or invalid input.
 
 \section{Traditional Methods}
-Traditional methods of speech and music classification refer to usage of machine learning algorithms such as Gaussian Mixture Models, Decision Trees or Support Vector Machines.
+\label{sec:traditional_methods}
+Traditional methods of speech and music classification refer to the use of machine learning algorithms such as Gaussian Mixture Model (GMM), Decision Tree (DT), or Support Vector Machine (SVM).
 
 The advantage of using machine learning models in comparison to deep learning algorithms is the low computational complexity in both training and inference stages.
 
-Main drawback of traditional methods is the need for selection of right features to represent input signal as they cannot work on raw input.
-Selection is carried out by thorough experiments with combinations of features or integration of the selection algorithm, such as sequential forward/backward floating selection~\cite{PUDIL19941119}, for the selection of best features by eliminating features with low variance.
+A key drawback of traditional methods is their reliance on a hand-engineered feature set.
+Feature selection is required to keep the feature space compact while preserving its discriminative power.
+In practice this is done either through exhaustive experimentation or with automated selection algorithms, ranging from filter methods such as the ANOVA F-test~\cite{BATHKE2004413} to wrapper methods such as Sequential Floating Forward Selection~\cite{PUDIL19941119}.
 
-\section{Reference Machine Learning Models}
-Models in this subsection were picked as references to the proposed method.
+The following models were re-implemented as reference non-neural solutions for the speech and music classification problem.
 
-\subsection{Decision Tree Classifier by Lavner and Ruinskiy~\cite{Lavner2009-zo}}
-This method proposed a decision-tree-based algorithm for speech and music classification.
+All core implementations mentioned and \texttt{highlighted} in this section come from the Python library \texttt{scikit-learn}~\cite{pedregosa2018scikitlearnmachinelearningpython}.
+Feature extraction is implemented using NumPy~\cite{2020NumPy-Array}, SciPy~\cite{2020SciPy-NMeth}, or librosa~\cite{McFee2015librosaAA} primitives.
 
-Feature extraction and selection for this model is implemented as described by the paper.
-Authors assume every input segment is either speech or music; silent and noisy frames must therefore be eliminated from the training phase of the model.
-For the fairness of comparison, all models were evaluated on 2-class and 3-class classification task.
+All three models were originally designed as binary classifiers and were adapted to the 3-class task.
+The implementation details and differences are described in the following subsections. 
 
-\textcolor{green}{separate tables?}
+\subsection{Decision Tree}
+Lavner and Ruinskiy~\cite{Lavner2009-zo} proposed a hand-crafted three-stage sieve over a pool of nineteen time- and frequency-domain features, computed on 40\,ms frames with 50\% overlap and aggregated per feature across 4\,s segments at 100\,ms hop via mean, standard deviation, and the mean and standard deviation of the frame-by-frame difference.
 
-\subsection{Gaussian Mixture Model and Support Vector Machine by Khonglah and Prasanna~\cite{KHONGLAH201671}}
+The features used in the original work are: Short-Time Energy, Zero-Crossing Rate, Band Energy Ratio, Autocorrelation Coefficient, 10 Mel-Frequency Cepstrum Coefficients (MFCCs), the Euclidean norm of the MFCC difference vector, Spectral Rolloff Point, Spectral Centroid, Spectral Flux, and Spectral Spread.
 
-This method proposes two classifiers — a Gaussian Mixture Model (GMM) and a Support Vector Machine (SVM) — sharing the same feature extraction pipeline.
+A non-parametric class-conditional probability density function (PDF) is estimated for every feature, and five thresholds are derived per feature: two extreme thresholds (zero training-error per class), two high-probability thresholds, and one separation threshold.
+A separate feature subset is selected for each threshold type, using inclusion-fraction ranking, separation-power scoring, and floating selection over a scatter-matrix criterion.
+At inference, each 4\,s segment receives a grade in $[-1, +1]$ from how many of its features surpass each threshold; the grade is then smoothed by an exponentially-decaying weighted average of past segment decisions and discretized against an adaptive boundary.
 
-\subsubsection*{Feature Extraction}
-Audio is processed at 16\,kHz with 30\,ms frames and a 15\,ms hop.
-A 1-second rolling buffer accumulates per-frame features to compute long-term statistics.
+In this work the sieve is replaced by a single scikit-learn \texttt{DecisionTreeClassifier}, preceded by a \texttt{StandardScaler} and an ANOVA F-test \texttt{SelectKBest} that picks the ten most discriminative components in a single step instead of running the paper's per-threshold multi-stage scheme, simplifying the implementation and aiding extensibility.
 
-The feature vector contains the following per-frame features: short-time energy, zero-crossing rate (ZCR), spectrum centroid, spectral flux, and spectral rolloff point (85th percentile).
-Over the 1-second buffer, the variance of ZCR, spectrum centroid, spectral flux, and rolloff are computed, together with the Low Short-Time Energy Ratio (LSTER).
+To account for the on-line constraint of the task at hand, the frames were reduced from 40\,ms to 20\,ms, preserving the 50\% overlap, and the 4\,s segments were replaced by a 300\,ms rolling buffer of features over which the statistical aggregates are computed.
+Decision smoothing keeps the paper's exponentially-decaying form (forgetting factor of 0.9 over a 30-deep deque of post-classifier probabilities) but operates per frame at 10\,ms intervals. 
+The adaptive boundary and the paper's four-level output mode are dropped, since the learned tree commits directly via $\arg\max$ over its class probabilities.
+These changes let the classifier predict each frame's class every 10\,ms, comfortably satisfying the on-line constraint.
 
-Additionally, speech-specific features are computed at 1\,ms resolution within a secondary buffer: the normalized autocorrelation peak strength of the zero-frequency filtered signal (NAPS of ZFFs), the peak-to-sidelobe ratio of the Hilbert envelope of the LP residual (PSR-HE), log mel-spectrum energy (22 Mel bands, 0–4\,kHz), and modulation spectrum energy in the syllabic band (2–10\,Hz).
-Per-feature means of the secondary buffer are appended to the feature vector.
+The paper trains only on speech and music, explicitly excluding silent and noisy frames.
+For the 3-class task, inactive frames carry their own training labels and the tree fits all three classes simultaneously; the smoothed $\arg\max$ extends naturally over $\{$speech, music, inactive$\}$ without further changes.
 
-\subsubsection*{Gaussian Mixture Model}
-Two GMMs — one for speech and one for music — are trained on features scaled with a \texttt{RobustScaler}.
-Each GMM has 8 components with diagonal covariance, $k$-means initialization, and a regularization term of $10^{-4}$ added to the covariance diagonals.
+\subsection{Gaussian Mixture Model and Support Vector Machine}
+Khonglah and Prasanna~\cite{KHONGLAH201671} proposed a Gaussian mixture model (GMM) and a support vector machine (SVM) sharing the same feature extraction pipeline.
 
-At inference, the log-likelihood delta $\delta = \log p_{\text{speech}}(\mathbf{x}) - \log p_{\text{music}}(\mathbf{x})$ is computed per frame and accumulated in a 66-frame rolling buffer (approximately 1\,s at 15\,ms hop).
-The smoothed mean of the buffer determines the prediction: speech if $\bar{\delta} > 0$, music otherwise.
+The original work specifies 30\,ms frames with 1\,ms hop for speech-specific features.
+Frame size for the existing features is not specified.
+Speech-specific features: Normalized Autocorrelation Peak Strength (NAPS) of the Zero Frequency Filtered Signal, Peak-to-Sidelobe Ratio (PSR) of the Hilbert Envelope of Linear Prediction (LP) Residual, Log-Mel Spectrum Energy, and Modulation-Spectrum Energy at 4\,Hz.
+Existing features: Zero-Crossing Rate, Spectral Centroid, Spectral Flux, and Spectral Rolloff Point.
+The extracted features are then accumulated over 1\,s non-overlapping windows.
+Long-term statistics --- the mean and variance, plus the percentage of low-energy frames (frames whose total energy is below one-third of the average energy in the window) --- are computed and passed to the classifiers.
 
-\subsubsection*{Support Vector Machine}
-The SVM uses an RBF kernel with $C = 1$ and $\gamma = 3$, matching the paper, and operates within a \texttt{StandardScaler} pipeline.
-Only speech and music frames participate in training; noise frames are excluded.
-The training set is randomly subsampled to at most 50\,000 frames per class to keep training tractable at the frame level.
+To run the feature-extraction pipeline online, we have kept the original 30\,ms frame size and 1\,ms shift for NAPS and log-mel, and vectorized their computation.
+Since the Levinson-Durbin LP analysis~\cite{1451722} is sequential by nature, we have sped up its calculation by reducing its cadence to 100\,Hz.
+A shift sweep confirmed that PSR remains $>0.99$ correlated with the 1\,ms reference up to a 10\,ms hop.
 
-At inference, the raw SVM decision function values are accumulated in a 20-frame rolling buffer.
-The smoothed mean determines the label: speech if negative, music otherwise.
+The existing features, for which the paper does not specify a hop, are computed on 30\,ms frames at 15\,ms hop to match the streaming output rate.
+Finally, the 1\,s non-overlapping statistics window is replaced by a rolling buffer updated every 15\,ms.
 
-Unlike the GMM, the SVM does not natively produce calibrated probabilities; evaluation therefore relies on the hard decision output.
+Khonglah and Prasanna's work does not specify any feature normalization; we have added it to both classifiers for reasons described in the following subsections.
 
-\subsubsection*{Differences from the Paper}
-The paper trained on approximately 160 audio clips represented as 1-second non-overlapping window vectors, whereas this implementation trains on frame-level features with per-class subsampling.
-Feature scaling uses \texttt{RobustScaler} for the GMM and \texttt{StandardScaler} for the SVM, rather than per-clip log-mel normalization as in the original.
-The sigmoid mapping on the log-likelihood delta described in the paper is not applied; smoothing is performed directly on the raw delta.
-Neither model handles the inactive (noise) class — both output only speech or music — resulting in zero F1 for inactive segments in the 3-class evaluation.
+\subsubsection{Gaussian Mixture Model}
+The reference GMM used two models for the speech and music classes.
+We have added a third model to accommodate the inactive class.
+Each of the models has eight mixture components with diagonal covariance matrices.
 
-\subsubsection*{Results}
+The GMM's sensitivity to outliers motivated us to normalize the features using \texttt{RobustScaler}, which scales by their per-feature median and interquartile range.
+Scaled features are then clamped to $\pm10$ to prevent residual outliers from triggering the kind of numerical-instability failures known to affect GMM fitting~\cite[§9.2.2]{bishop2006prml}.
+Without the clamp, training produced \texttt{NaN} values and aborted.
 
-Table~\ref{tab:gmm_svm_results} shows per-class and macro F1, precision, and recall on the 2-class evaluation.
-In the 3-class evaluation, both models predict only speech or music, leaving inactive segments entirely misclassified; macro F1 drops to 0.5552 for the GMM and 0.5489 for the SVM.
+Frames were originally classified by the sigmoid-mapped log-likelihood delta against a learned threshold.
+At the 15\,ms frame hop, per-frame predictions flicker between classes because each frame's feature aggregates are computed over slightly different rolling windows.
+Averaging the classifier outputs over a short buffer damps this flicker.
+Concretely, we average the per-class log-likelihoods over a 66-frame rolling buffer ($\approx 1$\,s at 15\,ms hop).
+Sigmoid mapping was replaced by $\arg\max$ over the smoothed log-likelihood vector.
 
-\begin{table}[h]
-\centering
-\begin{tabular}{llccc}
-\hline
-Model & Class & F1 & Precision & Recall \\
-\hline
-\multirow{3}{*}{GMM} & Speech  & 0.8351 & 0.7775 & 0.9018 \\
-                     & Music   & 0.8445 & 0.9078 & 0.7894 \\
-                     & \textbf{Macro}   & \textbf{0.8398} & 0.8427 & 0.8456 \\
-\hline
-\multirow{3}{*}{SVM} & Speech  & 0.8088 & 0.8297 & 0.7889 \\
-                     & Music   & 0.8508 & 0.8344 & 0.8679 \\
-                     & \textbf{Macro}   & \textbf{0.8298} & 0.8321 & 0.8284 \\
-\hline
-\end{tabular}
-\caption{2-class evaluation results for GMM and SVM on the test split.}
-\label{tab:gmm_svm_results}
-\end{table}
+\subsubsection{Support Vector Machine}
+The reference describes SVM with regularization parameter $C = 1$ and RBF kernel with $\gamma = 3$.
+We have kept these hyperparameters identical and implemented the SVM using scikit-learn's \texttt{SVC}.
+No adaptation from 2 to 3 classes was needed, because \texttt{SVC} supports multiclass classification by default.
 
-The GMM achieves higher recall for speech (0.9018 vs.\ 0.7889) while the SVM is more balanced.
-Average inference time per frame is 4.9\,ms for the GMM and 6.6\,ms for the SVM.
+The RBF kernel is dominated by pairwise Euclidean distances between feature vectors, so feature magnitudes need to be on the same scale.
+A plain \texttt{StandardScaler} (z-score normalization~\cite{HAN201283}) is sufficient here.
+
+The reference trained the SVM on 160 fifteen-second recordings, yielding $2{,}400$ 1\,s non-overlapping windows, and produced a binary classification per window.
+The RBF kernel generally scales between $O(n^2)$ and $O(n^3)$ with training set size.
+Training on our full training set --- which produces over 20 million 15\,ms frames --- is infeasible.
+To make training manageable, we have reduced the training set to $50{,}000$ frames per class.
+This subset of $150{,}000$ frames is roughly $60\times$ bigger than the training set used in Khonglah and Prasanna's work.
+
+The reference SVM produced one decision per non-overlapping 1\,s window with no further smoothing.
+We average the 3-element decision-function vectors over a 20-frame rolling buffer ($\approx 300$\,ms) to stabilize the per-frame decisions at the 15\,ms streaming hop.
+Compared to the GMM, the SVM smoothing buffer is shorter (20 vs 66 frames) because SVM's outputs are more stable and in a comparable range across frames.
+Finally, the class of the frame is determined by $\arg\max$ over the smoothed vector.
+
+
+
+
+
+
 
 \section{Deep Learning Methods}
+Deep learning models eliminate the hand-engineered feature step that constrains the traditional classifiers in \cref{sec:traditional_methods}.
+Given a normalized log-mel spectrogram, the network learns its own internal representations and the decision boundary jointly, trading the interpretability of explicit features for capacity to capture patterns that hand-crafted statistics can miss.
 
-\section{Reference Deep Learning Models}
+Several families of neural architectures have been applied to audio classification.
+The simplest, the multi-layer perceptron~\cite{rumelhart1986learning}, processes each input frame independently as a fixed-length vector and ignores temporal structure entirely; it is the historical baseline against which sequence-aware models are compared.
+Convolutional Neural Network (CNN)~\cite{726791}, originally designed for image recognition, has been applied to spectrograms by treating them as two-dimensional images and learning local time-frequency patterns through stacked convolutions, producing strong results on tasks where the input window is fixed.
+Recurrent Neural Network (RNN)~\cite{elman1990finding} models temporal dependencies explicitly by carrying a hidden state forward through time, and the Long Short-Term Memory (LSTM) variant~\cite{10.1162/neco.1997.9.8.1735} solves the vanishing-gradient problem that limits vanilla RNNs.
 
-\subsection{YamNET~\cite{drossos2020soundeventdetectiondepthwise}}
+\subsection{Convolutional Neural Network}
+The CNN's central operation is the convolution: a small bank of learned kernels slides across the input, computing a dot product at each position to produce a feature map.
+For a one-dimensional input $x$ and a learned kernel $w$ of size $K$, the convolution at position $t$ is
+\begin{align}
+\label{eq:conv_1d}
+y[t] &= \sum_{k=0}^{K-1} w[k] \cdot x[t-k]
+\end{align}
+the same expression extends to two dimensions by indexing over both the time and frequency axes of the spectrogram.
 
+Two properties make this attractive for spectrogram inputs.
 
-%Most classifiers do not operate directly on raw input samples, as these typically do not provide a compact or robust representation of the signal characteristics.
-%Instead, a feature extraction stage is employed to transform the buffered audio segments into a set of descriptive features that capture relevant temporal and spectral properties of the signal.
-%Commonly used features in speech and music classification include spectral features, energy-based measures, and statistics computed over short time windows.
+First, the kernel weights are shared across all positions, so the same time-frequency pattern is detected regardless of where it appears in the input.
 
-%The extracted features are then passed to the classification model, which maps the feature representation to one of the predefined classes.
-%Various model architectures can be used at this stage, ranging from traditional machine learning approaches to modern neural network-based methods.
-%The choice of the classification model is influenced by factors such as classification accuracy, computational complexity, and suitability for on-line operation.
+Second, stacking convolutional layers builds a hierarchy: early layers respond to simple local patterns, and deeper layers compose them into longer-range structures.
+The set of input positions that influence a given output --- the network's \textbf{receptive field} --- grows linearly with depth, by $K-1$ positions per added layer.
 
-%Finally, the classifier output may be post-processed to obtain more stable decisions over time.
-%This step can include temporal smoothing or aggregation of multiple frame-level decisions into a single segment-level output.
-%In speech and music classification, the final result is typically a binary decision indicating whether the input signal corresponds to speech or music.
+\subsection{Temporal Convolutional Network}
+Temporal Convolutional Networks (TCN) were introduced by Bai et al.~\cite{bai2018empiricalevaluationgenericconvolutional} as a feed-forward alternative to recurrent sequence models.
+A TCN keeps the CNN's parameter sharing and feature hierarchy but applies them along the time axis only, with one modification that adapts the architecture to long sequences: dilation.
+
+\textbf{Dilated} convolutions read input samples at stride $d$ instead of at consecutive positions, so the same $K$ kernel weights (with $K$ odd) span $(K-1)\cdot d + 1$ input positions centered on $t$:
+\begin{align}
+\label{eq:dilated_conv}
+y[t] &= \sum_{k=-(K-1)/2}^{(K-1)/2} w[k] \cdot x[t - k \cdot d]
+\end{align}
+Stacking $L$ such layers with dilation factors $d_1, \ldots, d_L$ yields a receptive field of
+\begin{align}
+\label{eq:tcn_rf_general}
+\mathrm{RF} &= 1 + (K-1) \sum_{l=1}^{L} d_l.
+\end{align}
+With exponentially-increasing dilation $d_l = 2^{l-1}$, this simplifies to
+\begin{align}
+\label{eq:tcn_rf_geom}
+\mathrm{RF} &= 1 + (K-1)(2^L - 1),
+\end{align}
+exponential in $L$, as illustrated in \cref{fig:tcn_dilation}.
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/tcn_dilation.pdf}
+	\caption{Receptive field of a stack of dilated convolutions with dilation factors $1, 2, 4, 8$.}\textcolor{green}{TODO: REDRAW}
+\label{fig:tcn_dilation}
+\end{figure}
+
+Dilation lets the network access long-range temporal context without the rolling feature buffer or statistical aggregates that capture context over multi-frame windows.
+
+Lemaire and Holzapfel~\cite{lemaire2019tcnspeechmusic} showed that a TCN built on this principle outperforms other architectures on broadcast speech-and-music detection while remaining parallelizable to train and bounded in memory at inference.
+
+\subsection{Causal TCN}
+The on-line constraint defined in \cref{subsec:constraints} requires that each output frame depend only on past inputs.
+The causal TCN --- presented in the same work by Lemaire and Holzapfel --- enforces this by shifting the kernel of \cref{eq:dilated_conv} so it covers only past positions: $k$ runs from $0$ to $K-1$ instead of being centered on zero, giving the causal dilated convolution
+\begin{align}
+\label{eq:causal_dilated_conv}
+y[t] &= \sum_{k=0}^{K-1} w[k] \cdot x[t - k \cdot d]
+\end{align}
+where every sampled input $x[t - k \cdot d]$ lies at or before $t$.
+We adopt this causal variant of the TCN as the reference architecture for this work.
+All subsequent mentions of \textbf{TCN} refer to this causal variant.
+
+\subsubsection{Architecture}
+
+The TCN backbone is a sequence of residual blocks.
+The example architecture depiction can be seen in \Cref{fig:tcn_architecture}.
+
+Each block contains \textcolor{green}{TODO: finish after the diagram, DON'T FORGET n\_stacks!}
+
+\begin{figure}[!htbp]
+\centering
+\includegraphics[width=\textwidth]{figures/tcn_architecture.pdf}
+\caption{Causal TCN architecture: L=3, ....\textcolor{green}{TODO: replace placeholder.}}
+\label{fig:tcn_architecture}
+\end{figure}
+
+\subsubsection{Implementation Details and Adaptations}
+
+The reference network operates on log-mel spectrograms.
+The audio is resampled to 22\,050\,Hz mono, a Short-Time Fourier Transform (STFT) is computed with a Hann window of 1024 samples and a hop of 512 samples, and the squared magnitude is passed through 80 mel filters spaced between 27.5\,Hz and 8\,kHz.
+The resulting features are put on a logarithmic scale and normalized to zero mean and unit variance over the training set.
+Reference training uses fixed-length chunks of 270 frames at batch size 32, optimizes binary cross-entropy with stochastic gradient descent (momentum $m = 0.9$), divides the learning rate by ten when the validation loss has not improved for three epochs, and stops once five consecutive epochs show no improvement.
+
+The hyperparameters adopted in this work fall within the ranges the paper allows.
+Both are listed in \cref{tab:tcn_paper_search}.
+
+\begin{table}[htbp]
+\centering
+\begin{tabular}{lcc}
+\hline
+Parameter & Paper search space & This work \\
+\hline
+Number of filters & $\{8, 16, 32\}$ & 16 \\
+Number of layers & $1\text{--}4$ & 4 \\
+Number of stacks & $3\text{--}10$ & 3 \\
+Kernel size & $\{3, 5, 7, \ldots, 19\}$ & 5 \\
+Dropout & $0.05\text{--}0.5$ & 0.5 \\
+\hline
+\end{tabular}
+\caption{Reference TCN hyperparameter search space and used configuration.}
+\label{tab:tcn_paper_search}
+\end{table}
+
+We have re-implemented the network using the \texttt{PyTorch}~\cite{paszke2019pytorchimperativestylehighperformance} library.
+The paper's recipe needs two adaptations for our setup.
+
+First, the output layer projects to three classes (speech, music, and inactive) instead of two, producing a $(B, 3, T)$ logit tensor at the same frame rate as the input spectrogram.
+Here $B$ is the batch size (32 during training, 1 during streaming inference) and $T$ is the number of frames per forward pass (128 during training).
+We have kept multi-label compatibility through per-class Binary Cross-Entropy (BCE).
+This way, no semantic change is needed to adapt the output from 2 to 3 classes.
+Implementation-wise we have used \texttt{BCEWithLogitsLoss}, which is numerically equivalent to BCE + sigmoid but applies the sigmoid in log-space for numerical stability.
+The final prediction is picked from the per-class probability vector using $\arg\max$.
+
+Second, the chunk length is reduced from 270 frames to 128.
+At the original 270 frames ($\approx 6.3$\,s), 61\,\% of the speech clips in our training set (described in \Cref{cap:dataset}) were too short to produce a single chunk, which biased the model toward music.
+128 frames ($\approx 3$\,s) recovers the full distribution.
+
+\section{Streaming Inference}
+\label{sec:streaming_inference}
+
+The on-line constraint defined in \cref{subsec:constraints} requires every classifier to produce a fresh prediction at the streaming output rate using only past audio.
+
+The traditional models in \cref{sec:traditional_methods} satisfy this by construction --- their feature extractor is per-frame and the smoothing buffers accumulate decisions on the fly --- so no further analysis is needed at the architectural level.
+
+The TCN, in contrast, is a pure batch function from a mel chunk to per-frame logits, so its on-line behavior depends on the architecture itself.
+Causality of the dilated convolutions guarantees that the streaming output is bit-identical to the corresponding offline forward pass on the same audio, with no padding, look-ahead, or boundary correction.
+The bit-identicality is verified by \texttt{scripts/parity\_tcn\_streaming.py}, which runs 1\,s of random audio through both paths and asserts \texttt{torch.equal} between the two probability tensors.
+
+The full on-line constraint analysis for both model families --- latency, throughput, and end-to-end frame timing --- is presented in \cref{cap:experiments}. \textcolor{green}{TODO: exact subsection}

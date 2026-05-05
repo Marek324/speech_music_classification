@@ -1,0 +1,164 @@
+\chapter{Evaluation Methodology}
+\label{cap:evaluation}
+
+This chapter describes how every classifier is measured: metrics (\cref{sec:eval_metrics}), datasets and splits (\cref{sec:eval_splits}), the streaming and switching evaluation (\cref{sec:eval_streaming}), the critical-tier protocol (\cref{sec:eval_critical}), the CPU complexity benchmark (\cref{sec:eval_complexity}), and the bootstrap-CI machinery (\cref{sec:eval_significance}).
+The chapter is methodology-only; numerical results are in \cref{cap:experiments}.
+
+\section{Metrics}
+\label{sec:eval_metrics}
+
+\textbf{Macro F1} over the three classes is the headline metric:
+\begin{equation}
+\label{eq:macro_f1}
+F_1^{\text{macro}} \;=\; \frac{1}{3} \sum_{c \in \{\text{S}, \text{M}, \text{I}\}} \frac{2 \cdot \text{P}_c \cdot \text{R}_c}{\text{P}_c + \text{R}_c}
+\end{equation}
+The macro-average weights each class equally regardless of its share of the test population.
+The test split is $65.8\,\% / 32.8\,\% / 1.4\,\%$ speech / music / inactive (\cref{cap:dataset}), but in our deployment scenarios — broadcast monitoring, ASR gating, codec selection — every class matters equally.
+A model that mispredicts inactive as speech wakes the downstream ASR; a model that mispredicts speech as music routes audio to the wrong codec.
+The class-frequency distribution in the training data is an artifact of source availability, not operational priority.
+
+The project bar is macro F1 $\geq 0.85$.
+The deployed checkpoints clear it by $-0.025$ (GMM, just below) to $+0.13$ (TCN+LSTM); the gap above the bar is itself an interesting axis (\cref{cap:experiments}).
+
+\textbf{Per-class F1} (precision, recall, F1 per class) supports the macro number with diagnostic detail:
+\begin{itemize}
+    \item Speech precision: how often is a speech prediction actually speech? Low precision means false ASR wake-ups.
+    \item Inactive recall: how often is an inactive frame correctly identified? Low recall is the failure mode that motivated the 3-class GMM extension (\cref{subsec:proposed_method_gmm_svm}).
+    \item Music recall: how often is music missed when present? Test-split recall is uniformly high; crit-tier recall diverges sharply.
+\end{itemize}
+Per-class numbers are reported for the seven deployed checkpoints; for ablation variants only the macro F1 plus bootstrap CI is in the chapter body and per-class tables move to the appendix.
+
+\textbf{Macro AUROC} is a discrimination-only check that decouples ranking quality from operating-point selection.
+Macro F1 measures performance at the threshold; macro AUROC measures the soft-score separation across all thresholds.
+A model with macro AUROC $\sim 0.99$ produces well-separated scores; if macro F1 is much lower, the threshold is at a bad operating point.
+None of the models in this thesis show that pattern.
+
+\textbf{Confusion matrix} is the off-diagonal diagnostic.
+The most informative pair is speech$\to$inactive versus inactive$\to$speech: the former is benign in our pipeline (ASR briefly idles), the latter is harmful (ASR wakes on noise).
+The asymmetry is the operational reason we extend GMM and SVM to 3-class even though doing so demonstrably hurts their test-split macro F1.
+
+\textbf{Per-subclass F1} restricts the F1 calculation to frames in a particular subclass and reports F1 of the subclass's primary class within those frames.
+On the test split per-subclass F1 is mostly a redundancy check; on the crit tier it is the entire content of the analysis (whisper, babble, msom, etc.).
+
+\section{Datasets and splits}
+\label{sec:eval_splits}
+
+The full-tier training and standard evaluation use the $80\,\% / 10\,\% / 10\,\%$ split assigned by the Bresenham generator (\cref{sec:dataset_tier_strategy}).
+Validation is used during training for \texttt{ReduceLROnPlateau} and early stopping; the test split is held out from training entirely (enforced by \texttt{src/nn/dataset.py}).
+The crit tier is held out from training and validation entirely; no clip overlap with any other tier.
+
+Per-model frame schedules: TCN family at $23.2\,\text{ms}$ hop, GMM/SVM at $15\,\text{ms}$, DT at $10\,\text{ms}$.
+The evaluator (\texttt{src/evaluator.py::\_align\_frames}) interpolates ground-truth labels to each model's native grid for cross-model comparison.
+Macro F1 is invariant to the exact frame rate up to a small effect from boundary frames; the chapter-6 cost analysis (\cref{sec:exp_complexity_results}) discusses where the frame-rate dependence does matter.
+
+We evaluate \emph{frame-level} rather than segment-level.
+Segment-level F1 is typically much higher on the same model (boundary errors at class transitions are absorbed by aggregation) and is the convention in older speech-music-discrimination literature; segment-level numbers are not directly comparable to ours.
+We choose frame-level because the deployment use case requires per-frame decisions.
+
+\section{Streaming and switching evaluation}
+\label{sec:eval_streaming}
+
+A frame-level macro F1 of $0.97$ does not specify how the classifier behaves at class transitions or on stable regions.
+A model can hit that F1 while flickering on stable audio or while taking hundreds of milliseconds to react.
+The transition analysis decomposes per-frame predictions into per-event latency and stable-region flicker as functions of the cadence at which ground-truth transitions arrive.
+
+\subsection*{Per-event latency}
+
+For each ground-truth transition at frame $t$ from class $A$ to $B$, latency is the smallest $k \geq 0$ such that $y_{\text{pred}}[t + k] = B$, in milliseconds: $k \cdot \text{hop}_{\text{ms}}$.
+Search halts at the next ground-truth transition: if the model never reaches $B$ before the next change, the event is recorded as a \emph{miss} and excluded from the latency distribution.
+Capping miss latencies at the segment length would compress slow models toward the cadence and hide their real cost; reporting miss rate alongside median and $90$th percentile preserves the diagnostic.
+
+Cadences swept: 500, 1000, 2000, 4000\,ms.
+The shortest is below the slowest classifier's response time; the longest is above every classifier's response time.
+The two intermediate cadences sit in the operating range of broadcast switching events.
+
+\subsection*{Stable-region flicker}
+
+Within each ground-truth segment, the first $200\,\text{ms}$ are excluded as a settling margin (latency-related transients are not flicker).
+In the remainder, every $y_{\text{pred}}[i] \neq y_{\text{pred}}[i-1]$ is counted; the rate is reported in Hz of stable audio.
+Segments shorter than the settling margin contribute zero changes and zero seconds, so they vanish without bias.
+The $200\,\text{ms}$ window is comfortably above the response time of the fastest classifier (TCN family $\sim 20$--$70\,\text{ms}$), so flicker is dominated by within-class instability rather than residual transients.
+
+\subsection*{2-class versus 3-class clips}
+
+The 2-class clips alternate speech and music only; the 3-class clips add inactive periods.
+Models that handle inactive natively show similar patterns on both subsets, with slightly larger latencies on 3-class.
+Models that handle inactive by remapping it to one of the active classes (a 2-class GMM in the paper-literal form) deteriorate sharply on 3-class clips; this is the operational evidence that motivates our 3-class extension.
+
+\section{Critical-set evaluation protocol}
+\label{sec:eval_critical}
+
+The crit tier is evaluated separately from the test split with the same metrics (macro F1, per-class F1, per-subclass F1) but on a different distribution.
+The protocol is otherwise identical: each model runs in streaming mode with its native frame schedule, predictions are stored to a \texttt{\_scores.npz} file alongside ground-truth and subclass labels, and the evaluator post-processes those into the metric tables.
+The CLI entry point is \texttt{src/exp/critical/cli.py}.
+
+\subsection*{Why a separate tier}
+
+Folding the crit tier into the test split would let strong in-distribution performance mask out-of-distribution brittleness via the macro average.
+A classifier with excellent \texttt{speech\_clean} performance can offset zero on \texttt{noise\_babble} via class averaging, and the per-class macro on the merged set would still beat the project bar.
+Reporting the two splits separately preserves the diagnostic value of each: the test split says ``does the model meet the bar on the training distribution,'' the crit tier says ``where does it break.''
+
+The crit tier is also small ($\sim 120$ clips, $\sim 30$ minutes), so the bootstrap CIs on its macro F1 are wide ($\pm 0.06$).
+Pooling with the test split would reduce the joint CI while keeping the underlying brittleness invisible — precisely the wrong direction.
+
+\subsection*{Naturalistic adversarial}
+
+The crit tier is naturalistic adversarial: every clip is a real recording of a real event that a deployed system would actually encounter, drawn from a distribution under-represented in training.
+This is intentionally different from the adversarial-perturbation tradition in computer vision (gradient-based perturbations of in-distribution inputs).
+For our deployment scenarios, distribution shift is the dominant failure mode in practice; adversarial-perturbation robustness is secondary and out of scope.
+
+\section{Complexity benchmark methodology}
+\label{sec:eval_complexity}
+
+The benchmark runs every deployed model on a single CPU thread with \texttt{torch.set\_num\_threads(1)} pinned for fairness, on an Intel i5-8300H @ $2.30\,\text{GHz}$ (mobile, four cores, eight logical cores via SMT) with the \texttt{powersave} governor.
+The harness is \texttt{src/exp/complexity/cli.py}.
+
+\subsection*{Why CPU-only}
+
+The classical baselines (DT, GMM, SVM) are sklearn-based and CPU-only.
+The neural family runs on PyTorch, which by default uses four intra-op CPU threads when no GPU is present.
+A naive benchmark would let the neural matrix multiplications spread across four cores while sklearn classifiers single-thread their feature extraction, producing a four-fold artifactual advantage for the neural family.
+Pinning to one thread removes this distortion at the cost of a $20$--$30\,\%$ slowdown for the TCN family relative to its native multi-thread behavior.
+A separate thread-scaling sweep (1, 2, 4, 8 threads) recovers the multi-thread story with an Amdahl-fitted parallel fraction per model.
+
+\subsection*{Per-model loop}
+
+For every model: construct the runner (record \texttt{load\_ms}); $10$ untimed warm-up pushes (covers PyTorch lazy init, sklearn first-call overhead, streaming receptive-field fill); $5$ trials of $200$ timed pushes (1\,000 pooled measurements); inside each trial, \texttt{gc.disable()}; between trials, \texttt{gc.collect()} and \texttt{glibc.malloc\_trim(0)} so the next trial starts from a clean baseline; tear down with three \texttt{gc.collect()} cycles plus a $0.5\,\text{s}$ sleep.
+The $5$-trial structure produces a coefficient-of-variation (CV) on the trial medians that lets the reader judge whether a $0.3\,\text{ms}$ difference between models is real or noise.
+
+\subsection*{Symbolic complexity}
+
+Alongside empirical timings we compute closed-form metrics: \texttt{params} (total fitted classifier parameters as floats), \texttt{MACs/frame} (multiply-accumulates per output frame in streaming mode, including the receptive-field re-run), \texttt{RF\_ms} (audio context required per output frame), \texttt{buf\_ms} (audio-equivalent of all persistent state), $T_\infty$ (critical-path depth), $T_1 / T_\infty$ (algorithmic parallelism ceiling).
+The symbolic side is machine-independent and lets the reader extrapolate to a different CPU than the i5-8300H.
+
+\section{Statistical significance}
+\label{sec:eval_significance}
+
+Every macro F1 number comes with a $95\,\%$ bootstrap confidence interval computed by clip-level resampling.
+The procedure: group all test-split frames by \texttt{clip\_id}; for each of $n_{\text{draws}} = 1\,000$ iterations, sample $n_{\text{clips}}$ unique clip IDs with replacement, concatenate all frames belonging to the sampled clips, and recompute the macro F1; report the $2.5$th and $97.5$th percentiles as the lower and upper CI bounds.
+The implementation is \texttt{src/evaluator.py::\_bootstrap\_ci}.
+
+Resampling at the clip level rather than the frame level is essential.
+Frames within a clip are not independent — they share the same speaker, noise environment, labeling decisions, and (for streaming classifiers) buffer state.
+A frame-level bootstrap would treat correlated frames as independent observations and drastically under-estimate the variance.
+The clip-level bootstrap is wider but honest.
+
+\subsection*{No multiple-comparison correction}
+
+The chapter-6 ablation program runs many variants and compares each with the baseline.
+A strict frequentist reader would expect a Bonferroni correction; we do not apply one.
+The ablation study is exploratory rather than confirmatory: each variant is a separate question, and the joint hypothesis ``at least one of these helps'' is not what we are testing.
+The substantive conclusions of \cref{cap:experiments} all rest on effects that are individually well outside their CIs; the near-noise variants are described with qualitative language rather than a definitive ``significant'' label.
+
+\subsection*{Single seeds and the combined experiment as partial mitigation}
+
+Every ablation variant is trained with a single seed.
+The combined-experiment design in \cref{sec:exp_combined} is a partial check: by stacking the three source-experiment winners and confirming that their gains compose to within $\pm 0.001$ of the additive sum, we get evidence that the source-experiment $\Delta$s are seed-stable.
+A multi-seed reproduction is listed as future work in \cref{sec:conclusion_future}.
+
+\subsection*{Reproducibility}
+
+Every numerical claim in the thesis is reproducible from public artifacts.
+Dataset constructed deterministically by \texttt{scripts/dataset/build.py} from sources pinned in \texttt{scripts/dataset/sources.toml}, published as \texttt{Marek324/speech-music-classification}.
+Trained checkpoints, mel cache, and \texttt{.eval} reports published as \texttt{Marek324/butfit-bp-artifacts}.
+Training scripts deterministic given the project's \texttt{RAND\_SEED}; bootstrap uses the same seed.

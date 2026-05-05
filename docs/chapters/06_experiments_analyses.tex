@@ -1,0 +1,502 @@
+\chapter{Experiments and Analyses}
+\label{cap:experiments}
+
+The chapter is organized thematically: the path from the paper-faithful baseline to the project's best-accuracy model (\cref{sec:exp_improving_tcn}), the path to the smallest-footprint model that still meets the project bar (\cref{sec:exp_lightweight}), the diagnostic evaluations that distinguish robustly-deployable models from over-fitted ones (\cref{sec:exp_robustness}), and the cost-side analysis that informs deployment choice (\cref{sec:exp_cost}).
+A consolidated summary closes the chapter (\cref{sec:exp_summary}).
+
+Four story arcs thread through:
+\begin{enumerate}
+    \item The paper's TCN recipe is structurally saturated. Within-grid hyperparameters land in noise; gains come from outside the backbone (frontend, preprocessor, capacity), and stack to $\sim 74\,\%$ of additivity (\cref{sec:exp_combined}).
+    \item Lightweight TCNs are nearly free. SmallTCN ($-0.0014$) and SmallerTCN ($-0.0030$) cost almost nothing in macro F1 and pay back $6\times$ in streaming compute.
+    \item Test-split parity hides robustness gaps. Four neural variants land within $0.012$ on test; on crit the spread opens to $0.058$ and TCN+LSTM is the only one with crit-tier inactive F1 above $0.45$.
+    \item Real-time everywhere on a laptop CPU. Every model clears $2\times$ RTF at one CPU thread; the choice is between footprint, latency-determinism, and absolute compute.
+\end{enumerate}
+
+\section{Improving the TCN}
+\label{sec:exp_improving_tcn}
+
+The starting point is the paper-faithful baseline (\cref{subsec:proposed_tcn}): SGD with momentum $0.9$, $\text{lr} = 10^{-3}$, weight normalization, $16$ filters, $4$ layers, $3$ stacks, kernel $5$, dropout $0.5$, $128$-frame chunks, BCE-with-logits, log-mel $80$ frontend.
+On the full-tier test split: macro F1 $= 0.9752$, CI $[0.9687, 0.9794]$ (\texttt{results/tcn.eval}).
+The project bar is $0.85$; baseline clears it by $12$ percentage points.
+
+\subsection{Ablation study}
+\label{subsec:exp_ablation}
+
+\subsubsection*{Setup}
+
+One-factor-at-a-time ablation rooted at the paper-faithful baseline.
+Each variant changes exactly one parameter and retrains for $30$ epochs on the full-tier dataset with early-stopping patience $5$.
+After the first pass several entire subgroups landed within $\pm 0.003$ of baseline (below the bootstrap CI width); those are pruned from the active configuration and listed at the end of the analysis.
+
+\subsubsection*{Results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Variant} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$ vs baseline} \\
+\midrule
+\texttt{adam\_batchnorm}      & $\mathbf{0.9792}$ & $[0.9737, 0.9829]$ & $+0.0040$ \\
+\texttt{sgd\_lr\_1e-2}        & $\mathbf{0.9787}$ & $[0.9729, 0.9824]$ & $+0.0035$ \\
+\texttt{dropout\_low}\,(0.1)  & $\mathbf{0.9782}$ & $[0.9723, 0.9820]$ & $+0.0030$ \\
+\texttt{dropout\_medium}\,(0.25) & $0.9774$       & $[0.9713, 0.9813]$ & $+0.0022$ \\
+\texttt{gelu}                 & $0.9756$          & $[0.9693, 0.9801]$ & $+0.0004$ \\
+\texttt{baseline}             & $0.9752$          & $[0.9687, 0.9794]$ & $\phantom{+}0.0000$ \\
+\texttt{leaky\_relu}          & $0.9752$          & $[0.9687, 0.9793]$ & $\phantom{-}0.0000$ \\
+\texttt{batch\_norm}          & $0.9739$          & $[0.9671, 0.9784]$ & $-0.0013$ \\
+\texttt{layers\_3}            & $0.9736$          & $[0.9671, 0.9780]$ & $-0.0016$ \\
+\texttt{layers\_2}            & $0.9723$          & $[0.9655, 0.9768]$ & $-0.0029$ \\
+\texttt{sgd\_batchnorm}       & $0.9706$          & $[0.9627, 0.9758]$ & $-0.0046$ \\
+\texttt{elu}                  & $0.9639$          & $[0.9541, 0.9704]$ & $-0.0113$ \\
+\texttt{layers\_1}            & $0.9573$          & $[0.9450, 0.9662]$ & $-0.0179$ \\
+\texttt{no\_skip}             & $\mathit{0.1884}$ & $[0.1725, 0.2039]$ & \emph{diverged} \\
+\texttt{adam}                 & $\mathit{0.1720}$ & $[0.1583, 0.1862]$ & \emph{diverged} \\
+\bottomrule
+\end{tabular}
+\caption{TCN ablation, active subgroups only. Pruned subgroups (loss, capacity, stacks, kernel, seq\_len, batch\_size, augmentation, n\_mels) all landed within $\pm 0.003$ of baseline.}
+\label{tab:ablation_results}
+\end{table}
+
+Three classes of effect emerge.
+First, two recipe-level alternatives outside the paper's hyperparameter grid produce small but real gains: \texttt{adam\_batchnorm} ($+0.0040$) and \texttt{sgd\_lr\_1e-2} ($+0.0035$).
+The dropout-related variant \texttt{dropout\_low} ($+0.0030$) is the cleanest single-knob improvement inside the paper's grid.
+Second, two variants produce catastrophic failures: \texttt{adam} (Adam without BatchNorm) collapses to a speech-only predictor, and \texttt{no\_skip} collapses to a music-only predictor.
+These identify load-bearing pieces of the recipe — residuals are non-negotiable, and Adam needs BatchNorm to stay numerically stable.
+Third, the bulk of within-grid variants land within $\pm 0.005$ of baseline.
+
+The depth ablation deserves a closer look: \texttt{layers\_3} drops by $0.0016$, \texttt{layers\_2} by $0.0029$, \texttt{layers\_1} by $0.0179$.
+At $n_{\text{layers}} = 1$ the receptive field is only $13$ frames ($\approx 300\,\text{ms}$); the F1 collapse reflects RF starvation.
+The paper's lower bound on layer count was correctly identified as too small.
+
+\subsubsection*{Pruned subgroups}
+
+Filter count (\texttt{filters\_8}, \texttt{filters\_32}): $\pm 0.001$.
+Stack count (\texttt{stacks\_5}): within $0.001$.
+Kernel size ($k \in \{3, 7, 9\}$): $\pm 0.003$.
+Chunk length (\texttt{seq\_len\_256}, \texttt{seq\_len\_270}): $\pm 0.002$.
+Batch size ($\{16, 64\}$): $\pm 0.002$.
+Loss family (\texttt{focal}, \texttt{weighted\_bce}, \texttt{mse}, \texttt{label\_smoothing\_bce}): $\pm 0.0003$.
+Mel-bin variants (\texttt{mels\_40}, \texttt{mels\_128}): crash because cached preprocess statistics are baked at $80$ mels.
+
+\subsubsection*{Implications}
+
+The within-backbone direction is ruled out as a source of further improvement.
+Headroom must come from outside the backbone — frontend, preprocessor, or backbone replacement.
+The recipe-level winners (\texttt{adam\_batchnorm}, \texttt{sgd\_lr\_1e-2}, \texttt{dropout\_low}) are not promoted to production; keeping the production recipe paper-faithful makes the deviation table in \cref{subsec:proposed_adjustments} a reliable single source of truth.
+
+\subsection{Spectral front-end}
+\label{subsec:exp_frontend}
+\label{sec:exp_frontend_results}
+
+The frontend experiment sweeps fixed (non-learned) spectral front-ends feeding the otherwise-baseline TCN.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Variant} & \textbf{Channels} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$ vs base} \\
+\midrule
+\texttt{log\_mel\_delta2} & 240 (mel+$\Delta$+$\Delta^2$) & $\mathbf{0.9816}$ & $[0.9765, 0.9849]$ & $+0.0064$ \\
+\texttt{log\_mel\_delta}  & 160 (mel+$\Delta$) & $\mathbf{0.9804}$ & $[0.9749, 0.9840]$ & $+0.0052$ \\
+\texttt{mfcc\_40}         &  40 & $0.9764$          & $[0.9703, 0.9804]$ & $+0.0012$ \\
+\texttt{mfcc\_20}         &  20 & $0.9752$          & $[0.9688, 0.9793]$ & $\phantom{+}0.0000$ \\
+\texttt{baseline}         &  80 & $0.9752$          & $[0.9687, 0.9794]$ & $\phantom{+}0.0000$ \\
+\texttt{log\_mel\_128}    & 128 & $0.9750$          & $[0.9681, 0.9793]$ & $-0.0002$ \\
+\texttt{log\_mel\_40}     &  40 & $0.9730$          & $[0.9661, 0.9774]$ & $-0.0022$ \\
+\texttt{pcen}             &  80 & $0.9532$          & $[0.9435, 0.9600]$ & $-0.0220$ \\
+\bottomrule
+\end{tabular}
+\caption{Spectral frontend sweep. Temporal derivatives clear baseline CI by $+0.0052$ to $+0.0064$; mel-bin count sweep is flat.}
+\label{tab:frontend_results}
+\end{table}
+
+The mel-bin sweep is flat: $40$, $80$, $128$ all within $\pm 0.002$.
+The signal is not at the frequency-resolution axis.
+
+The temporal-derivative variants clear the CI cleanly.
+$\Delta^2$ (+0.0064) and $\Delta$ (+0.0052) are within $0.0012$ of each other (inside CI), so the choice is a tossup; we choose $\Delta^2$ as the canonical front-end downstream.
+The TCN's first-layer convolution apparently does not extract short-term spectral derivatives as cleanly as a hand-coded delta operator; pre-computing them gives the backbone better-conditioned features.
+
+MFCC variants are flat to slightly positive.
+\texttt{mfcc\_20} matches baseline at $1/4$ of the input dimensionality; useful evidence that frequency-resolution is not the bottleneck.
+
+PCEN is a clear loss ($-0.0220$).
+PCEN's automatic-gain-control dynamic strips level cues that our log-mel z-normalization already preserves; double-normalization harms the inactive class specifically.
+A pipeline using PCEN \emph{instead of} log-mel z-normalization might recover the lost ground; we did not test this.
+
+\subsection{Learned preprocessor}
+\label{subsec:exp_preprocessor}
+\label{sec:exp_preprocessor_results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{Variant} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$ vs base} \\
+\midrule
+\texttt{conv1d}    & $\mathbf{0.9784}$ & $[0.9728, 0.9822]$ & $+0.0032$ \\
+\texttt{baseline}  & $0.9752$          & $[0.9687, 0.9793]$ & $\phantom{+}0.0000$ \\
+\texttt{conv2d}    & $0.9742$          & $[0.9684, 0.9783]$ & $-0.0010$ \\
+\bottomrule
+\end{tabular}
+\caption{Preprocessor sweep. A 1-D learned channel-mixing layer between the log-mel frontend and the TCN body adds $+0.0032$; a 2-D layer is flat.}
+\label{tab:preprocessor_results}
+\end{table}
+
+The 1-D preprocessor produces $+0.0032$ with CIs that just clear the baseline.
+The TCN's first-layer convolution does not mix mel bins at $t = 0$ — only across time — so a $1\times 1$ conv that mixes channels gives the backbone a learned linear combination of mel bins.
+The 2-D conv2d preprocessor is flat: convolving along time upstream of the TCN is partially redundant with the backbone's first layer.
+
+\subsection{Architecture: alternative backbones}
+\label{subsec:exp_architecture}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Variant} & \textbf{Params} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$ vs base} \\
+\midrule
+\texttt{tcn\_large}        & $\sim 126$\,K & $\mathbf{0.9780}$ & $[0.9723, 0.9818]$ & $+0.0028$ \\
+\texttt{gru\_large}        & $\sim 132$\,K & $0.9771$          & $[0.9712, 0.9811]$ & $+0.0019$ \\
+\texttt{lstm\_large}       & $\sim 138$\,K & $0.9758$          & $[0.9692, 0.9802]$ & $+0.0006$ \\
+\texttt{baseline} (TCN)    & $\sim  32$\,K & $0.9752$          & $[0.9687, 0.9794]$ & $\phantom{+}0.0000$ \\
+\texttt{lstm\_small}       & $\sim  36$\,K & $0.9741$          & $[0.9678, 0.9784]$ & $-0.0011$ \\
+\texttt{gru\_small}        & $\sim  28$\,K & $0.9704$          & $[0.9609, 0.9771]$ & $-0.0048$ \\
+\texttt{transformer\_small} & $\sim  31$\,K & $0.8935$         & $[0.8513, 0.9242]$ & $-0.0817$ \\
+\texttt{transformer\_large} & $\sim 117$\,K & $0.6942$         & $[0.6552, 0.7418]$ & $-0.2810$ \\
+\bottomrule
+\end{tabular}
+\caption{Backbone architecture sweep at two parameter budgets. The TCN baseline at $32$\,K is within CI of every RNN at $128$\,K; \texttt{tcn\_large} extends the lead by $+0.0028$. Transformers fail badly.}
+\label{tab:architecture_results}
+\end{table}
+
+The TCN family wins at every budget.
+At $\approx 128$\,K parameters \texttt{tcn\_large} ($0.9780$) leads the LSTM and GRU large variants by $0.0009$--$0.0022$; differences are small but the TCN is consistently best.
+
+The Transformer collapse is the most interesting result.
+\texttt{transformer\_large} drops to $0.6942$, with the failure concentrated specifically on the inactive class (recall $0.20$, F1 $0.32$).
+The confusion matrix shows the larger Transformer dumping most inactive frames into music ($232$\,K of $317$\,K).
+We attribute this to a combination of factors: $128$-frame chunks are short for causal attention; sinusoidal positional encodings give a weak positional prior at this scale; the inactive class is the smallest and the most sensitive to under-regularisation.
+None of these failure modes is fundamental to Transformers — they would likely close most of the gap with longer sequences and more careful regularisation — but for this thesis's operating point the inductive bias does not match.
+
+\subsection{Combined winners}
+\label{sec:exp_combined}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lcccrrr}
+\toprule
+\textbf{Variant} & \textbf{F} & \textbf{P} & \textbf{A} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$} \\
+\midrule
+\texttt{delta2\_conv1d\_large} & \checkmark & \checkmark & \checkmark & $\mathbf{0.9844}$ & $[0.9798, 0.9875]$ & $\mathbf{+0.0092}$ \\
+\texttt{delta2\_large}         & \checkmark & — & \checkmark & $0.9832$ & $[0.9782, 0.9864]$ & $+0.0080$ \\
+\texttt{delta2\_conv1d}        & \checkmark & \checkmark & — & $0.9822$ & $[0.9743, 0.9877]$ & $+0.0070$ \\
+\texttt{conv1d\_large}         & — & \checkmark & \checkmark & $0.9787$ & $[0.9732, 0.9825]$ & $+0.0035$ \\
+\texttt{baseline}              & — & — & — & $0.9752$ & $[0.9687, 0.9794]$ & $\phantom{+}0.0000$ \\
+\bottomrule
+\end{tabular}
+\caption{Combined-winners $2^2 \times 2$ factorial. F = $\Delta^2$ frontend, P = conv1d preprocessor, A = $32$-filter capacity. Sum of source-experiment gains is $+0.0124$; observed F+P+A is $+0.0092$, recovering $\sim 74\,\%$ of additivity.}
+\label{tab:combined_results}
+\end{table}
+
+The full F+P+A stack reaches $0.9844$, $+0.0092$ above baseline with CIs that cleanly separate.
+Expected additive sum was $+0.0124$; observed gain recovers $\sim 74\,\%$.
+This is moderate composition with diminishing returns.
+
+The pattern is consistent with F (delta2) and P (conv1d) providing overlapping kinds of information — both add channels-axis processing the backbone's first layer cannot do at $t = 0$.
+Stacking gives the backbone a richer input, but with substantial overlap.
+The capacity factor A is more independent: its marginal effect ($+0.0022$ at F+P) is closest to its standalone effect ($+0.0028$).
+
+\subsection{Hybrid tail}
+\label{subsec:exp_hybrid}
+\label{sec:exp_hybrid_results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Variant} & \textbf{Tail} & \textbf{Added params} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$} \\
+\midrule
+\texttt{tcn\_gru\_wide}   & GRU $h=64$       & $\sim 25$\,K & $\mathbf{0.9863}$ & $[0.9820, 0.9891]$ & $+0.0032$ \\
+\texttt{tcn\_gru}         & GRU $h=32$       & $\sim 9$\,K  & $0.9852$          & $[0.9807, 0.9882]$ & $+0.0021$ \\
+\texttt{tcn\_lstm}        & LSTM $h=32$      & $\sim 12$\,K & $0.9845$          & $[0.9792, 0.9882]$ & $+0.0014$ \\
+\texttt{baseline}         & none (F+P)       & $0$ & $0.9831$          & $[0.9757, 0.9882]$ & $\phantom{+}0.0000$ \\
+\texttt{tcn\_two\_branch} & parallel TCN     & $\sim 30$\,K & $0.9829$          & $[0.9755, 0.9879]$ & $-0.0002$ \\
+\texttt{tcn\_attn}        & causal attention & $\sim 20$\,K & $0.9810$          & $[0.9735, 0.9856]$ & $-0.0021$ \\
+\bottomrule
+\end{tabular}
+\caption{Hybrid tail sweep on the F+P TCN base. No tail produces a $\Delta$ outside the baseline CI.}
+\label{tab:hybrid_results}
+\end{table}
+
+No tail produces a statistically significant gain on the test split.
+The wide GRU tail is nominally best ($+0.0032$) but inside CI.
+The attention tail regresses ($-0.0021$), consistent with the architecture experiment.
+The two-branch parallel TCN is flat.
+
+The conclusion needs qualifying: on the standard test split the F+P TCN base is saturated, but on the critical tier (\cref{sec:exp_critical_results}) the LSTM-tail variant is the only model with significantly better robustness.
+TCN+LSTM was carried into deployment based on the crit-tier story, even though the test-split gap to the GRU variants is marginal.
+
+\section{Lightweight variants}
+\label{sec:exp_lightweight}
+
+\subsection{Filter Pareto}
+\label{subsec:exp_small_tcn_pareto}
+\label{sec:exp_small_tcn_pareto}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrr}
+\toprule
+\textbf{$n_{\text{filters}}$} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{$\Delta$ vs deployed (8)} \\
+\midrule
+$4$  & $0.9530$          & $[0.9398, 0.9631]$ & $-0.0236$ \\
+$6$  & $0.9733$          & $[0.9662, 0.9779]$ & $-0.0033$ \\
+$8$  (deployed) & $\mathbf{0.9766}$ & $[0.9704, 0.9808]$ & $\phantom{+}0.0000$ \\
+$12$ & $0.9795$          & $[0.9742, 0.9830]$ & $+0.0029$ \\
+\bottomrule
+\end{tabular}
+\caption{SmallTCN filter-count sweep. Sharp knee between $4$ and $6$; diminishing returns from $8$ to $12$.}
+\label{tab:filter_pareto_results}
+\end{table}
+
+The knee is sharp: $4 \to 6$ buys $+0.0203$, much larger than any other adjacent pair.
+At $4$ filters the body has too few channels to disentangle the speech / music / inactive subspaces; per-class breakdown shows the failure concentrated on \texttt{music\_acapella} (F1 $0.89$ versus $0.99$ for everything else).
+$8$ filters is past the knee; $12$ filters offers diminishing returns at $\sim 2.25\times$ the body MACs.
+$n_{\text{filters}} = 8$ is therefore the right Pareto point for the SmallTCN deployment.
+
+\subsection{Receptive-field / stacks (and SmallerTCN)}
+\label{subsec:exp_small_tcn_stacks}
+\label{sec:exp_small_tcn_stacks}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrr}
+\toprule
+\textbf{Variant} & \textbf{RF (frames)} & \textbf{RF (s)} & \textbf{Macro F1} & \textbf{$\Delta$ vs deployed (3)} \\
+\midrule
+\texttt{stacks\_1} (SmallerTCN) & $121$ & $\approx 2.81$ & $0.9722$  & $-0.0049$ \\
+\texttt{stacks\_2}              & $241$ & $\approx 5.60$ & $0.9749$  & $-0.0022$ \\
+\texttt{stacks\_3} (SmallTCN)   & $361$ & $\approx 8.38$ & $\mathbf{0.9771}$ & $\phantom{+}0.0000$ \\
+\bottomrule
+\end{tabular}
+\caption{SmallTCN stack-count sweep. F1 grows monotonically with receptive field; differences are small. \texttt{stacks\_1} is the only configuration where train RF $\le$ \texttt{seq\_len}.}
+\label{tab:stacks_results}
+\end{table}
+
+F1 grows monotonically: $1 \to 2$ buys $+0.0027$, $2 \to 3$ buys $+0.0022$.
+CIs of all three overlap; on a strict ``outside CI'' criterion the differences are not significant.
+The classifier does not need $8$ seconds of audio context — a $2.8$-second window already lands within $0.005$ of the largest-RF configuration.
+
+The deployed SmallerTCN, sourced from \texttt{stacks\_1}, has a structural property the others lack: at RF $= 121$ frames its receptive field is the only one in the family that fits inside the training chunk length of $128$.
+The streaming-cost argument is more compelling: SmallerTCN's MAC count per frame is $\sim 545$\,K versus $\sim 3.47$\,M for SmallTCN — $6.4\times$ reduction.
+Wall-clock RTF at one CPU thread is $5.3\times$ versus $3.4\times$.
+On the crit tier (\cref{sec:exp_critical_results}) the gap to SmallTCN collapses to noise.
+
+\section{Robustness and behavior}
+\label{sec:exp_robustness}
+
+\subsection{Critical-set evaluation}
+\label{sec:exp_critical_results}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Macro F1} & \textbf{$95\,\%$ CI} & \textbf{Speech F1} & \textbf{Music F1} & \textbf{Inactive F1} \\
+\midrule
+\texttt{TCN+LSTM}   & $\mathbf{0.4861}$ & $[0.3704, 0.5782]$ & $0.5512$ & $0.4409$ & $\mathbf{0.4661}$ \\
+\texttt{GMM}        & $0.4375$          & $[0.3436, 0.5181]$ & $0.5058$ & $0.4445$ & $0.3622$ \\
+\texttt{SmallerTCN} & $0.4298$          & $[0.3187, 0.5202]$ & $0.5131$ & $0.4280$ & $0.3470$ \\
+\texttt{SmallTCN}   & $0.4294$          & $[0.3187, 0.5188]$ & $0.5161$ & $0.4234$ & $0.3497$ \\
+\texttt{TCN}        & $0.4282$          & $[0.3178, 0.5181]$ & $0.5331$ & $0.4280$ & $0.3234$ \\
+\texttt{DT}         & $0.3807$          & $[0.2999, 0.4475]$ & $0.5310$ & $0.4448$ & $0.1663$ \\
+\texttt{SVM}        & $0.3763$          & $[0.2872, 0.4599]$ & $0.4593$ & $0.3842$ & $0.2853$ \\
+\bottomrule
+\end{tabular}
+\caption{Critical-tier evaluation. Macro F1 collapses by $0.5$--$0.6$ versus the test split for every model; TCN+LSTM is the only checkpoint with inactive F1 above $0.45$.}
+\label{tab:critical_results}
+\end{table}
+
+Two effects dominate.
+First, every model loses $0.5$--$0.6$ absolute macro F1 versus the test split: TCN drops from $0.9752$ to $0.4282$, GMM from $0.8250$ to $0.4375$.
+The crit tier is by construction much harder; the substantive question is the relative ordering, not the absolute numbers.
+Second, the relative ordering differs from the test split.
+On the test split the order was TCN+LSTM $>$ SmallTCN $>$ TCN $>$ SmallerTCN $>$ SVM $>$ DT $>$ GMM; on the crit tier it is TCN+LSTM $>$ GMM $>$ SmallerTCN $\approx$ SmallTCN $\approx$ TCN $>$ DT $>$ SVM.
+TCN+LSTM is the clear winner on both, but GMM jumps from worst-on-test to second-on-crit, and the four TCN-family variants collapse together.
+
+The per-class column tells the underlying story.
+TCN+LSTM has the highest crit-tier inactive F1 ($0.4661$) by a wide margin; the next-best is GMM at $0.3622$.
+The decision tree's inactive F1 is $0.1663$, an order of magnitude below TCN+LSTM.
+The inactive class is what makes or breaks the crit-tier macro: every model gets speech F1 $\sim 0.5$ and music F1 $\sim 0.4$, and the spread on inactive drives the spread on macro.
+
+\subsubsection*{Per-subclass failure modes}
+
+Per-subclass breakdown reveals four consistent failure modes (full table in appendix).
+\textbf{Babble / machinery / outdoor noise}: \texttt{noise\_babble}, \texttt{noise\_machinery}, \texttt{noise\_outdoor} land near zero F1 across every classifier (recall $0.00$--$0.06$).
+These conditions are absent from the training inactive distribution.
+\textbf{Whispered speech}: collapses everywhere (TCN $0.21$, neural family worst, classics survive at $0.43$--$0.73$ because they fall back on long-term feature averages).
+\textbf{$\le 0\,\text{dB}$ SNR speech}: recall $0.25$--$0.40$ for every model; training synthetic-noise SNR is concentrated above $5\,\text{dB}$.
+\textbf{Multi-speaker over music}: recall $0.05$--$0.47$; the neural family leads but still misclassifies half the frames.
+
+By contrast, all models score near-perfectly on clean music subclasses ($\geq 0.99$ for the neural family, $\geq 0.88$ for classics).
+Music classification is essentially solved on this set.
+
+\subsubsection*{Analysis}
+
+The TCN+LSTM advantage is structural.
+TCN+LSTM does not win on any individual hard subclass — it ties the rest of the family on whisper, babble, msom — but it has the highest inactive-class recall on moderately hard subclasses (\texttt{noise\_ambient} $1.00$ versus $0.49$--$0.66$, \texttt{noise\_wildlife} $0.97$ versus $0.59$--$0.63$).
+The LSTM tail's persistent state lets the model accumulate evidence across longer windows than the TCN's $4.2$-second receptive field, and the inactive class — temporally stable by construction — benefits most.
+
+The GMM's surprising strength comes from its asymmetric per-class scoring.
+The GMM's inactive density is fit independently of the speech and music densities; on test-split inputs the asymmetry hurts (GMM macro F1 is the lowest at $0.825$), but on crit-tier inactive subclasses it helps because the inactive density does not have to compete with over-confident speech / music classifiers.
+The neural family's softmax-like sigmoid output produces strongly-pegged probabilities that are over-confident on out-of-distribution inputs.
+
+\subsection{Transition analysis}
+\label{sec:exp_transitions_results}
+
+\subsubsection*{2-class latency}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{l@{\hskip 6pt}rrrr}
+\toprule
+\textbf{Model} & \textbf{500\,ms} & \textbf{1000\,ms} & \textbf{2000\,ms} & \textbf{4000\,ms} \\
+\midrule
+\texttt{TCN}        & 46 (p90 376), 12\,\% miss & 70 (p90 464), 5\,\% miss & 139 (p90 868), 4\,\% miss & 70 (p90 794), 6\,\% miss \\
+\texttt{TCN+LSTM}   & 0 (p90 70), 40\,\% miss & 0 (p90 632), 29\,\% miss & 0 (p90 1087) & 23 (p90 1156), 6\,\% miss \\
+\texttt{SmallTCN}   & 23 (p90 279), 18\,\% miss & 46 (p90 627), 5\,\% miss & 58 (p90 557), 4\,\% miss & 23 (p90 511), 6\,\% miss \\
+\texttt{SmallerTCN} & 46 (p90 302), 3\,\% miss & 46 (p90 418) & 46 (p90 348) & 23 (p90 418) \\
+\texttt{DT}         & 30 (p90 175), 3\,\% miss & 40 (p90 129) & 30 (p90 150) & 35 (p90 135) \\
+\texttt{GMM}        & 0 (p90 168), 44\,\% miss & 210 (p90 825), 13\,\% miss & 180 (p90 930), 9\,\% miss & 180 (p90 885), 6\,\% miss \\
+\texttt{SVM}        & 0 (p90 0), 51\,\% miss & 322 (p90 840), 16\,\% miss & 345 (p90 878), 22\,\% miss & 345 (p90 819), 25\,\% miss \\
+\bottomrule
+\end{tabular}
+\caption{2-class switching: median latency (ms), p90 in parentheses, miss rate. The decision tree responds fastest with low miss rate; the SVM responds slowest. Median = 0 with high miss rate indicates the model usually catches the transition immediately or never.}
+\label{tab:transitions_2class_latency}
+\end{table}
+
+The decision tree has the lowest median latency across all four cadences ($30$--$40\,\text{ms}$) and the lowest miss rate (mostly under $5\,\%$).
+The TCN+LSTM has the most extreme behavior — median $0$ at three of four cadences (it usually catches the change immediately) but high miss rates at the shorter cadences ($29$--$40\,\%$).
+The GMM and SVM are slow: median $180$--$345\,\text{ms}$ on longer cadences with miss rates climbing to $25\,\%$.
+
+\subsubsection*{Stable-region flicker}
+
+The flicker pattern is much sharper than the latency pattern.
+On stable audio, the decision tree flickers at $11$--$15\,\text{Hz}$ across all cadences; the next-flickeriest model is roughly $10\times$ less.
+The TCN family flickers at $1$--$3\,\text{Hz}$, GMM and SVM at $1$--$3\,\text{Hz}$, TCN+LSTM at $0.7$--$1\,\text{Hz}$ (lowest of any model).
+The DT's flicker is the cost of its fast response: the same exponential-decay smoothing that gives it low latency also gives it instability on stable audio.
+
+\subsubsection*{Implications}
+
+The latency-flicker decomposition exposes a tradeoff invisible on macro F1.
+Models with aggressive smoothing (GMM 66-frame deque, SVM 20-frame deque) have low flicker but slow latency.
+Models with minimal smoothing (DT exponential decay) have fast latency but high flicker.
+The neural family sits between — TCN+LSTM in particular has the lowest flicker and competitive latency — but no model achieves both fast latency and low flicker simultaneously.
+
+\section{Cost}
+\label{sec:exp_cost}
+
+\subsection{Empirical CPU benchmark}
+\label{sec:exp_complexity_results}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Model} & \textbf{median (ms)} & \textbf{p99 (ms)} & \textbf{cv (\%)} & \textbf{ms / s\,audio} & \textbf{RTF} & \textbf{$\Delta$rss (MB)} \\
+\midrule
+\texttt{GMM}        & 3.94 & 8.43  & 10.0 & 262.6 & $3.8\times$ & $\mathbf{3}$ \\
+\texttt{DT}         & 4.15 & 7.47  & 0.9  & 414.5 & $2.4\times$ & 368 \\
+\texttt{SmallerTCN} & 4.38 & 8.73  & 21.5 & 188.6 & $\mathbf{5.3\times}$ & 13 \\
+\texttt{SmallTCN}   & 6.88 & 11.69 & 16.2 & 296.1 & $3.4\times$ & 64 \\
+\texttt{TCN}        & 7.18 & 14.43 & 19.1 & 309.3 & $3.2\times$ & 8 \\
+\texttt{SVM}        & 7.66 & 14.51 & 3.2  & 510.8 & $2.0\times$ & 9 \\
+\texttt{TCN+LSTM}   & 11.07 & 31.35 & 19.8 & 476.6 & $2.1\times$ & 23 \\
+\bottomrule
+\end{tabular}
+\caption{Single-threaded CPU benchmark on i5-8300H. Real-time factor is audio duration per push divided by median processing time. Maximum absolute RSS observed across the run was $1208\,\text{MB}$, dominated by the decision tree's $368\,\text{MB}$ pickle.}
+\label{tab:complexity_t1_results}
+\end{table}
+
+Three observations.
+First, every model clears two-times real-time.
+The slowest is SVM at $2.0\times$, the fastest SmallerTCN at $5.3\times$.
+The cost choice is between models, not between ``can run streaming'' and ``cannot.''
+Second, SmallerTCN is the RTF winner.
+$5.3\times$ is significantly above the next model (GMM at $3.8\times$); the gap to the standard TCN ($3.2\times$) is $\sim 65\,\%$.
+Third, GMM has the smallest resident memory by a wide margin: $3\,\text{MB}$ marginal RSS, an order of magnitude less than any neural model.
+
+The tail-latency picture is interesting.
+TCN+LSTM has the highest p99 ($31.4\,\text{ms}$), exceeding the chunk budget ($23.2\,\text{ms}$ for NN models).
+Under sustained mic input it would occasionally fall a chunk behind, requiring a small jitter buffer.
+Every other model has p99 below $15\,\text{ms}$.
+The CV column separates the family: sklearn classifiers have CV $< 10\,\%$, neural family $16$--$22\,\%$ (PyTorch's intra-op scheduler at batch=1 introduces sporadic contention spikes even at \texttt{set\_num\_threads(1)}).
+
+The thread-scaling sweep (full data in the appendix) shows the TCN family gaining $20$--$30\,\%$ from $1 \to 4$ threads, classics gaining nothing.
+At $4$ threads the standard TCN runs at $5.25\,\text{ms}$, edging SmallerTCN's $3.69\,\text{ms}$ — the cost ordering can flip with threading configuration.
+
+\subsection{Symbolic complexity}
+\label{sec:exp_complexity_symbolic_results}
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrrrrr}
+\toprule
+\textbf{Model} & \textbf{params} & \textbf{MACs/frame} & \textbf{RF (ms)} & \textbf{buf (ms)} & \textbf{$T_\infty$} & \textbf{$T_1 / T_\infty$} \\
+\midrule
+\texttt{DT}         & $4.34$\,M & $178$    & $300$  & $306$ & $88$ & $2$ \\
+\texttt{GMM}        & $474$     & $216$    & $1000$ & $1025$ & $3$ & $72$ \\
+\texttt{SVM}        & $521$\,K  & $469$\,K & $1000$ & $1008$ & $16$ & $29\,293$ \\
+\texttt{SmallTCN}   & $10$\,K   & $3.47$\,M & $8382$ & $8382$ & $26$ & $133\,626$ \\
+\texttt{SmallerTCN} & $4.6$\,K  & $545$\,K  & $2810$ & $2810$ & $10$ & $54\,498$ \\
+\texttt{TCN}        & $33$\,K   & $11.6$\,M & $8382$ & $8382$ & $26$ & $444\,974$ \\
+\texttt{TCN+LSTM}   & $389$\,K  & $137$\,M  & $8382$ & $8385$ & $27$ & $5.08$\,M \\
+\bottomrule
+\end{tabular}
+\caption{Closed-form symbolic complexity. Streaming MACs include the receptive-field re-run that the current implementation performs on each push.}
+\label{tab:complexity_symbolic}
+\end{table}
+
+The MACs-per-frame column tells the streaming-cost story: GMM at $216$ MACs is the cheapest streaming model by an order of magnitude over SVM ($469$\,K) and four orders of magnitude over the TCN family.
+SmallerTCN's $545$\,K MACs is the cheapest of the neural family at $\sim 6.4\times$ less than SmallTCN's $3.47$\,M (matching the empirical wall-clock reduction).
+TCN+LSTM at $137$\,M MACs is the most expensive — most in the LSTM tail's persistent-state matrix multiplication, which is highly parallelizable ($T_1 / T_\infty$ of $5.08$\,M).
+
+The receptive-field column tells the context story: DT uses $300\,\text{ms}$, GMM and SVM use $1\,\text{s}$, the TCN family uses $2.8$ to $8.4\,\text{s}$.
+SmallerTCN's reduced receptive field cuts streaming MAC count by $6\times$ but only loses $0.005$ macro F1, because the discriminative information for most of the test split is already in the shorter window.
+
+The $T_1 / T_\infty$ column tells the parallelism-ceiling story: the TCN family scores $10^5$--$10^6$ in theory but BLAS at batch=$1$ realizes only a fraction of it.
+The high ceiling explains why the multi-thread sweep produces measurable speedup at all.
+
+\section{Summary and deployment recommendations}
+\label{sec:exp_summary}
+
+The four story arcs from the chapter introduction are now supported.
+The paper recipe is structurally saturated; lightweight TCNs are nearly free; test-split parity hides robustness gaps; real-time everywhere on a laptop CPU.
+
+\Cref{tab:summary_consolidated} consolidates the comparison.
+
+\begin{table}[h]
+\centering
+\small
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{Model} & \textbf{Test F1} & \textbf{Crit F1} & \textbf{Median (ms)} & \textbf{RTF} & \textbf{$\Delta$rss (MB)} \\
+\midrule
+\texttt{TCN+LSTM}   & $\mathbf{0.9846}$ & $\mathbf{0.4861}$ & 11.07 & $2.1\times$ & 23 \\
+\texttt{TCN}        & $0.9752$          & $0.4282$          & 7.18  & $3.2\times$ & 8 \\
+\texttt{SmallTCN}   & $0.9766$          & $0.4294$          & 6.88  & $3.4\times$ & 64 \\
+\texttt{SmallerTCN} & $0.9722$          & $0.4298$          & 4.38  & $\mathbf{5.3\times}$ & 13 \\
+\texttt{SVM}        & $0.8750$          & $0.3763$          & 7.66  & $2.0\times$ & 9 \\
+\texttt{DT}         & $0.8376$          & $0.3807$          & 4.15  & $2.4\times$ & 368 \\
+\texttt{GMM}        & $0.8250$          & $0.4375$          & 3.94  & $3.8\times$ & $\mathbf{3}$ \\
+\bottomrule
+\end{tabular}
+\caption{Consolidated comparison of all deployed checkpoints. Test F1 from the standard full-tier test split; Crit F1 from the adversarial critical tier; median, RTF, and $\Delta$rss from the single-threaded i5-8300H benchmark.}
+\label{tab:summary_consolidated}
+\end{table}
+
+The deployment-recommendation matrix is consolidated in \cref{cap:conclusion}.

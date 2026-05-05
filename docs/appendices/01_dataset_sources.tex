@@ -1,27 +1,25 @@
 \chapter{Dataset sources}
 \label{apx:dataset_sources}
-Following are links to all datasets that were used in construction of dataset used for the purposes of this thesis.
+The following is the complete list of external sources used to build the \texttt{full} and \texttt{mid} tiers of \texttt{Marek324/speech-music-classification} (see \cref{cap:dataset}). \textcolor{green}{check licences, not sure if the dataset can be public}
+The crit tier additionally uses hand-recorded clips and synthetic mixes derived from the same sources; those are enumerated in \texttt{scripts/dataset/crit/manifest.toml}.
 
 \begin{itemize}
     \item \textbf{Speech:}
     \begin{itemize}
-        \item MLCommons Peoples speech: \url{https://hf.co/datasets/MLCommons/peoples_speech}
-        \item English--Arabic Speech Translation (English subset): \url{https://hf.co/datasets/ammagra/english-arabic-speech-translation}
-        \item ATCO2 Corpus: \url{https://hf.co/datasets/Jzuluaga/atco2_corpus_1h}
-        \item NOIZEUS: \url{https://ecs.utdallas.edu/loizou/speech/noizeus/}
+        \item LibriSpeech ASR --- \texttt{train.360} (clean) and \texttt{train.500} (other) splits, used for the \texttt{speech\_clean} and \texttt{speech\_dirty} subclasses respectively. \url{https://hf.co/datasets/openslr/librispeech_asr}
     \end{itemize}
 
     \item \textbf{Music:}
     \begin{itemize}
-        \item MusicGen Fine-tuning (Jazz, Electronic, Classical): \url{https://hf.co/datasets/PlutoG99001/}
-        \item Lewtun Music Genres: \url{https://hf.co/datasets/lewtun/music_genres}
-        \item Ylacombe Music Genres Country: \url{https://hf.co/datasets/ylacombe/music_genres_Country}
-        \item POPMUSIC1981: \url{https://hf.co/datasets/memepottaboah/POPMUSIC1981}
-        \item CCMusic Acapella: \url{https://hf.co/datasets/ccmusic-database/acapella}
+        \item Free Music Archive (FMA, Hugging Face mirror) --- six genres (\texttt{instrumental}, \texttt{electronic}, \texttt{pop}, \texttt{rock}, \texttt{hip-hop}, \texttt{folk}) selected via genre filtering. \url{https://hf.co/datasets/rpmon/fma-genre-classification}
+        \item Bel Canto --- used for the \texttt{music\_acapella} subclass (the music subclass closest to speech in feature space). \url{https://hf.co/datasets/ccmusic-database/bel_canto}
     \end{itemize}
 
-    \item \textbf{Mixed:}
+    \item \textbf{Inactive (environmental noise):}
     \begin{itemize}
-        \item MUSAN: \url{https://www.openslr.org/17/}
+        \item DEMAND acoustic-noise corpus --- $18$ environmental noise recordings, used for the \texttt{noise} subclass. \url{https://hf.co/datasets/voice-biomarkers/DEMAND-acoustic-noise}
     \end{itemize}
 \end{itemize}
+
+The synthetic speech subclasses (\texttt{speech\_multispeaker}, \texttt{speech\_som}, \texttt{speech\_msom}, \texttt{speech\_noisy}) are generated deterministically at build time from the sources above by \texttt{scripts/dataset/augmentation.py}.
+They introduce no new external data.

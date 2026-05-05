@@ -16,7 +16,7 @@ TCN / TCN+LSTM / SmallTCN / SmallerTCN commands: `train`, `eval`, `smoke-test`, 
 Classic commands: `train`, `eval`, `smoke-test`
 
 ## Architecture
-Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible**. Deviations and their justifications are tracked in `differences/tcn.md`.
+Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible**. Deviations and their justifications are tracked in `docs/differences/tcn.md`.
 
 ### Paper-prescribed hyperparameter bounds
 | Parameter | Paper search space | Current config |
@@ -32,7 +32,7 @@ Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possibl
 - LR schedule: ÷10 when val loss doesn't improve for 3 epochs (`ReduceLROnPlateau`)
 - Early stopping: 5 epochs without improvement
 - Batch: 32 × fixed-length chunks
-- Loss: `BCEWithLogitsLoss` (numerically equivalent to paper's BCE; see `differences/tcn.md` §2)
+- Loss: `BCEWithLogitsLoss` (numerically equivalent to paper's BCE; see `docs/differences/tcn.md` §2)
 
 ## Dataset
 HuggingFace: `Marek324/speech-music-classification`. TCN is configured for the **full** tier in `config.toml` → `[dataset] name = "full"`. The mid-tier tables below describe a previously uploaded snapshot and are kept for historical reference; full-tier counts differ.
@@ -176,9 +176,9 @@ SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, `n_stacks=3`, 
 |------|---------|
 | `modelclass.py` | Abstract base: `fit()`, `save()`, `load()` via joblib |
 | `feat_extractor.py` | `FeatExtractor` — stateful frame-level feature extraction (30ms/15ms hop); **call `reset()` between clips** |
-| `gmm.py` | Three-GMM density classifier (one per class: speech / music / inactive); 8 components, diag covariance; argmax over per-class log-likelihoods. Paper has 2 GMMs + threshold; we extend to 3-class — see `differences/gmm_svm.md` §9 |
+| `gmm.py` | Three-GMM density classifier (one per class: speech / music / inactive); 8 components, diag covariance; argmax over per-class log-likelihoods. Paper has 2 GMMs + threshold; we extend to 3-class — see `docs/differences/gmm_svm.md` §9 |
 | `decisiontree.py` | Decision tree with exponential-forgetting smoothing on last decisions |
-| `svm.py` | `SVC(kernel='rbf', C=1, γ=3)`; balanced subsampling to 50k/class at train time |
+| `svm.py` | `SVC(kernel='rbf', C=1, γ=3)`; native 3-class via sklearn OvO; balanced subsampling to 50k/class at train time; 20-frame rolling decision-vector buffer + argmax at inference |
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
 | `cli.py` | Click CLI per model: train, eval, smoke-test |
 | `weights/gmm`, `weights/decision_tree`, `weights/svm` | Joblib-serialized model weights *(not in git — download via HF)* |
@@ -240,44 +240,45 @@ use_weight_norm = false              # model key — mixed overrides work in one
 
 ### TCN — Lemaire & Holzapfel ISMIR 2019
 
-Full deviation tracking lives in `differences/tcn.md`. Highlights only here:
+Full deviation tracking lives in `docs/differences/tcn.md`. Highlights only here:
 
 | Aspect | Paper | This implementation |
 |--------|-------|---------------------|
-| Optimizer | SGD, momentum=0.9 | SGD, momentum=0.9 ✓ (Adam+BN exists as ablation variant — see `differences/tcn.md` §12) |
+| Optimizer | SGD, momentum=0.9 | SGD, momentum=0.9 ✓ (Adam+BN exists as ablation variant — see `docs/differences/tcn.md` §12) |
 | Normalization | WeightNorm (keras-tcn reference) | WeightNorm ✓ |
-| Loss | BCE | `BCEWithLogitsLoss` (math-equivalent, numerically stable — `differences/tcn.md` §2) |
+| Loss | BCE | `BCEWithLogitsLoss` (math-equivalent, numerically stable — `docs/differences/tcn.md` §2) |
 | Spectrogram caching + aug on cached spectra (§3.4) | Power spectrum pre-saved; aug applied to saved spectra | `cache/nn/tcn_mel_*.pt` caches normalized log-mel; `augment_mel()` operates on the cached tensor ✓ |
-| Augmentation pipeline (§3.7, Schlüter & Grill 2015) | Time stretch + pitch shift + Gaussian filter + loudness + block mix | Loudness only (±6 dB gain in log-mel space) — see `differences/tcn.md` §10 |
+| Augmentation pipeline (§3.7, Schlüter & Grill 2015) | Time stretch + pitch shift + Gaussian filter + loudness + block mix | Loudness only (±6 dB gain in log-mel space) — see `docs/differences/tcn.md` §10 |
 | Post-processing | Duration thresholds (§3.6) to smooth predictions | Not implemented |
-| Receptive field vs chunk | RF = 3×(1+2+4+8)×(5−1)+1 = **181 frames**; chunks = 128 frames | Model never sees its full receptive-field context during training. SmallerTCN variant (`n_stacks=1`, RF=121) is the only checkpoint where train-time RF ≤ seq_len |
+| Receptive field vs chunk | RF = 1 + 2×3×(5−1)×(1+2+4+8) = **361 frames** (factor of 2 for the two convs per residual block); chunks = 128 frames | Model never sees its full receptive-field context during training. SmallerTCN variant (`n_stacks=1`, RF=121) is the only checkpoint where train-time RF ≤ seq_len |
 
 ### GMM & SVM — Khonglah & Prasanna DSP 2016
 
-Full deviation tracking lives in `differences/gmm_svm.md`. Highlights only here:
+Full deviation tracking lives in `docs/differences/gmm_svm.md`. Highlights only here:
 
 | Aspect | Paper | This implementation |
 |--------|-------|---------------------|
 | SVM kernel | RBF, C=1, γ=3 (libSVM) | RBF, C=1, γ=3 (`sklearn.svm.SVC`) ✓ |
 | SVM training scale | ~2400 1s-window vectors from 160 clips | Frame-level; subsampled to 50k/class |
-| SVM smoothing | none | 20-frame rolling decision buffer — `differences/gmm_svm.md` §11 |
+| SVM smoothing | none | 20-frame rolling decision buffer — `docs/differences/gmm_svm.md` §11 |
+| SVM output classes | 2 (speech / music; libSVM threshold) | 3 (speech / music / inactive) via sklearn native OvO; argmax over smoothed decision vector |
 | Feature window | 1s non-overlapping | 1s rolling (`lt_len_ms=1000`) ✓ |
 | GMM components | 8, diagonal covariance | 8, diagonal ✓ |
-| GMM structure | 2 GMMs (speech / music) + threshold | 3 GMMs (speech / music / inactive) + argmax — `differences/gmm_svm.md` §9 |
+| GMM structure | 2 GMMs (speech / music) + threshold | 3 GMMs (speech / music / inactive) + argmax — `docs/differences/gmm_svm.md` §9 |
 | GMM smoothing | ~1s window over log-likelihood delta | 66-frame rolling buffer (~1s @ 15ms hop) ✓ |
-| Scaling | Log-mel normalization per clip | `RobustScaler` (GMM, ±10 clip) / `StandardScaler` (SVM) |
+| Scaling | Unspecified (raw features fed to classifiers, paper §3.1) | `RobustScaler` (GMM, ±10 clip) / `StandardScaler` (SVM) — added |
 | Non-linear mapping | Sigmoid on log-likelihood delta before threshold | Not implemented |
 
 ### Decision Tree — Lavner & Ruinskiy EURASIP 2009
 
-Full deviation tracking lives in `differences/dt.md`. Highlights:
+Full deviation tracking lives in `docs/differences/dt.md`. Highlights:
 
 | Aspect | Paper | This implementation |
 |--------|-------|---------------------|
-| Classifier | 3-stage Bayesian + rule-based sieve | sklearn `DecisionTreeClassifier` (single learned tree, CART) — `differences/dt.md` §1 |
+| Classifier | 3-stage Bayesian + rule-based sieve | sklearn `DecisionTreeClassifier` (single learned tree, CART) — `docs/differences/dt.md` §1 |
 | Output classes | 2 (speech / music) | 3 (speech / music / inactive) |
 | Feature selection | "Automatic" per paper | Fixed 19-component vector + `SelectKBest(k=10)` ANOVA-F |
-| Smoothing | Uniform average over past segments | 30-frame deque, exponential decay (factor 0.9) — `differences/dt.md` §5 |
+| Smoothing | Per-segment exp-decay weighted average ($D_s = (1/F)\sum D_i e^{-k/\tau}$) at 100 ms hop + adaptive threshold | Same exp-decay form, per-frame at 10 ms hop over 30-deep deque; adaptive threshold dropped — `docs/differences/dt.md` §5 |
 | Inference granularity | Per-segment | Per-frame (streaming, 10 ms hop) |
 
 ## Inference
@@ -295,7 +296,7 @@ Labels: `-1` = speech, `1` = music, `2` = inactive
 
 ## Status
 
-Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `weights/` are the artefacts the thesis describes.
+Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `weights/` are the artifacts the thesis describes.
 
 ### Test-split macro F1 (full tier, deployed checkpoints)
 
@@ -311,17 +312,16 @@ Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `wei
 
 All models clear the 0.85 project target except GMM (0.825, just below). TCN family clears it by 12+ pp.
 
-### Other artefacts
+### Other artifacts
 
 - **Dataset (mid tier)**: historical snapshot; the mid-tier tables in this doc reflect that snapshot, not the current HF upload.
 - **Dataset (full tier)**: 6000 min (100 h) on `Marek324/speech-music-classification` config `full`; all subclasses hit ~100% of target after the Bresenham split fix.
 - **Critical-set evaluation**: hand-curated adversarial clips at `scripts/dataset/speech_music_dataset/crit` and via `Marek324/speech-music-classification` config `crit`. All seven models evaluated; results in `src/exp/critical/results/`.
 - **Experiment notes**: every `src/exp/*/results/notes.md` was refreshed against current `.eval` data on 2026-04-29 — those are the canonical narrative source for the docs chapters.
-- **Deviation docs**: `differences/{tcn,gmm_svm,dt}.md` track every deliberate departure from the reference papers.
+- **Deviation docs**: `docs/differences/{tcn,gmm_svm,dt}.md` track every deliberate departure from the reference papers.
 
 ### What's left
 
 - Draft `docs/chapters/05_evaluation.tex`, `06_experiments_analyses.tex`, `07_conclusion.tex` from the experiment notes.
-- Refresh stale claims in `docs/chapters/03_classification.tex` (currently says GMM is 2-class with zero F1 on inactive — actual code is 3-GMM, see `differences/gmm_svm.md` §9).
 - Code cleanup pass.
 - Visualizations: `scripts/visualize_results.py` is the canonical entry point — outputs SVG to `results/`.

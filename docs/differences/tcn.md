@@ -78,9 +78,9 @@ initial value. The reference implementation (keras-tcn) does not fix one either.
 
 **Why.** We initially tried `lr = 1e-2` (a common SGD default with momentum
 0.9). On earlier dataset revisions this drove WeightNorm's `v` parameter
-toward zero over many updates, producing unbounded normalised weights
+toward zero over many updates, producing unbounded normalized weights
 `g * v / ‖v‖` and NaN activations. Combined with grad-norm clipping
-(`max_norm=1.0`) plus `BCEWithLogitsLoss` it eventually stabilised at
+(`max_norm=1.0`) plus `BCEWithLogitsLoss` it eventually stabilized at
 `lr = 1e-2`, but `lr = 1e-3` was conservatively chosen as the production
 default to keep the recipe robust to data churn.
 
@@ -101,7 +101,7 @@ failure mode.
 
 **Why.** Additional safety against rare spikes that would otherwise wipe out a
 run. It is not sufficient on its own (see §3), but in combination with
-BCEWithLogits + lr=1e-3 it stabilises every variant in the ablation study.
+BCEWithLogits + lr=1e-3 it stabilizes every variant in the ablation study.
 Plus the `torch.isfinite(loss)` skip-guard in `_train_epoch` that silently
 drops a batch rather than crashing the whole run.
 
@@ -115,8 +115,9 @@ drops a batch rather than crashing the whole run.
 clips (they were shorter than the chunk and the chunker rejected them),
 producing a dataset that was almost exclusively music. Reducing to 128
 preserves class balance at the cost of a receptive-field mismatch: the
-baseline TCN has `RF = 3 × 15 × 4 + 1 = 181` frames, so with a 128-frame chunk
-the model never sees its full receptive-field context during training. The
+baseline TCN has `RF = 1 + 2 × 3 × 4 × 15 = 361` frames (factor of 2 for the
+two convs per residual block), so with a 128-frame chunk the model never sees
+its full receptive-field context during training. The
 `seq_len_256` and `seq_len_270` ablation variants (now commented out in
 `config.toml`) explored the opposite direction; both landed within ±0.002 of
 baseline. The `small_tcn_stacks` experiment exploits the gap from the other
@@ -135,7 +136,7 @@ segment-level macro F1 as its primary metric.
 
 ### 7. Hyperparameter search: OFAT coordinate-ascent vs. paper's TPE Bayesian
 
-**Paper.** Tree-of-Parzen-Estimators Bayesian optimisation over the full
+**Paper.** Tree-of-Parzen-Estimators Bayesian optimization over the full
 hyperparameter grid, restricted to 1 M parameters in Phase 1.
 
 **Baseline.** One-factor-at-a-time (OFAT) ablations rooted at a paper-faithful

@@ -1,136 +1,152 @@
 \chapter{Dataset}
 \label{cap:dataset}
 
-This chapter describes the dataset used in this work, the requirements imposed on datasets for speech and music classification, the construction of a custom dataset and its properties.
+This chapter describes the dataset used to train and evaluate every classifier in the thesis.
+The dataset is published on Hugging Face under \texttt{Marek324/speech-music-classification} as four configurations (\texttt{mini}, \texttt{mid}, \texttt{full}, \texttt{crit}) and is reproducible from public sources by running \texttt{scripts/dataset/build.py}.
 
-\section{Overview}
-
-The dataset used in training and evaluation of classifier should represent real-world scenarios as accurately as possible.
-For this reason, it is useful to define the range of acoustic events that the classifier may encounter in practice.
+\section{Audio-signal taxonomy}
+\label{sec:dataset_overview}
 
 Al-Shoshan~\cite{ALSHOSHAN200695} proposes the following categorization of audio signals:
 \begin{enumerate}
-    \item \textit{"Speech signal composed of a single talker within a specific time period."}
-    \item \textit{"Pure music signal without any speech component."}
-    \item \textit{"Mixture of single-talker speech and background music."}
-    \item \textit{"Songs, i.e., a mixture of music and a singer's voice."}
-    \item \textit{"Singing without musical accompaniment."}
-    \item \textit{"Abnormal music, including unconventional cadences, human whistles, or non-musical sounds embedded as part of a musical structure."}
-    \item \textit{"Speech signal composed of two or more speakers talking simultaneously."}
-    \item \textit{"Non-speech and non-music signals, such as car, motor, or fan sounds."}
-    \item \textit{"Complex sound mixtures involving multiple speakers, singers, and musical sources."}
+    \item \textit{``Speech signal composed of a single talker within a specific time period.''}
+    \item \textit{``Pure music signal without any speech component.''}
+    \item \textit{``Mixture of single-talker speech and background music.''}
+    \item \textit{``Songs, i.e., a mixture of music and a singer's voice.''}
+    \item \textit{``Singing without musical accompaniment.''}
+    \item \textit{``Abnormal music, including unconventional cadences, human whistles, or non-musical sounds embedded as part of a musical structure.''}
+    \item \textit{``Speech signal composed of two or more speakers talking simultaneously.''}
+    \item \textit{``Non-speech and non-music signals, such as car, motor, or fan sounds.''}
+    \item \textit{``Complex sound mixtures involving multiple speakers, singers, and musical sources.''}
 \end{enumerate}
 
-This categorization covers both natural and artificially generated sound types that may occur in real-world audio signals and therefore provides a useful reference for defining the scope of the dataset used in this work.
+We map these nine categories to three classifier output classes:
+\begin{itemize}
+    \item \textbf{Speech} (categories 1, 3, 7): voiced human speech as the salient signal, including in the presence of background music or other concurrent speakers.
+    \item \textbf{Music} (categories 2, 4, 5, 6, 9): instrumental, vocal, acapella, or atypical-music. The line between category 4 (vocal music) and category 1 (speech with music) is resolved by labeling the dominant signal.
+    \item \textbf{Inactive} (category 8 and silence): non-speech non-music audio. Named ``inactive'' rather than ``noise'' because the operationally-relevant property is that downstream pipelines (ASR, codec selector) should not be activated on this material.
+\end{itemize}
+
+The 3-class formulation differs from the 2-class formulation of the historical reference papers (Lavner-and-Ruinskiy, Khonglah-and-Prasanna, Lemaire-and-Holzapfel — all 2-class).
+The deployment scenarios this thesis cares about — streaming gates in front of ASR or codec selection — need a separate inactive class so that silence and ambient noise can be routed correctly.
 
 \section{Composition and Construction}
+\label{sec:dataset_composition}
 
-Following this categorization, three main classes of data can be defined:
-\begin{enumerate}
-    \item \textbf{Speech}: Categories 1, 3, and 7.
-    \item \textbf{Music}: Categories 2, 4, 5, 6, and 9.
-    \item \textbf{Non-speech Non-music audio}: Category 8 and silence, this class will be labeled as \textbf{Inactive}.
-\end{enumerate}
+The full-tier dataset is built deterministically from seven source families.
+The build script (\texttt{scripts/dataset/build.py}) reads pinned source identifiers from \texttt{scripts/dataset/sources.toml}; the train / validation / test split assignment uses a Bresenham-style interleaving generator that guarantees every subclass appears in every split regardless of source size.
 
+\subsection*{Speech}
 
-%For the purposes of this work, these categories are mapped to three output classes of the classifier as follows:
-%\begin{itemize}
-%    \item Categories 1, 3, and 7 correspond to the \textit{speech} class.
-%    \item Categories 2, 4, 5, 6, and 9 correspond to the \textit{music} class.
-%    \item Category 8, together with silence segments, corresponds to the \textit{inactive} class.
-%\end{itemize}
+\textbf{LibriSpeech clean} (\texttt{train.360}) supplies the \texttt{speech\_clean} subclass; the \texttt{full} tier draws $960$ minutes ($16$\,h) from LibriSpeech's $\sim 360$\,h clean training split.
+\textbf{LibriSpeech other} (\texttt{train.500}) supplies \texttt{speech\_dirty}; the \texttt{full} tier draws $480$ minutes.
+The Silero VAD~\footnote{\url{https://github.com/snakers4/silero-vad}} runs over each clip to identify speech-active regions; clips are split at silence boundaries, and only the speech-active segments are retained.
 
-The dataset used in the training and evaluation phases for all classifiers mentioned in this thesis is a combination of publicly available datasets, mainly from huggingface.com.
+\subsection*{Music}
 
-Sources were chosen to take into account all categories of audio signals described in the previous section and will now be enumerated.
+\textbf{Free Music Archive (FMA)} contributes six genres — \texttt{music\_instrumental}, \texttt{music\_electronic}, \texttt{music\_pop}, \texttt{music\_rock}, \texttt{music\_hip-hop}, \texttt{music\_folk} — at $342.86$ minutes each, summing to $\sim 2\,057$ minutes.
+We use the Hugging Face mirror \texttt{rpmon/fma-genre-classification} with genre filtering.
+\textbf{bel\_canto} (\texttt{ccmusic-database/bel\_canto}) supplies \texttt{music\_acapella} at $342.86$ minutes; this is the music subclass closest to speech in feature space and is the canary for any speech-vs-vocal-music confusion.
+All music sources are labeled by a custom \texttt{MusicLabeler} that combines pyannote-audio's segmentation pipeline (\texttt{pyannote/segmentation-3.0}) with an RMS-based loudness threshold (per-hop RMS over $20$\,ms windows, noise floor at the $20$th percentile $\times\,0.35$); a frame is labeled \texttt{music} if either pyannote returns \texttt{SPEECH} for it (instrumental music is similar enough to speech to register on this VAD) or its RMS exceeds the per-clip noise floor.
 
-\begin{enumerate}
-    \item People's speech (MLCommons)
+\subsection*{Inactive}
 
-One of the largest public datasets used for English speech recognition, hosted on huggingface.com.
-It contains 30,000 hours of clean speech divided into recordings around 15 seconds.
-It was chosen as a majority part of clean speech part of the final dataset.
-16,000 rows were taken from this dataset, corresponding to approximately 67 hours of audio.
+\textbf{DEMAND} (\texttt{voice-biomarkers/DEMAND-acoustic-noise}) is a corpus of $18$ environmental noise recordings.
+The \texttt{full} tier draws $1\,200$ minutes from DEMAND, achieved by re-using the recordings with non-overlapping windows.
+The DEMAND material is curated to contain only environmental noise, so labeling is trivial: every frame is tagged \texttt{inactive} via a no-op \texttt{SilenceLabeler} that trusts the source.
 
-    \item English--Arabic Speech Translation (Ammagra)
+\subsection*{Synthetic augmentations}
+\label{sec:dataset_augmentations}
 
-This dataset was chosen to provide the rest of the clean speech.
-It is hosted on huggingface.com and contains over 300,000 rows of recordings mostly under 10 seconds.
-4,000 rows, which correspond to roughly under 8 hours.
+Four synthetic subclasses fill in conditions that no good real-audio source covers.
+Each is generated deterministically at build time by \texttt{scripts/dataset/augmentation.py}.
+\textbf{\texttt{speech\_multispeaker}} ($180$ min) overlays two LibriSpeech clips from different speakers at relative gain $-5$ to $+5$\,dB (one speaker is up to $5$\,dB louder than the other); LibriMix-style.
+\textbf{\texttt{speech\_som}} (speech over music, $180$ min) overlays a LibriSpeech clip on an FMA clip at a fixed $-10$\,dB music-relative-to-speech gain (music is $10$\,dB quieter than speech).
+\textbf{\texttt{speech\_msom}} (multi-speaker over music, $120$ min) combines the two preceding constructions.
+\textbf{\texttt{speech\_noisy}} ($480$ min) overlays a LibriSpeech clip on a DEMAND noise clip at SNR $5$ to $+20$\,dB.
+All synthetic subclasses carry the speech class label.
 
-    \item
+\section{Tier strategy}
+\label{sec:dataset_tier_strategy}
 
-\end{enumerate}
+The dataset is built in three sizes plus the special crit configuration.
+\textbf{\texttt{mini}} ($\sim 60$ min) is for CI and end-to-end smoke testing.
+\textbf{\texttt{mid}} ($\sim 1\,200$ min, $20$\,h) is for ablation experiments where compute budget is the binding constraint; a single training run takes $\sim 20$ min on an A6000.
+\textbf{\texttt{full}} ($\sim 6\,000$ min, $100$\,h) is the canonical training and evaluation surface; training takes $\sim 1$\,h on the A6000.
+All chapter-6 results are on the full tier.
 
-The dataset used in this thesis is a combination of publicly available datasets listed below:
+\subsection*{Bresenham split assignment}
 
-
-Weak labels were converted into strong, time-aligned annotations by automatically detecting active and silent regions. Class-specific activity detection was applied:
-
-\begin{itemize}
-    \item \textbf{Speech:} Silero VAD~\footnote{\url{https://github.com/snakers4/silero-vad}} for the detection of speech activity.
-    \item \textbf{Music:} PyDub~\footnote{\url{https://github.com/jiaaro/pydub}} amplitude-based silence detection.
-\end{itemize}
+The train / validation / test split uses a Bresenham-style interleaving generator (\texttt{scripts/dataset/process.py::\_bresenham\_split\_iter}) that distributes clips from each source proportionally to a configured target ratio (default $80\,\%/10\,\%/10\,\%$).
+The interleaving is per-source per-subclass.
+Earlier sequential-cutoff approaches assigned clips to splits based on cumulative-minutes thresholds and failed for sources that exhausted their available data before reaching the train cutoff (those sources contributed only to train).
+At one development point the full-tier test split had only three of the fourteen subclasses populated.
+The Bresenham generator guarantees every subclass appears in every split, regardless of source size.
 
 \section{Statistics}
 \label{sec:dataset_statistics}
-All data were randomly shuffled and split into disjoint subsets:
 
-\begin{itemize}
-    \item \textbf{Training:} 80\%
-    \item \textbf{Validation:} 10\%
-    \item \textbf{Test:} 10\%
-\end{itemize}
+\Cref{tab:dataset_full_tier_targets} reports the per-subclass design targets.
 
-\begin{table}[ht]
-    \centering
-    \caption{Dataset Statistics and Composition}
-    \label{tab:dataset_stats}
-    \begin{tabular}{lrrr}
-        \toprule
-        \textbf{Class / Subclass} & \textbf{Frames} & \textbf{Duration (min)} & \textbf{Share (\%)} \\
-        \midrule
-        \textbf{Speech (Total)} & \textbf{20,187,451} & \textbf{3,364.58} & \textbf{65.8\%} \\
-        \hspace{3mm} Clean & 19,769,776 & 3,294.96 & 64.4\% \\
-        \hspace{3mm} Noisy & 284,171 & 47.36 & 0.9\% \\
-        \hspace{3mm} Noisy Environment & 133,504 & 22.25 & 0.4\% \\
-        \addlinespace
-        \textbf{Music (Total)} & \textbf{10,074,118} & \textbf{1,679.02} & \textbf{32.8\%} \\
-        \hspace{3mm} Mainstream & 5,436,783 & 906.13 & 17.7\% \\
-        \hspace{3mm} Acoustic & 2,856,838 & 476.14 & 9.3\% \\
-        \hspace{3mm} Instrumental & 1,187,275 & 197.88 & 3.9\% \\
-        \hspace{3mm} Vocal & 470,332 & 78.39 & 1.5\% \\
-        \hspace{3mm} Electronic & 122,890 & 20.48 & 0.4\% \\
-        \addlinespace
-        \textbf{Noise (Total)} & \textbf{439,630} & \textbf{73.27} & \textbf{1.4\%} \\
-        \midrule
-        \textbf{Total} & \textbf{30,701,199} & \textbf{5,116.87} & \textbf{100.0\%} \\
-        \bottomrule
-    \end{tabular}
+\begin{table}[h]
+\centering
+\begin{tabular}{lr}
+\toprule
+\textbf{Subclass} & \textbf{Target (min)} \\
+\midrule
+\texttt{speech\_clean}        & $960$ \\
+\texttt{speech\_dirty}        & $480$ \\
+\texttt{speech\_multispeaker} & $180$ (synthetic) \\
+\texttt{speech\_som}          & $180$ (synthetic) \\
+\texttt{speech\_msom}         & $120$ (synthetic) \\
+\texttt{speech\_noisy}        & $480$ (synthetic) \\
+\midrule
+Each music subclass ($\times 7$) & $342.86$ \\
+\midrule
+\texttt{noise}                & $1\,200$ \\
+\midrule
+\textbf{Total}                & $\mathbf{6\,000}$ \\
+\bottomrule
+\end{tabular}
+\caption{Per-subclass target minutes for the \texttt{full} tier. Class proportions: $40\,\%$ speech / $40\,\%$ music / $20\,\%$ inactive.}
+\label{tab:dataset_full_tier_targets}
 \end{table}
 
+The realized composition (\cref{tab:dataset_class_summary}) tracks the design targets to within Silero VAD trim variance.
 
-% ===================================
-%           PIPELINE
-% ===================================
+\begin{table}[h]
+\centering
+\begin{tabular}{lrr}
+\toprule
+\textbf{Class} & \textbf{Duration (min)} & \textbf{Share (\%)} \\
+\midrule
+\textbf{Speech (Total)} & $2\,401.09$ & $40.3\,\%$ \\
+\textbf{Music (Total)} & $2\,362.67$ & $39.6\,\%$ \\
+\textbf{Inactive (Total)} & $1\,200.02$ & $20.1\,\%$ \\
+\midrule
+\textbf{Total} & $\mathbf{5\,963.77}$ & $100.0\,\%$ \\
+\bottomrule
+\end{tabular}
+\caption{Realized \texttt{full}-tier composition aggregated to class level (from \texttt{results/dataset\_stats.txt}). Per-subclass breakdown is in the appendix.}
+\label{tab:dataset_class_summary}
+\end{table}
 
-%\chapter{Pipeline}
-%\label{cap:pipeline}
+The realized $40 / 40 / 20$ split closely matches the design $40\,\%$ speech / $40\,\%$ music / $20\,\%$ inactive target.
 
-% ===================================
-%           MODELS
-% ===================================
-%\chapter{Models}
-%\label{cap:ref_models}
+\section{Critical tier}
+\label{sec:dataset_critical_tier}
 
-% ===================================
-%           EXPERIMENTS
-% ===================================
-%\chapter{Experiments}
-%\label{cap:experiments}
+The \texttt{crit} tier is a separately-built, hand-curated set of approximately $120$ clips ($\sim 30$ min total) drawn from sources outside the full-tier training distribution and chosen specifically to expose adversarial conditions.
+It is constructed by \texttt{scripts/dataset/build.py --only-critical-set}, which is backed by a dedicated pipeline under \texttt{scripts/dataset/crit/}.
 
-% ===================================
-%           CONCLUSION
-% ===================================
-%\chapter{Conclusion}
-%\label{cap:conclusion}
+The crit set is manifest-driven.
+\texttt{scripts/dataset/crit/manifest.toml} enumerates every clip with its source file, class, subclass, and one of two label sources: either an inline \texttt{labels = [\{label, start, end\}, \dots]} list of hand-curated frame-level annotations (used for non-trivial cases like \texttt{music\_beatbox}, where vocal-only ``music'' lines must be tracked frame-by-frame against intermittent spoken interjections), or \texttt{detector = "vad" | "music" | "silence"} which routes the clip through the same Silero / pyannote+RMS / no-op labelers used for the standard tiers when the source material is uniform enough.
+
+Synthetic crit content is generated by dedicated scripts: \texttt{make\_noisy\_speech.py} mixes clean speech recordings with noise sources at fixed SNRs ($0$\,dB and $-3$\,dB) to produce \texttt{speech\_noisy\_0db} / \texttt{speech\_noisy\_neg3db}, while \texttt{make\_switching.py} and \texttt{make\_switching\_3class.py} generate switching clips with controlled label-change cadences ($1\,000$, $500$, $250$, and $125$\,ms) for the temporal-behavior evaluation in \cref{sec:eval_streaming}.
+
+The crit tier covers \texttt{noise\_babble} (multi-speaker conversational noise), \texttt{noise\_machinery} (broadband mechanical), \texttt{noise\_outdoor} (traffic, urban hum), \texttt{noise\_wildlife} (birds, included as a control), \texttt{noise\_ambient} (room tone), \texttt{speech\_whisper} (voiceless speech), \texttt{speech\_noisy\_0db} and \texttt{speech\_noisy\_neg3db} (challenging-SNR speech), \texttt{speech\_msom} (multi-speaker over music), \texttt{music\_extreme} (jumpup, speedcore — extreme BPM and distortion that surface as broadband noise on log-mel), and \texttt{music\_beatbox} (vocal-only music with intermittent speech).
+
+The crit tier is held out from training entirely.
+No clip in it appears in the training, validation, or standard test splits of any tier.
+The clip distribution is hand-selected rather than naturally weighted, so the crit-tier macro F1 is a stress test, not a deployment-scenario performance estimate.
+The crit-tier evaluation methodology is in \cref{sec:eval_critical}; the chapter-6 results in \cref{sec:exp_critical_results}.

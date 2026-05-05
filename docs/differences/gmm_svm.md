@@ -172,22 +172,27 @@ prediction path (`predict_batch`) does not use the rolling buffer.
 **Why.** Provides temporal smoothing consistent with the 1 s window
 size used throughout the paper.
 
-### 11. SVM smoothing: 20-frame decision-function rolling buffer vs. paper's none
+### 11. SVM smoothing and 3-class extension: 20-frame decision-function rolling buffer + sklearn OvO vs. paper's binary single-shot
 
-**Paper.** Single 1 s feature vector per non-overlapping window → SVM
-decision → label. No frame-level smoothing because the segmentation is
-already coarse-grained.
+**Paper.** Binary speech vs. music. Single 1 s feature vector per
+non-overlapping window → SVM decision → label. No frame-level smoothing
+because the segmentation is already coarse-grained.
 
-**Implementation.** `svm.py` keeps a 20-frame rolling buffer of the
-decision-function vector (`self.dec_buf = deque(maxlen=20)` ≈ 300 ms at
-15 ms hop). `predict()` averages over the buffer before argmax. The batch
-prediction path uses `svm.predict()` directly without smoothing.
+**Implementation.** `svm.py` trains a single multi-class `SVC` on the full
+3-class label set (`{-1, 1, 2}`); sklearn handles 3-class natively via OvO,
+producing a 3-element decision-function vector per frame. The `_subsample_balanced`
+helper subsamples 50 k frames *per class* (including the inactive class), so
+no frame is filtered out of training. At inference, `predict()` keeps a
+20-frame rolling buffer of the decision vector (`self.dec_buf = deque(maxlen=20)`
+≈ 300 ms at 15 ms hop), averages it, and takes `argmax` over the smoothed
+3-vector. The batch prediction path (`predict_batch`) uses `svm.predict()`
+directly without smoothing.
 
 **Why.** Streaming inference fires on every 15 ms hop, so the raw
 decision sequence is noisy. 300 ms smoothing damps single-frame flips
 without delaying the response significantly. The 20-frame buffer is
 shorter than the GMM 66-frame buffer because SVM decision functions are
-already discriminatively scaled and need less averaging to stabilise.
+already discriminatively scaled and need less averaging to stabilize.
 
 ### 12. Non-linear mapping (paper §3.1): not implemented
 
@@ -274,7 +279,7 @@ against `extract_segment()` on the same 1 s clip. Most features agree to
 < 1 % relative error; the remaining drift comes from a 10-subframe
 boundary gap (streaming stops at `stream_total - fl` whereas
 `extract_segment` reaches `n - fl` exactly). In continuous streaming this
-boundary never appears, so `run_mic` behaviour tracks the batch reference.
+boundary never appears, so `run_mic` behavior tracks the batch reference.
 
 **Training impact.** `src/input_handler.py` routes GMM/SVM through
 `_process_row` (frame-by-frame `extract()`), so training sees the
