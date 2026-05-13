@@ -1,0 +1,9 @@
+assets/external/
+*.db
+.states
+*.py[cod]
+.web
+__pycache__/
+uploaded_files/
+# Reflex's `init --template blank` stamps this; we manage deps in pyproject.toml.
+requirements.txt

@@ -1,5 +1,6 @@
 # scripts/dataset/crit/make_switching_3class.py
-# Marek Hric
+# Author: Marek Hric
+# The help of code assistant was used during implementation of this file.
 
 """Generate 3-class fast-switching crit clips with content variation.
 
@@ -56,7 +57,7 @@ BACKGROUND_FILENAMES = [
     "fireplace.mp3", "rain.mp3", "street.mp3",
 ]
 
-CLASSES = ("speech", "music", "background")  # cycle order
+CLASSES = ("speech", "music", "background")
 
 
 def _rms(x: np.ndarray) -> float:
@@ -148,7 +149,6 @@ def main() -> None:
     if removed:
         print(f"stripped {removed} stale 3-class switching entry(ies) from {manifest_path.name}")
 
-    # Load all sources.
     speech_data: dict[int, tuple[np.ndarray, list[tuple[int, int]]]] = {}
     for idx in SPEECH_INDICES:
         audio, labs = _load_source_speech(idx)
@@ -202,7 +202,6 @@ def main() -> None:
     for cadence_ms in CADENCES_MS:
         seg_samples = int(cadence_ms * SR / 1000)
         for variant in range(N_VARIANTS):
-            # Relatively prime strides → variant gets a different (s, m, i) starting triple.
             speech_start = variant % len(SPEECH_INDICES)
             music_start = (variant * 3) % len(MUSIC_FILENAMES)
             background_start = (variant * 5) % len(BACKGROUND_FILENAMES)

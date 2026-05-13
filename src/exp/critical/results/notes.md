@@ -8,7 +8,7 @@ The crit tier is staged by `scripts/dataset/build.py --only-critical-set` and st
 
 Per-clip outputs:
 - `<model>.eval` — full evaluation report (per-class + per-subclass F1/P/R, confusion matrix).
-- `<model>_scores.npz` — frame-level y_true / y_pred / subclass arrays at each model's native hop. Consumed by the transitions experiment for switching-cadence analysis.
+- `<model>_scores.npz` — frame-level y_true / y_pred / subclass arrays at each model's native hop.
 - `graphs/clip<NNN>_<subclass>.svg` — per-recording timeline visualization comparing every model's prediction stream to ground truth.
 
 ## Results
@@ -38,7 +38,7 @@ By contrast, all models score near-perfectly on **clean music subclasses** (acap
 
 ## Switching cadences
 
-The crit tier contains 8 switching clips: 2-class (speech↔music) and 3-class (speech↔music↔background) at 500/1000/2000/4000 ms cadences. Subclass F1 captures the static-frame view of these (e.g., `speech_switching_3class_500ms`); the *temporal* view (per-event latency, stable-region flicker) is computed by the transitions experiment from these same `_scores.npz` files — see `src/exp/transitions/results/transitions.md`.
+The crit tier contains 8 switching clips: 2-class (speech↔music) and 3-class (speech↔music↔background) at 500/1000/2000/4000 ms cadences. Subclass F1 captures the static-frame view of these (e.g., `speech_switching_3class_500ms`).
 
 ## Conclusion
 

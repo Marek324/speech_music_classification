@@ -1,0 +1,17 @@
+\chapter{Dataset sources}
+\label{apx:dataset_sources}
+
+This appendix enumerates the HuggingFace datasets from which the mid and full subsets of \Cref{cap:dataset} are built.
+
+\begin{itemize}
+    \item LibriSpeech ASR~\cite{panayotov2015librispeech}, clean and dirty speech: \url{https://hf.co/datasets/openslr/librispeech_asr}
+    \item FMA~\cite{defferrard2017fma}, six music genres (instrumental, electronic, pop, rock, hip-hop, folk): \url{https://hf.co/datasets/rpmon/fma-genre-classification}
+    \item Bel Canto~\cite{zhou2025ccmusic}, a cappella music: \url{https://hf.co/datasets/ccmusic-database/bel_canto}
+    \item DEMAND~\cite{thiemann2013demand}, noise (background): \url{https://hf.co/datasets/voice-biomarkers/DEMAND-acoustic-noise}
+\end{itemize}
+
+The four synthetic speech subclasses (multi-speaker speech, speech over music, multi-speaker speech over music, and noisy speech) introduce no new external data.
+They are generated deterministically at build time from the sources above, with mix policies summarized in \Cref{tab:dataset_synthetic_augs}.
+
+The critical subset (\Cref{sec:dataset_critical_subset}) does not draw from any of the sources above.
+Every clip in it is sourced by hand from publicly accessible YouTube material and labeled manually.

@@ -1,3 +1,6 @@
+# scripts/visualizations/filter_pareto.py
+# Author: Marek Hric
+# The help of code assistant was used during implementation of this file.
 """Filter-count Pareto scan on the small-TCN base.
 
 Replaces tab:filter_pareto_results in ch6 §sec:exp_small_tcn_pareto.
@@ -21,7 +24,7 @@ RESULTS_DIR = REPO_ROOT / "src" / "exp" / "small_tcn_pareto" / "results"
 VARIANTS = [
     ("filters_4", 4),
     ("filters_6", 6),
-    ("filters_8", 8),  # deployed
+    ("filters_8", 8),
     ("filters_12", 12),
 ]
 DEPLOYED_FILTERS = 8
@@ -53,7 +56,6 @@ def main():
         fmt="-", color=COLORS["good"], lw=1.5, capsize=3, alpha=0.6,
         ecolor="black", elinewidth=0.7,
     )
-    # Plot points, deployed in a different color.
     for p in points:
         color = COLORS["winner"] if p["deployed"] else COLORS["good"]
         ax.plot(
@@ -61,7 +63,6 @@ def main():
             markersize=8 if p["deployed"] else 6,
             color=color, zorder=3,
         )
-        # Annotate F1 below the point.
         ax.annotate(
             f"{p['f1']:.4f}",
             xy=(p["n_filters"], p["f1"]),
@@ -70,7 +71,6 @@ def main():
             color=color,
         )
 
-    # Annotate the deployed point.
     deployed = next(p for p in points if p["deployed"])
     ax.annotate(
         "Pareto knee (8 filters)",

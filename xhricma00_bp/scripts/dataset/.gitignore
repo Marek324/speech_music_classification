@@ -1,0 +1,7 @@
+.env
+noizeus*
+!noizeus.py
+musan*
+data
+musan_noise*
+partial

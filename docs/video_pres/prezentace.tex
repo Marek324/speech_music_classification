@@ -1,0 +1,34 @@
+%==============================================================================
+% Šablona prezentace/Presentation template
+% Autoři / Authors: Zdeněk Vašíček, Aleš Smrčka, Jaroslav Dytrych, Jana Stopková, Kristýna Zaklová, Adam Herout
+% Kontakt pro dotazy a připomínky: sablona@fit.vutbr.cz
+% Contact for questions and comments: sablona@fit.vutbr.cz
+%==============================================================================
+
+\documentclass[english,wideratio]{fitthesispresn}
+
+\graphicspath{{img/}{../figures/}{../figures/experiments/}{../figures/critical/}}
+
+% Nastavení informací pro úvodní stránku / Setting information for the title page
+%---------------------------------------------------------------------------
+\projectinfo{
+  date={May 13, 2026},
+  title={Speech/Music Classification},
+  title.footer={Speech/Music Classification},
+  author.name={Marek},
+  author.surname={Hric},
+  author.title.first={},
+  supervisor.name={Vladimír},
+  supervisor.surname={Malenovský},
+  supervisor.title.first={Ing.},
+  supervisor.title.last={Ph.D.}
+}
+
+\begin{document}
+    \frame[plain]{\titlepage}
+    \ifczech
+        \input{slides_cz}
+    \else
+        \input{slides_en}
+    \fi
+\end{document}

@@ -1,0 +1,17 @@
+0.000	0.514	inactive
+0.514	3.230	speech
+3.230	3.362	inactive
+3.362	4.000	speech
+4.000	8.000	music
+8.000	8.578	inactive
+8.578	11.646	speech
+11.646	12.000	inactive
+12.000	16.000	music
+16.000	16.258	inactive
+16.258	17.854	speech
+17.854	18.402	inactive
+18.402	20.000	speech
+20.000	24.000	music
+24.000	24.290	inactive
+24.290	28.000	speech
+28.000	30.000	music

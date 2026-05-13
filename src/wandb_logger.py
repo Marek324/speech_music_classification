@@ -1,6 +1,6 @@
 # wandb_logger.py
-# Marek Hric
-# Optional Weights & Biases logging.
+# Author: Marek Hric
+# The help of code assistant was used during implementation of this file.
 
 import logging
 import os

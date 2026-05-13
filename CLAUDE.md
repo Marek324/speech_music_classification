@@ -1,11 +1,19 @@
 # Project: butfit-bp — Speech/Music Classifier
 
 ## Goal
-Beat the existing DT/GMM/SVM baselines and achieve >= **.85 F1 macro on 3-class evaluation** with a causal TCN that can run online (streaming). Target met (TCN macro F1 = 0.9752). Project is now in the **writeup phase**: drafting docs/chapters/05–07, cleaning up code, and producing visualizations. No new experiments unless the docs reveal a gap that requires them.
+Design and implement a real-time, causal speech/music classifier that beats the existing DT/GMM/SVM references on 3-class macro F1. The reference causal TCN reaches macro F1 0.9752, ~10 pp above the strongest traditional reference (SVM, 0.8750).
+
+The thesis extends the 2-class formulation of the reference papers to a 3-class output space: **Speech**, **Music**, **Background** (silence + ambient noise). The third class lets the classifier be deployed standalone (e.g. as a codec front end) without a separate activity gate.
+
+The thesis itself is complete (six chapters in `docs/chapters/`). Two proposed models came out of the experimental program:
+- **TCN-L** — `Δ²` frontend + 1-D conv1d preprocessor + reference TCN + LSTM head; ~389K params; macro F1 0.9846. Strongest model in the thesis.
+- **TCN-S** — `Δ²` frontend + n_filters=8, n_stacks=1 TCN; ~4.6K params; macro F1 0.9722. **Primary contribution**: matches the reference TCN within 0.003 macro F1 at 1/7 the params and ~21× less per-frame compute. Real-time factor 5.3× on a 7-year-old laptop CPU thread.
+
+Project is now in **submission packaging**: poster, code cleanup, final artifacts. No new experiments.
 
 ## CLI
 ```
-uv run smclassifier nn tcn <command>           # TCN model (paper baseline)
+uv run smclassifier nn tcn <command>           # TCN model (reference paper)
 uv run smclassifier nn tcn-l <command>         # TCN-L variant (delta2 + conv1d + LSTM head)
 uv run smclassifier nn tcn-s <command>         # TCN-S small-footprint variant (delta2 + n_filters=8, n_stacks=1, RF≤seq_len)
 uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
@@ -65,7 +73,7 @@ HuggingFace: `Marek324/speech-music-classification`. TCN is configured for the *
 
 ### Full tier (6000 min / 100 hours)
 
-40% speech / 40% music / 20% inactive. Music is **seven equal HF sources** (six FMA genres + bel_canto acapella), each **2400/7 ≈ 342.86 min**. Mid tier music is the same split at **480/7 ≈ 68.57 min** per genre.
+40% Speech / 40% Music / 20% Background. Music is **seven equal HF sources** (six FMA genres + bel_canto acapella), each **2400/7 ≈ 342.86 min**. Mid tier music is the same split at **480/7 ≈ 68.57 min** per genre.
 
 | Subclass | Target (min) |
 |----------|-------------|
@@ -126,7 +134,7 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 |------|---------|
 | `src/evaluator.py` | `run_evaluation()`, `format_report()`, metrics dataclasses — shared by all models |
 | `src/input_handler.py` | HF dataset loader → frame extraction → `X, y, subclasses` arrays (classic models) |
-| `src/common.py` | Label mapping: speech=−1, music=1, inactive/noise=2; `frame_label_str()` |
+| `src/common.py` | Label mapping: speech=−1, music=1, **background**=2 (canonical class name; `inactive`/`noise` kept as legacy aliases in `LABEL_MAP` for older annotations); `frame_label_str()` |
 | `src/config.py` | Global config singleton; `init_config(model_name)` selects per-model buffer settings |
 | `config.toml` | All hyperparameters — `[buffers.*]`, `[features.*]`, `[tcn]`, `[tcn.model]` |
 | `results/*.eval` | Evaluation reports for each model |
@@ -173,7 +181,7 @@ TCN-S (delta² frontend + `n_filters=8`, no preprocessor/head, `n_stacks=1`, RF=
 |------|---------|
 | `modelclass.py` | Abstract base: `fit()`, `save()`, `load()` via joblib |
 | `feat_extractor.py` | `FeatExtractor` — stateful frame-level feature extraction (30ms/15ms hop); **call `reset()` between clips** |
-| `gmm.py` | Three-GMM density classifier (one per class: speech / music / inactive); 8 components, diag covariance; argmax over per-class log-likelihoods. Paper has 2 GMMs + threshold; we extend to 3-class — see `docs/differences/gmm_svm.md` §9 |
+| `gmm.py` | Three-GMM density classifier (one per class: Speech / Music / Background); 8 components, diag covariance; argmax over per-class log-likelihoods. Paper has 2 GMMs + threshold; we extend to 3-class — see `docs/differences/gmm_svm.md` §9 |
 | `decisiontree.py` | Decision tree with exponential-forgetting smoothing on last decisions |
 | `svm.py` | `SVC(kernel='rbf', C=1, γ=3)`; native 3-class via sklearn OvO; balanced subsampling to 50k/class at train time; 20-frame rolling decision-vector buffer + argmax at inference |
 | `evaluation.py` | `eval_classic()` — loads model + test features, runs `run_evaluation()` |
@@ -256,10 +264,10 @@ Full deviation tracking lives in `docs/differences/gmm_svm.md`. Highlights only 
 | SVM kernel | RBF, C=1, γ=3 (libSVM) | RBF, C=1, γ=3 (`sklearn.svm.SVC`) ✓ |
 | SVM training scale | ~2400 1s-window vectors from 160 clips | Frame-level; subsampled to 50k/class |
 | SVM smoothing | none | 20-frame rolling decision buffer — `docs/differences/gmm_svm.md` §11 |
-| SVM output classes | 2 (speech / music; libSVM threshold) | 3 (speech / music / inactive) via sklearn native OvO; argmax over smoothed decision vector |
+| SVM output classes | 2 (speech / music; libSVM threshold) | 3 (Speech / Music / Background) via sklearn native OvO; argmax over smoothed decision vector |
 | Feature window | 1s non-overlapping | 1s rolling (`lt_len_ms=1000`) ✓ |
 | GMM components | 8, diagonal covariance | 8, diagonal ✓ |
-| GMM structure | 2 GMMs (speech / music) + threshold | 3 GMMs (speech / music / inactive) + argmax — `docs/differences/gmm_svm.md` §9 |
+| GMM structure | 2 GMMs (speech / music) + threshold | 3 GMMs (Speech / Music / Background) + argmax — `docs/differences/gmm_svm.md` §9 |
 | GMM smoothing | ~1s window over log-likelihood delta | 66-frame rolling buffer (~1s @ 15ms hop) ✓ |
 | Scaling | Unspecified (raw features fed to classifiers, paper §3.1) | `RobustScaler` (GMM, ±10 clip) / `StandardScaler` (SVM) — added |
 | Non-linear mapping | Sigmoid on log-likelihood delta before threshold | Not implemented |
@@ -271,7 +279,7 @@ Full deviation tracking lives in `docs/differences/dt.md`. Highlights:
 | Aspect | Paper | This implementation |
 |--------|-------|---------------------|
 | Classifier | 3-stage Bayesian + rule-based sieve | sklearn `DecisionTreeClassifier` (single learned tree, CART) — `docs/differences/dt.md` §1 |
-| Output classes | 2 (speech / music) | 3 (speech / music / inactive) |
+| Output classes | 2 (speech / music) | 3 (Speech / Music / Background) |
 | Feature selection | "Automatic" per paper | Fixed 19-component vector + `SelectKBest(k=10)` ANOVA-F |
 | Smoothing | Per-segment exp-decay weighted average ($D_s = (1/F)\sum D_i e^{-k/\tau}$) at 100 ms hop + adaptive threshold | Same exp-decay form, per-frame at 10 ms hop over 30-deep deque; adaptive threshold dropped — `docs/differences/dt.md` §5 |
 | Inference granularity | Per-segment | Per-frame (streaming, 10 ms hop) |
@@ -287,11 +295,22 @@ Needs two files (download from Marek324/butfit-bp-artifacts on HF):
 Weights loaded via `model.load()` from `weights/<model_name>` (joblib pickle).
 Feature extraction is stateful — `FeatExtractor.reset()` must be called between clips.
 
-Labels: `-1` = speech, `1` = music, `2` = inactive
+Labels: `-1` = Speech, `1` = Music, `2` = Background (canonical name; `inactive` and `noise` map to the same integer via `LABEL_MAP` for legacy annotation files).
 
 ## Status
 
-Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `weights/` are the artifacts the thesis describes.
+Project phase: **submission packaging**. The thesis is complete (six chapters under `docs/chapters/`), experiments are frozen, and deployed checkpoints in `weights/` are the artifacts the thesis describes.
+
+### Thesis chapter map
+
+| Chapter | File | Role |
+|---|---|---|
+| 1. Introduction | `01_introduction.tex` | Problem framing, 3-class extension, two-phase plan |
+| 2. Background | `02_background.tex` | Speech vs music characteristics; on-line / real-time / causality definitions; algorithmic vs computational delay |
+| 3. Classification approaches | `03_classification.tex` | Reference models (DT, GMM, SVM, TCN), their 3-class on-line adaptations, streaming inference |
+| 4. Dataset construction | `04_dataset.tex` | 100h dataset + critical subset, build pipeline, split policy |
+| 5. Experiments | `05_experiments_analyses.tex` | Frame-level eval + cluster-bootstrap CI; effectiveness phase (→ TCN-L); cost phase (→ TCN-S); CPU/symbolic-complexity/critical analyses |
+| 6. Conclusion | `06_conclusion.tex` | Contributions, limitations (Background coverage gap, per-model hop differences), future work |
 
 ### Test-split macro F1 (full tier, deployed checkpoints)
 
@@ -304,17 +323,48 @@ Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `wei
 | DT | 0.8376 | `results/decision_tree.eval` |
 | GMM | 0.8250 | `results/gmm.eval` |
 
-All models clear the 0.85 project target except GMM (0.825, just below). TCN family clears it by 12+ pp.
+The TCN family clusters around 0.97–0.98. The three traditional references trail by ~10 pp (SVM 0.8750, DT 0.8376, GMM 0.8250).
+
+### CPU benchmark (Intel i5-8300H, single thread)
+
+| Model | Comp. delay (ms) | RTF | ΔRSS (MB) | Params | MACs/frame | RF (ms) |
+|---|---:|---:|---:|---:|---:|---:|
+| GMM   | 3.94 | 3.8× | **3** | 474 | 216 | 1000 |
+| DT    | 4.15 | 2.4× | 368 | 4.34 M | 178 | 300 |
+| TCN-S | 4.38 | **5.3×** | 13 | **4.6 K** | 545 K | 2810 |
+| TCN   | 7.18 | 3.2× | 8 | 33 K | 11.6 M | 8382 |
+| SVM   | 7.66 | 2.0× | 9 | 521 K | 469 K | 1000 |
+| TCN-L | 11.07 | 2.1× | 23 | 389 K | 137 M | 8382 |
+
+Per-frame hop: DT 10 ms, GMM/SVM 15 ms, TCN family 23.2 ms (these set the algorithmic-delay floor). Steady-state total latency stays ≤ 34 ms; time-to-first-output ≤ 58 ms.
+
+### Experiments → thesis subsections
+
+`src/exp/` subgroups, mapped to the thesis sections they realize:
+
+| Subdir | Thesis section | Purpose |
+|---|---|---|
+| `tcn_ablation/` | §5.2.1 Sensitivity & ablation | Categorical substitutions + numeric sensitivity scan |
+| `tcn_frontend/` | §5.2.2 Spectral frontend | Mel-bin count, Δ/Δ², MFCC, PCEN |
+| `nn_preprocessor/` | §5.2.3 Learned preprocessor | 1-D channel mixer vs 2-D conv preprocessor |
+| `nn_architecture/` | §5.2.4 Alternative backbones | GRU, LSTM, Transformer at two budgets |
+| `tcn_combined/` | §5.2.5 Combined variants | F+P, F+A, P+A, F+P+A |
+| `tcn_temporal_head/` | §5.2.6 Temporal head | LSTM / GRU / attention heads on F+P base |
+| `small_tcn_pareto/`, `small_tcn_stacks/` | §5.3 Lightweight variant | Filter-count → stack-count greedy descent → TCN-S |
+| `complexity/` | §5.4.1–5.4.2 | CPU benchmark + symbolic complexity |
+| `critical/` | §5.4.3 Critical-subset check | Behavioral review on hand-curated stressors |
 
 ### Other artifacts
 
-- **Dataset (mid tier)**: historical snapshot; the mid-tier tables in this doc reflect that snapshot, not the current HF upload.
-- **Dataset (full tier)**: 6000 min (100 h) on `Marek324/speech-music-classification` config `full`; all subclasses hit ~100% of target after the Bresenham split fix.
-- **Critical-set evaluation**: hand-curated adversarial clips at `scripts/dataset/speech_music_dataset/crit` and via `Marek324/speech-music-classification` config `crit`. All seven models evaluated; results in `src/exp/critical/results/`.
-- **Experiment notes**: every `src/exp/*/results/notes.md` was refreshed against current `.eval` data on 2026-04-29 — those are the canonical narrative source for the docs chapters.
+- **Dataset (full tier)**: 6000 min (100 h) on `Marek324/speech-music-classification` config `full`; all subclasses hit ~100% of target after the Bresenham split fix. **This is the only training tier the thesis evaluates on.**
+- **Dataset (mid tier)**: historical snapshot from an earlier HF upload; the mid-tier tables in this doc reflect that snapshot. Mid tier is no longer used for training or evaluation.
+- **Critical subset**: 113 hand-curated clips (~75 min) from public YouTube material, manually labeled, covering airport/cafeteria/cooler-fan/street/birdsong/fireplace/rain noise plus whispered speech, noisy speech at 0 & −3 dB SNR, extreme music, beatbox, and SoM/MSoM mixes. Loaded via `Marek324/speech-music-classification` config `crit`. Sources under `scripts/dataset/crit/`.
+- **Critical-subset finding** (§5.4.3): every model mistakes unfamiliar ambient sound for Music, and TCN-S keeps that label even when speech is overlaid. Listed as the main dataset limitation and primary follow-up direction (expand Background coverage).
 - **Deviation docs**: `docs/differences/{tcn,gmm_svm,dt}.md` track every deliberate departure from the reference papers.
 
-### What's left
+### Submission artifacts still to package
 
-- Code cleanup pass.
+- Poster (assignment requirement; `docs/poster/poster.tex` is the LaTeX draft).
+- Presentation video.
+- Source archive + reproducibility instructions.
 - Visualizations: `scripts/visualize_results.py` is the canonical entry point — outputs SVG to `results/`.

@@ -172,14 +172,23 @@ Cleanup before submission left a few orphan files on disk. They are not referenc
 
 **From the dropped switch-latency / transitions experiment:**
 
-- `src/exp/switch_latency/` — standalone module that streamed switching clips through every runner with silence prefill and K=3 consecutive-match latency. Implementation works; the methodology turned out to be too compromised by right-censoring + drift contamination to use in the thesis.
-- `src/exp/transitions/` — older analysis of the same data (K=1 latency, no prefill, sub-label transitions). Superseded by `switch_latency/` and then both were dropped.
+The two analyzer modules (`src/exp/switch_latency/` and `src/exp/transitions/`) have been removed from the repo. Some artifacts they produced or consumed are still on disk:
+
 - `scripts/dataset/crit/make_switching.py`, `make_switching_3class.py` — generators for the 64 switching clips. Manifest entries have been stripped, so re-running `build.py --only-critical-set` no longer pulls them into the parquet. The 72 corresponding `.wav` files and 72 `.labels.txt` files remain under `scripts/dataset/crit/recordings/`.
 - `scripts/visualizations/transitions_latency.py` — the heatmap figure script for the dropped experiment.
-- `docs/figures/experiments/switch_latency.{pdf,svg}` and `transitions_latency.{pdf,svg}` — orphan figures.
+- `docs/figures/experiments/switch_latency.pdf` and `transitions_latency.{pdf,svg}` — orphan figures.
 
 **Other orphans:**
 
 - `src/wandb_logger.py` — Weights & Biases hooks for training. Never imported anywhere in the current codebase; `wandb` is correspondingly absent from `pyproject.toml`. Re-enable by adding `wandb` to the project dependencies and importing the logger from the training entry point.
-- `docs/figures/experiments/filter_pareto.{pdf,svg}` — a Pareto-style figure that was rendered for an earlier draft and never wired into the chapter.
+- `scripts/visualizations/filter_pareto.py` and `docs/figures/experiments/filter_pareto.{pdf,svg}` — script + rendered Pareto-style figure produced for an earlier draft and never wired into the chapter.
 - `docs/figures/experiments/lightweight_scans_placeholder.png` — placeholder that was replaced by the proper figure.
+- `weights/own/tcn_own.safetensors` and `weights/own/tcn_own_preprocess_stats.pt` — early-name checkpoint from an intermediate of the cost-reduction sweep. Not referenced by any surviving code, config, or thesis figure; the deployed lineup uses `weights/{tcn,tcn_s,tcn_l}` instead.
+
+**Stale references from the TCN variant rename:**
+
+The cost-reduction sweep's intermediate variants were originally named `small_tcn` / `smaller_tcn` / `tcn_lstm` and were renamed during the writeup to the deployed `tcn` / `tcn_s` / `tcn_l` triple registered in `src/nn/variants.toml`. A few files still carry the old names:
+
+- `src/exp/complexity/config.toml` (`models = [..., "small_tcn", "smaller_tcn", "tcn_lstm"]`) and `src/exp/complexity/cli.py` (palette and label entries around lines 48–60). `RUNNERS` no longer resolves these names, so `complexity run` cannot be re-executed without an edit. The historical `src/exp/complexity/results/complexity_t1.{md,svg}` and `notes.md` are the original run's outputs and still use the old labels; the thesis quotes the same numbers under the renamed labels in `tab:complexity_t1_results`.
+- `results/small_tcn.eval` (and the matching `_scores.npz`) — kept on disk for the historical complexity run. The deployed lineup quoted by the thesis is DT, GMM, SVM, TCN, TCN-S, TCN-L.
+- `src/exp/tcn_temporal_head/` keeps `tcn_lstm` as a local variant name in its own `config.toml` and `results/` (`tcn_tcn_lstm.eval`). This is the experiment's internal naming, not stale: the LSTM-head winner was promoted out of this experiment and renamed TCN-L, but the experiment's own bookkeeping is self-contained.

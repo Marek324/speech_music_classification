@@ -1,5 +1,6 @@
 # scripts/dataset/crit/make_switching.py
-# Marek Hric
+# Author: Marek Hric
+# The help of code assistant was used during implementation of this file.
 
 """Generate fast-switching speech↔music crit clips with content variation.
 
@@ -156,7 +157,6 @@ def main() -> None:
     if removed:
         print(f"stripped {removed} stale 2-class switching entry(ies) from {manifest_path.name}")
 
-    # Load all speech sources once; compute mean active-RMS as the speech reference.
     speech_data: dict[int, tuple[np.ndarray, list[tuple[int, int]]]] = {}
     for idx in SPEECH_INDICES:
         audio, labs = _load_source_speech(idx)
@@ -165,7 +165,6 @@ def main() -> None:
     speech_target_rms = float(np.mean([_speech_active_rms(a, l) for a, l in speech_data.values()]))
     print(f"speech reference rms (mean across speakers): {speech_target_rms:.4f}")
 
-    # Load + RMS-match each music genre to the speech reference.
     music_data: dict[str, np.ndarray] = {}
     for fname in MUSIC_FILENAMES:
         path = SCRIPT_DIR / "sources" / "music" / fname
@@ -176,8 +175,6 @@ def main() -> None:
         music_data[fname] = audio
         print(f"music {fname}: {len(audio) / SR:.2f} s  rms_after_match={_rms(audio):.4f}")
 
-    # Single peak-normalisation pass across every source so the cross-source level
-    # ratios are preserved; if any one source clips, scale all of them down.
     peak = max(
         max(float(np.max(np.abs(a))) for a, _ in speech_data.values()),
         max(float(np.max(np.abs(a))) for a in music_data.values()),
@@ -197,8 +194,6 @@ def main() -> None:
     for cadence_ms in CADENCES_MS:
         seg_samples = int(cadence_ms * SR / 1000)
         for variant in range(N_VARIANTS):
-            # Relatively prime strides across (variant, source) so coverage of
-            # (speaker, genre) pairings differs cleanly per variant.
             speech_start = variant % len(SPEECH_INDICES)
             music_start = (variant * 3) % len(MUSIC_FILENAMES)
 
@@ -219,7 +214,7 @@ def main() -> None:
                     audio, src_labels = speech_data[idx]
                     spos = speech_positions[idx]
                     if spos + n > len(audio):
-                        spos = 0  # wrap within this speaker's source
+                        spos = 0
                     out[pos:end] = audio[spos : spos + n]
                     src_pos_ms = int(round(spos * 1000 / SR))
                     turn_dur_ms = int(round(n * 1000 / SR))

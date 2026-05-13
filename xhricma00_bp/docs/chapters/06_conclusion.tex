@@ -1,0 +1,72 @@
+\chapter{Conclusion}
+\label{cap:conclusion}
+
+This chapter summarizes the work, its contributions, its limitations, and directions for follow-up work.
+
+\section{Summary}
+\label{sec:conclusion_summary}
+
+The primary goal of this thesis was to design and implement a real-time speech and music classifier.
+The real-time requirement invited strict causality as the self-imposed constraint.
+The reference methods address this task as 2-class speech-vs-music, and this thesis extends them to a 3-class formulation (\emph{Speech}, \emph{Music}, \emph{Background}) by adding silence and ambient noise as a third class.
+
+A deterministic dataset construction pipeline was developed and produced a $\sim 100$-hour training dataset from four public sources, paired with a manually labeled critical subset for behavioral review.
+Four reference classifiers from the literature were implemented: a decision tree from Lavner and Ruinskiy, a Gaussian mixture model and a support vector machine from Khonglah and Prasanna, and a causal Temporal Convolutional Network (TCN) from Lemaire and Holzapfel.
+The causal TCN reached macro F1 score $0.9752$, ten percentage points above the strongest traditional reference.
+
+Two experimental phases followed.
+The effectiveness phase explored the TCN's design dimensions and produced TCN-L ($\sim 389$\,K parameters, macro F1 score $0.9846$) as the representative high-capacity variant at roughly $12\times$ the reference parameter count.
+
+After it became clear that further accuracy gains required much larger models, the cost phase reversed direction and asked how much computational cost could be shed at comparable accuracy.
+That phase produced \textbf{TCN-S} ($\sim 4.6$\,K parameters, macro F1 score $0.9722$), which matches the reference TCN within $0.003$ macro F1 score at $1/7$ the parameter count and roughly $21\times$ less per-frame compute.
+A single-thread CPU benchmark confirmed that every implemented classifier runs above $2\times$ real-time, with TCN-S leading the family at $5.3\times$.
+
+\section{Contributions}
+\label{sec:conclusion_contributions}
+
+The primary contribution of this thesis is the proposed \textbf{TCN-S}, a causal classifier ($\sim 4.6$\,K parameters) that matches the reference TCN within $0.003$ macro F1 score at $1/7$ the parameter count and roughly $21\times$ less per-frame compute.
+A second contribution is the \textbf{dataset construction pipeline}: a deterministic build that produced the $\sim 100$-hour training dataset from four public sources, designed so that adding new sources or download adapters extends the dataset without redesigning the pipeline.
+
+The remaining contributions support the two above:
+\begin{itemize}
+    \item \textbf{Implementations of three traditional references} extended from 2-class to 3-class streaming: a decision tree from Lavner and Ruinskiy, and a Gaussian mixture model and a support vector machine from Khonglah and Prasanna.
+    \item \textbf{Causal TCN implementation} following Lemaire and Holzapfel, plus the derived TCN-L ($\sim 389$\,K parameters, macro F1 score $0.9846$) as a high-accuracy comparison point.
+    \item \textbf{Systematic experimental program} over the TCN's design space: sensitivity ablation, spectral frontend, learned preprocessor, alternative backbones, combined variants, temporal heads, and the cost-reduction sweep that derives TCN-S.
+    \item \textbf{Cross-model analyses}: a single-thread CPU benchmark, symbolic complexity metrics (parameters, streaming MACs, receptive field), and a critical-subset walk-through for manual behavioral review.
+\end{itemize}
+
+The poster and presentation video required by the assignment are submitted alongside the thesis, together with the source code needed to reproduce or build upon it.
+
+\section{Limitations}
+\label{sec:conclusion_limitations}
+
+Two main limitations of this work are noted below.
+
+\textbf{Per-model frame-length differences.}
+Each implemented model emits decisions at its own cadence: $10\,\text{ms}$ for the decision tree, $15\,\text{ms}$ for GMM and SVM, and $23.2\,\text{ms}$ for the TCN family.
+These hops follow each model's on-line adaptation rather than the reference papers verbatim, and they make the decision tree's predictions look more jittery in side-by-side timeline plots than the others, even when accuracy is comparable.
+A uniform-frame-rate re-evaluation (\Cref{sec:conclusion_future}) would remove this artifact.
+
+\textbf{Dataset coverage gap on \emph{Background}.}
+The critical-subset review (\Cref{subsec:exp_critical_results}) surfaced a gap in the assembled dataset: ambient sounds the classifier cannot recognize collapse onto \emph{Music}, and TCN-S keeps that label even when speech enters the mix.
+The gap traces to the limited \emph{Background} variety in the public sources used and is the main motivation for dataset expansion described in \Cref{sec:conclusion_future}.
+
+
+\section{Follow-up work}
+\label{sec:conclusion_future}
+
+The work leaves several directions open for follow-up. Three are outlined below.
+
+\textbf{Dataset expansion.}
+The assembled dataset is large enough to support training but does not yet cover the full variety of inputs the classifier will encounter, with \emph{Background} as the most prominent gap.
+Expanding training coverage across all three classes may allow a re-trained classifier to close most of the visible robustness gap.
+A separate evaluation dataset drawn from sources disjoint from the training set would in turn quantify generalization beyond the training distribution.
+
+\textbf{Codec integration and perceptual-quality testing.}
+The natural next step is integration into a speech or audio codec, e.g., the speech/music classifier of EVS~\cite{dietz2015evs}, where TCN-S sits well within the codec's per-frame CPU budget.
+A codec variant that swaps in a classifier from this thesis can then be compared against the production setup by objective and subjective perceptual-quality testing.
+This comparison answers the question macro F1 score cannot: whether the proposed classifier yields a better-sounding codec, not just a better-scoring classifier.
+
+\textbf{Uniform frame-rate evaluation.}
+The implemented classifiers emit decisions at different cadences (\Cref{sec:conclusion_limitations}).
+Re-evaluating every model at one shared frame rate would normalize the visual cadence in side-by-side timeline plots and the per-frame metric weighting, removing the jitter artifact.

@@ -1,3 +1,6 @@
+# scripts/visualizations/transitions_latency.py
+# Author: Marek Hric
+# The help of code assistant was used during implementation of this file.
 """Two-class switching latency heatmap (median ms by model × cadence).
 
 Replaces tab:transitions_2class_latency in ch6 §sec:exp_transitions_results.
@@ -17,11 +20,6 @@ import numpy as np
 
 from _common import save_svg, setup_style
 
-# Median latency (ms) and miss-rate (%) from
-# src/exp/transitions/results/transitions.md (Speech ↔ Music section).
-# A median of 0 paired with a high miss rate reads as "model usually
-# catches transition immediately or never" — the miss column carries
-# that nuance.
 CADENCES = [500, 1000, 2000, 4000]
 MODELS = ["DT", "TCN-L", "TCN", "TCN-S", "GMM", "SVM"]
 LATENCY = {
@@ -53,7 +51,6 @@ def main():
         vmin=0, vmax=350,
     )
 
-    # Annotate each cell with median ms and (in smaller font) miss rate.
     for i, _ in enumerate(MODELS):
         for j, _ in enumerate(CADENCES):
             v = matrix[i, j]
