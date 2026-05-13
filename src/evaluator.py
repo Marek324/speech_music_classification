@@ -1,4 +1,4 @@
-# evaluator.py
+# src/evaluator.py
 # Marek Hric
 
 import logging
@@ -21,7 +21,7 @@ from .common import subclass_primary
 
 log = logging.getLogger(__name__)
 
-LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Inactive"}
+LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Background"}
 
 from .seed import RAND_SEED as BOOTSTRAP_SEED
 
@@ -49,6 +49,7 @@ class SubclassMetrics:
 
 
 def _device_label(is_cuda: bool) -> str:
+    """Return a human-readable device name (CUDA model or CPU model from /proc/cpuinfo)."""
     if is_cuda:
         try:
             import torch
@@ -105,6 +106,7 @@ def _fmt_ci(ci: tuple[float, float] | None) -> str:
 
 
 def _fmt_eval(res: EvalResults) -> str:
+    """Format the main evaluation block (header, per-class table, confusion matrix)."""
     lines = []
     title = "── Evaluation "
     lines.append(title + "─" * max(0, 50 - len(title)))
@@ -142,6 +144,7 @@ def _fmt_eval(res: EvalResults) -> str:
 
 
 def _fmt_subclass_table(by_subclass: Dict[str, SubclassMetrics]) -> str:
+    """Format the per-subclass F1/P/R table; empty string if no subclass data."""
     if not by_subclass:
         return ""
     lines = ["── By subclass " + "─" * 36]
@@ -153,6 +156,7 @@ def _fmt_subclass_table(by_subclass: Dict[str, SubclassMetrics]) -> str:
 
 
 def format_report(res: EvalResults) -> str:
+    """Render the full evaluation report (timestamp, main table, subclass table) as a string."""
     ts = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     return "\n\n".join([
         f"Evaluation report — {ts}",
@@ -269,6 +273,7 @@ def _compute_metrics(
     macro_f1_ci: tuple[float, float] | None = None,
     per_class_f1_ci: Dict[int, tuple[float, float]] | None = None,
 ) -> EvalResults:
+    """Aggregate sklearn metrics + optional AUROC/CIs into an EvalResults instance."""
     f1_per = f1_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
     prec_per = precision_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
     rec_per = recall_score(y_true, y_pred, labels=eval_labels, average=None, zero_division=0)
@@ -330,13 +335,13 @@ def run_evaluation(
 ) -> EvalResults:
     """
     Main evaluation entry point. Computes metrics and optionally saves report.
-    Labels: -1=speech, 1=music, 2=inactive.
+    Labels: -1=speech, 1=music, 2=background.
 
     *output_dir* overrides the default ``repo_root/results/`` save location.
     Pass it to route experiment results into experiment-specific subdirectories.
 
     *y_scores*: optional (N, 3) array of continuous scores (columns: speech,
-    music, inactive). If provided and *save_to_file* is True, saved as
+    music, background). If provided and *save_to_file* is True, saved as
     ``<output_name>_scores.npz`` alongside the ``.eval`` report. Also used
     to compute macro AUROC.
 

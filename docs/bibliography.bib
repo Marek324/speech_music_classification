@@ -1,201 +1,122 @@
-@webpage{CognitechSystems2024,
-  author = {{Cognitech Systems}},
-  title = {AI Winters: Cycles of Boom and Bust in Artificial Intelligence},
-  year = {2024},
-  url = {https://www.cognitech.systems/blog/artificial-intelligence/entry/ai-winter-periods},
-  note = {Accessed: 2025-12-17}
-}
-@ARTICLE{Lavner2009-zo,
-  title     = "A decision-tree-based algorithm for speech/music classification
-               and segmentation",
+@article{lavner2009dt,
+  title     = "A decision-tree-based algorithm for speech/music classification and segmentation",
   author    = "Lavner, Yizhar and Ruinskiy, Dima",
-  abstract  = "We present an efficient algorithm for segmentation of audio
-               signals into speech or music. The central motivation to our
-               study is consumer audio applications, where various real-time
-               enhancements are often applied. The algorithm consists of a
-               learning phase and a classification phase. In the learning
-               phase, predefined training data is used for computing various
-               time-domain and frequency-domain features, for speech and music
-               signals separately, and estimating the optimal speech/music
-               thresholds, based on the probability density functions of the
-               features. An automatic procedure is employed to select the best
-               features for separation. In the test phase, initial
-               classification is performed for each segment of the audio
-               signal, using a three-stage sieve-like approach, applying both
-               Bayesian and rule-based methods. To avoid erroneous rapid
-               alternations in the classification, a smoothing technique is
-               applied, averaging the decision on each segment with past
-               segment decisions. Extensive evaluation of the algorithm, on a
-               database of more than 12 hours of speech and more than 22 hours
-               of music showed correct identification rates of 99.4\% and
-               97.8\%, respectively, and quick adjustment to alternating
-               speech/music sections. In addition to its accuracy and
-               robustness, the algorithm can be easily adapted to different
-               audio types, and is suitable for real-time operation.",
-  journal   = "EURASIP J. Audio Speech Music Process.",
+  journal   = "EURASIP Journal on Audio, Speech, and Music Processing",
   publisher = "Springer Nature",
   volume    =  2009,
+  number    = "239892",
   pages     = "1--14",
-  year      =  2009
+  year      =  2009,
+  issn      = "1687-4722",
+  doi       = "10.1155/2009/239892"
 }
-@article{KHONGLAH201671,
+@article{khonglah2016gmmsvm,
 title = {Speech / music classification using speech-specific features},
 journal = {Digital Signal Processing},
 volume = {48},
 pages = {71-83},
 year = {2016},
 issn = {1051-2004},
-doi = {https://doi.org/10.1016/j.dsp.2015.09.005},
+doi = {10.1016/j.dsp.2015.09.005},
 url = {https://www.sciencedirect.com/science/article/pii/S1051200415002730},
-author = {Banriskhem K. Khonglah and S.R. {Mahadeva Prasanna}},
-keywords = {Speech / music classification, Excitation source, Vocal tract system, Zero frequency filtered signal, Hilbert envelope},
-abstract = {This paper proposes the use of speech-specific features for speech / music classification. Features representing the excitation source, vocal tract system and syllabic rate of speech are explored. The normalized autocorrelation peak strength of zero frequency filtered signal, and peak-to-sidelobe ratio of the Hilbert envelope of linear prediction residual are the two source features. The log mel energy feature represents the vocal tract information. The modulation spectrum represents the slowly-varying temporal envelope corresponding to the speech syllabic rate. The novelty of the present work is in analyzing the behavior of these features for the discrimination of speech and music regions. These features are non-linearly mapped and combined to perform the classification task using a threshold based approach. Further, the performance of speech-specific features is evaluated using classifiers such as Gaussian mixture models, and support vector machines. It is observed that the performance of the speech-specific features is better compared to existing features. Additional improvement for speech / music classification is achieved when speech-specific features are combined with the existing ones, indicating different aspects of information exploited by the former.}
+author = {Khonglah, Banriskhem K. and Prasanna, S. R. Mahadeva},
+keywords = {Speech / music classification, Excitation source, Vocal tract system, Zero frequency filtered signal, Hilbert envelope}
 }
-@article{BENZEGHIBA2007763,
+@article{benzeghiba2007asr,
 title = {Automatic speech recognition and speech variability: A review},
 journal = {Speech Communication},
 volume = {49},
-number = {10},
+number = {10-11},
 pages = {763-786},
 year = {2007},
 note = {Intrinsic Speech Variations},
 issn = {0167-6393},
-doi = {https://doi.org/10.1016/j.specom.2007.02.006},
+doi = {10.1016/j.specom.2007.02.006},
 url = {https://www.sciencedirect.com/science/article/pii/S0167639307000404},
 author = {M. Benzeghiba and R. {De Mori} and O. Deroo and S. Dupont and T. Erbes and D. Jouvet and L. Fissore and P. Laface and A. Mertins and C. Ris and R. Rose and V. Tyagi and C. Wellekens},
-keywords = {Speech recognition, Speech analysis, Speech modeling, Speech intrinsic variations},
-abstract = {Major progress is being recorded regularly on both the technology and exploitation of automatic speech recognition (ASR) and spoken language systems. However, there are still technological barriers to flexible solutions and user satisfaction under some circumstances. This is related to several factors, such as the sensitivity to the environment (background noise), or the weak representation of grammatical and semantic knowledge. Current research is also emphasizing deficiencies in dealing with variation naturally present in speech. For instance, the lack of robustness to foreign accents precludes the use by specific populations. Also, some applications, like directory assistance, particularly stress the core recognition technology due to the very high active vocabulary (application perplexity). There are actually many factors affecting the speech realization: regional, sociolinguistic, or related to the environment or the speaker herself. These create a wide range of variations that may not be modeled correctly (speaker, gender, speaking rate, vocal effort, regional accent, speaking style, non-stationarity, etc.), especially when resources for system training are scarce. This paper outlines current advances related to these topics.}
+keywords = {Speech recognition, Speech analysis, Speech modeling, Speech intrinsic variations}
 }
-@misc{ren2024fewertokenneuralspeechcodec,
-      title={Fewer-token Neural Speech Codec with Time-invariant Codes}, 
-      author={Yong Ren and Tao Wang and Jiangyan Yi and Le Xu and Jianhua Tao and Chuyuan Zhang and Junzuo Zhou},
-      year={2024},
-      eprint={2310.00014},
-      archivePrefix={arXiv},
-      primaryClass={cs.SD},
-      url={https://arxiv.org/abs/2310.00014}, 
+@article{neuendorf2013usac,
+  author = {Neuendorf, Max and Multrus, Markus and Rettelbach, Nikolaus and Fuchs, Guillaume and Robilliard, Julien and Lecomte, J{\'e}r{\'e}mie and Wilde, Stephan and Bayer, Stefan and Disch, Sascha and Helmrich, Christian and Lefebvre, Roch and Gournay, Philippe and Bessette, Bruno and Lapierre, Jimmy and Kj{\"o}rling, Kristofer and Purnhagen, Heiko and Villemoes, Lars and Oomen, Werner and Schuijers, Erik and Kikuiri, Kei and Chinen, Toru and Norimatsu, Takeshi and Chong, Kok Seng and Oh, Eunmi and Kim, Miyoung and Quackenbush, Schuyler and Grill, Bernhard},
+  title = {The {ISO/MPEG} Unified Speech and Audio Coding Standard---Consistent High Quality for All Content Types and at All Bit Rates},
+  journal = {Journal of the Audio Engineering Society},
+  volume = {61},
+  number = {12},
+  pages = {956--977},
+  year = {2013},
+  issn = {1549-4950},
+  url = {https://www.aes.org/e-lib/browse.cfm?elib=17074}
 }
-@misc{jia2025practicalrealtimeneuralvideo,
-      title={Towards Practical Real-Time Neural Video Compression}, 
-      author={Zhaoyang Jia and Bin Li and Jiahao Li and Wenxuan Xie and Linfeng Qi and Houqiang Li and Yan Lu},
-      year={2025},
-      eprint={2502.20762},
-      archivePrefix={arXiv},
-      primaryClass={eess.IV},
-      url={https://arxiv.org/abs/2502.20762}, 
-}
-@inproceedings{samouelian1998speech,
-  title={Speech, silence, music and noise classification of TV broadcast material.},
-  author={Samouelian, Ara and Robert-Ribes, Jordi and Plumpe, Mike},
-  booktitle={ICSLP},
-  year={1998}
-}
-@INPROCEEDINGS{543290,
+@inproceedings{saunders1996realtime,
   author={Saunders, J.},
   booktitle={1996 IEEE International Conference on Acoustics, Speech, and Signal Processing Conference Proceedings}, 
   title={Real-time discrimination of broadcast speech/music}, 
   year={1996},
   volume={2},
-  number={},
-  pages={993-996 vol. 2},
+  pages={993-996},
   keywords={Speech;Multiple signal classification;Radio broadcasting;Monitoring;Frequency;Cost function;Automatic control;Surveillance;Instruments;Bandwidth},
-  doi={10.1109/ICASSP.1996.543290}
+  doi={10.1109/ICASSP.1996.543290},
+  publisher={IEEE},
+  address={Atlanta, GA, USA}
 }
-@misc{gong2021astaudiospectrogramtransformer,
-      title={AST: Audio Spectrogram Transformer}, 
-      author={Yuan Gong and Yu-An Chung and James Glass},
-      year={2021},
-      eprint={2104.01778},
-      archivePrefix={arXiv},
-      primaryClass={cs.SD},
-      url={https://arxiv.org/abs/2104.01778}, 
+@inproceedings{choi2016crnn,
+  title={Convolutional Recurrent Neural Networks for Music Classification},
+  author={Choi, Keunwoo and Fazekas, Gy{\"o}rgy and Sandler, Mark and Cho, Kyunghyun},
+  booktitle={2017 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={2392--2396},
+  year={2017},
+  doi={10.1109/ICASSP.2017.7952585},
+  publisher={IEEE},
+  address={New Orleans, LA, USA}
 }
-@misc{choi2016convolutionalrecurrentneuralnetworks,
-      title={Convolutional Recurrent Neural Networks for Music Classification}, 
-      author={Keunwoo Choi and George Fazekas and Mark Sandler and Kyunghyun Cho},
-      year={2016},
-      eprint={1609.04243},
-      archivePrefix={arXiv},
-      primaryClass={cs.NE},
-      url={https://arxiv.org/abs/1609.04243}, 
-}
-@misc{vaswani2023attentionneed,
-      title={Attention Is All You Need}, 
-      author={Ashish Vaswani and Noam Shazeer and Niki Parmar and Jakob Uszkoreit and Llion Jones and Aidan N. Gomez and Lukasz Kaiser and Illia Polosukhin},
-      year={2023},
-      eprint={1706.03762},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/1706.03762}, 
-}
-@misc{baevski2020wav2vec20frameworkselfsupervised,
-      title={wav2vec 2.0: A Framework for Self-Supervised Learning of Speech Representations}, 
-      author={Alexei Baevski and Henry Zhou and Abdelrahman Mohamed and Michael Auli},
-      year={2020},
-      eprint={2006.11477},
-      archivePrefix={arXiv},
-      primaryClass={cs.CL},
-      url={https://arxiv.org/abs/2006.11477}, 
-}
-@misc{radford2022robustspeechrecognitionlargescale,
-      title={Robust Speech Recognition via Large-Scale Weak Supervision}, 
-      author={Alec Radford and Jong Wook Kim and Tao Xu and Greg Brockman and Christine McLeavey and Ilya Sutskever},
-      year={2022},
-      eprint={2212.04356},
-      archivePrefix={arXiv},
-      primaryClass={eess.AS},
-      url={https://arxiv.org/abs/2212.04356}, 
-}
-@misc{bhattacharjee2018timefrequencyaudiofeaturesspeechmusic,
-      title={Time-Frequency Audio Features for Speech-Music Classification}, 
-      author={Mrinmoy Bhattacharjee and S. R. M. Prasanna and Prithwijit Guha},
-      year={2018},
-      eprint={1811.01222},
-      archivePrefix={arXiv},
-      primaryClass={eess.AS},
-      url={https://arxiv.org/abs/1811.01222}, 
-}
-@book{Eyben2016,
+@book{eyben2016realtime,
   title = {Real-time Speech and Music Classification by Large Audio Feature Space Extraction},
-  ISBN = {9783319272993},
+  ISBN = {978-3-319-27298-6},
   ISSN = {2190-5061},
   url = {http://dx.doi.org/10.1007/978-3-319-27299-3},
   DOI = {10.1007/978-3-319-27299-3},
-  journal = {Springer Theses},
+  series = {Springer Theses},
   publisher = {Springer International Publishing},
+  address = {Cham, Switzerland},
   author = {Eyben,  Florian},
   year = {2016}
 }
-@misc{drossos2020soundeventdetectiondepthwise,
-      title={Sound Event Detection with Depthwise Separable and Dilated Convolutions}, 
-      author={Konstantinos Drossos and Stylianos I. Mimilakis and Shayan Gharib and Yanxiong Li and Tuomas Virtanen},
-      year={2020},
-      eprint={2002.00476},
-      archivePrefix={arXiv},
-      primaryClass={cs.SD},
-      url={https://arxiv.org/abs/2002.00476}, 
+@article{tzanetakis2002gtzan,
+  author={Tzanetakis, G. and Cook, P.},
+  title={Musical Genre Classification of Audio Signals},
+  journal={IEEE Transactions on Speech and Audio Processing},
+  year={2002},
+  volume={10},
+  number={5},
+  pages={293--302},
+  doi={10.1109/TSA.2002.800560},
+  publisher={IEEE}
 }
-@INPROCEEDINGS{596192,
+@inproceedings{scheirer1997discriminator,
   author={Scheirer, E. and Slaney, M.},
-  booktitle={1997 IEEE International Conference on Acoustics, Speech, and Signal Processing}, 
-  title={Construction and evaluation of a robust multifeature speech/music discriminator}, 
+  booktitle={1997 IEEE International Conference on Acoustics, Speech, and Signal Processing},
+  title={Construction and evaluation of a robust multifeature speech/music discriminator},
   year={1997},
   volume={2},
-  number={},
-  pages={1331-1334 vol.2},
+  pages={1331-1334},
   keywords={Robustness;Speech analysis;Multiple signal classification;Automatic speech recognition;Band pass filters;Energy measurement;Milling machines;Real time systems;System performance;Multimedia systems},
-  doi={10.1109/ICASSP.1997.596192}}
-@article{article,
-author = {Ahmed, Ghayas and Lawaye, Aadil},
-year = {2023},
-month = {11},
-pages = {},
-title = {End-to-end ASR framework for Indian-English accent: using speech CNN-based segmentation},
-volume = {26},
-journal = {International Journal of Speech Technology},
-doi = {10.1007/s10772-023-10053-w}
+  doi={10.1109/ICASSP.1997.596192},
+  publisher={IEEE},
+  address={Munich, Germany}
 }
-@article{PUDIL19941119,
+@article{thiemann2013demand,
+author = {Thiemann, Joachim and Ito, Nobutaka and Vincent, Emmanuel},
+year = {2013},
+month = {06},
+volume = {19},
+number = {1},
+pages = {035081},
+title = {The Diverse Environments Multi-channel Acoustic Noise Database (DEMAND): A database of multichannel environmental noise recordings},
+journal = {Proceedings of Meetings on Acoustics},
+doi = {10.1121/1.4799597},
+issn = {1939-800X}
+}
+@article{pudil1994floating,
 title = {Floating search methods in feature selection},
 journal = {Pattern Recognition Letters},
 volume = {15},
@@ -203,41 +124,49 @@ number = {11},
 pages = {1119-1125},
 year = {1994},
 issn = {0167-8655},
-doi = {https://doi.org/10.1016/0167-8655(94)90127-9},
+doi = {10.1016/0167-8655(94)90127-9},
 url = {https://www.sciencedirect.com/science/article/pii/0167865594901279},
 author = {P. Pudil and J. Novovičová and J. Kittler},
-keywords = {Pattern recognition, Feature selection, Feature ordering, Search methods},
-abstract = {Sequential search methods characterized by a dynamically changing number of features included or eliminated at each step, henceforth “floating” methods, are presented. They are shown to give very good results and to be computationally more effective than the branch and bound method.}
+keywords = {Pattern recognition, Feature selection, Feature ordering, Search methods}
 }
-@article{ALSHOSHAN200695,
+@article{alshoshan2006review,
 title = {Speech and Music Classification and Separation: A Review},
 journal = {Journal of King Saud University - Engineering Sciences},
 volume = {19},
 number = {1},
-pages = {95-132},
+pages = {95-133},
 year = {2006},
 issn = {1018-3639},
-doi = {https://doi.org/10.1016/S1018-3639(18)30850-X},
+doi = {10.1016/S1018-3639(18)30850-X},
 url = {https://www.sciencedirect.com/science/article/pii/S101836391830850X},
-author = {Abdullah I. Al-Shoshan},
-abstract = {The classification and separation of speech and music signals have attracted attention by many researchers. The purpose of the classification process is needed to build two different libraries: speech library and music library, from a stream of sounds. However, the separation process is needed in a cocktail-party problem to separate speech from music and remove the undesired one. In this paper, a review of the existing classification and separation algorithms is presented and discussed. The classification algorithms will be divided into three categories: time-domain, frequency-domain, and time-frequency domain approaches. The time-domain approaches used in literature are: the zero-crossing rate (ZCR), the short-time energy (STE), the ZCR and the STE with positive derivative, with some of their modified versions, the variance of the roll-off, and the neural networks. The frequency-domain approaches are mainly based on: spectral centroid, variance of the spectral centroid, spectral flux, variance of the spectral flux, roll-off of the spectrum, cepstral residual, and the delta pitch. The time-frequency domain approaches have not been yet tested thoroughly in literature; so, the spectrogram and the evolutionary spectrum will be introduced. Also, some new algorithms dealing with music and speech separation and segregation processes will be presented.}
+author = {Abdullah I. Al-Shoshan}
 }
-@misc{bai2018empiricalevaluationgenericconvolutional,
+@unpublished{bai2018tcn,
       title={An Empirical Evaluation of Generic Convolutional and Recurrent Networks for Sequence Modeling},
       author={Shaojie Bai and J. Zico Kolter and Vladlen Koltun},
       year={2018},
-      eprint={1803.01271},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/1803.01271}
+      note={arXiv preprint arXiv:1803.01271 [cs.LG]},
+      url={https://arxiv.org/abs/1803.01271},
+      cited={2026-04-19}
 }
-@inproceedings{lemaire2019tcnspeechmusic,
+@inproceedings{lemaire2019tcn,
       title={Temporal Convolutional Networks for Speech and Music Detection in Radio Broadcast},
       author={Quentin Lemaire and Andre Holzapfel},
       booktitle={Proceedings of the 20th International Society for Music Information Retrieval Conference (ISMIR)},
       year={2019},
       address={Delft, The Netherlands},
-      pages={229--236}
+      pages={229--236},
+      editor={Flexer, Arthur and Peeters, Geoffroy and Urbano, Juli{\'a}n and Volk, Anja},
+      publisher={ISMIR},
+      url={https://archives.ismir.net/ismir2019/paper/000026.pdf}
+}
+@Webpage{remy2018kerastcn,
+  author = {Philippe R{\'e}my},
+  title = {keras-tcn: {K}eras {T}emporal {C}onvolutional {N}etwork},
+  year = {2018},
+  howpublished = {GitHub repository},
+  url = {https://github.com/philipperemy/keras-tcn},
+  cited = {2026-05-07}
 }
 @inproceedings{schluter2015augmentation,
       title={Exploring Data Augmentation for Improved Singing Voice Detection with Neural Networks},
@@ -245,23 +174,21 @@ abstract = {The classification and separation of speech and music signals have a
       booktitle={Proceedings of the 16th International Society for Music Information Retrieval Conference (ISMIR)},
       year={2015},
       address={M{\'a}laga, Spain},
-      pages={121--126}
+      pages={121--126},
+      editor={M{\"u}ller, Meinard and Wiering, Frans},
+      publisher={ISMIR},
+      url={https://archives.ismir.net/ismir2015/paper/000264.pdf}
 }
-@article{BATHKE2004413,
-title = {The ANOVA F test can still be used in some balanced designs with unequal variances and nonnormal data},
-journal = {Journal of Statistical Planning and Inference},
-volume = {126},
-number = {2},
-pages = {413-422},
-year = {2004},
-issn = {0378-3758},
-doi = {https://doi.org/10.1016/j.jspi.2003.09.010},
-url = {https://www.sciencedirect.com/science/article/pii/S0378375803002787},
-author = {Arne Bathke},
-keywords = {Analysis of variance, Nonnormality, Type I error robustness, Unequal variances, Heteroscedasticity},
-abstract = {Consider the factorial ANOVA model with m fixed factors, interactions, and error terms that are not necessarily normally distributed. We examine the asymptotic sensitivity against unequal variances of the ANOVA F test statistics for testing main factor effects and interactions, under the assumption that the number of levels of one factor A1 tends to infinity while the number of levels is fixed for the other factors A2,…,Am, and the number of replications per factor level remains also finite. Heteroscedasticity is allowed across the levels of factors A2,…,Am. We show that the ANOVA F test on factor A1, designed for a homoscedastic model, can still be used in the presence of this form of heteroscedasticity. That is, as long as the variance of the error term does not depend on the level of factor A1, the F test for the main effect of factor A1 is asymptotically almost unaffected by different variances in different levels of the other factors. The theoretical results derived in this paper are supported by simulation studies.}
+@article{guyon2003featsel,
+  author = {Guyon, Isabelle and Elisseeff, Andr{\'e}},
+  title = {An Introduction to Variable and Feature Selection},
+  journal = {Journal of Machine Learning Research},
+  volume = {3},
+  pages = {1157--1182},
+  year = {2003},
+  issn = {1532-4435}
 }
-@ARTICLE{1451722,
+@article{makhoul1975lp,
   author={Makhoul, J.},
   journal={Proceedings of the IEEE},
   title={Linear prediction: A tutorial review},
@@ -272,28 +199,31 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
   keywords={Tutorial;Time series analysis;Frequency domain analysis;Control theory;Rhythm;Signal analysis;Econometrics;Statistics;Information analysis;Predictive models},
   doi={10.1109/PROC.1975.9792}
 }
-@incollection{HAN201283,
-  title = {3 - Data Preprocessing},
+@incollection{han2012preprocessing,
+  title = {Data Preprocessing},
   booktitle = {Data Mining: Concepts and Techniques (Third Edition)},
   publisher = {Morgan Kaufmann},
   edition = {Third Edition},
   address = {Boston},
+  chapter = {3},
   pages = {83-124},
   year = {2012},
   series = {The Morgan Kaufmann Series in Data Management Systems},
   isbn = {978-0-12-381479-1},
-  doi = {https://doi.org/10.1016/B978-0-12-381479-1.00003-4},
+  doi = {10.1016/B978-0-12-381479-1.00003-4},
   url = {https://www.sciencedirect.com/science/article/pii/B9780123814791000034},
   author = {Jiawei Han and Micheline Kamber and Jian Pei}
 }
-@misc{pedregosa2018scikitlearnmachinelearningpython,
+@article{pedregosa2011sklearn,
   title={Scikit-learn: Machine Learning in Python},
-  author={Fabian Pedregosa and Ga{\"e}l Varoquaux and Alexandre Gramfort and Vincent Michel and Bertrand Thirion and Olivier Grisel and Mathieu Blondel and Andreas M{\"u}ller and Joel Nothman and Gilles Louppe and Peter Prettenhofer and Ron Weiss and Vincent Dubourg and Jake Vanderplas and Alexandre Passos and David Cournapeau and Matthieu Brucher and Matthieu Perrot and {\'E}douard Duchesnay},
-  year={2018},
-  eprint={1201.0490},
-  archivePrefix={arXiv},
-  primaryClass={cs.LG},
-  url={https://arxiv.org/abs/1201.0490}
+  author={Pedregosa, Fabian and Varoquaux, Ga{\"e}l and Gramfort, Alexandre and Michel, Vincent and Thirion, Bertrand and Grisel, Olivier and Blondel, Mathieu and Prettenhofer, Peter and Weiss, Ron and Dubourg, Vincent and Vanderplas, Jake and Passos, Alexandre and Cournapeau, David and Brucher, Matthieu and Perrot, Matthieu and Duchesnay, {\'E}douard},
+  journal={Journal of Machine Learning Research},
+  volume={12},
+  number={85},
+  pages={2825--2830},
+  year={2011},
+  issn={1532-4435},
+  url={https://www.jmlr.org/papers/v12/pedregosa11a.html}
 }
 @book{bishop2006prml,
   author    = {Bishop, Christopher M.},
@@ -304,7 +234,7 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
   series    = {Information Science and Statistics},
   isbn      = {978-0-387-31073-2}
 }
-@ARTICLE{2020NumPy-Array,
+@article{harris2020numpy,
   author  = {Harris, Charles R. and Millman, K. Jarrod and
             van der Walt, St{\'e}fan J and Gommers, Ralf and
             Virtanen, Pauli and Cournapeau, David and
@@ -322,9 +252,11 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
   year    = {2020},
   volume  = {585},
   pages   = {357--362},
-  doi     = {10.1038/s41586-020-2649-2}
+  doi     = {10.1038/s41586-020-2649-2},
+  number  = {7825},
+  issn    = {1476-4687}
 }
-@ARTICLE{2020SciPy-NMeth,
+@article{virtanen2020scipy,
   author  = {Virtanen, Pauli and Gommers, Ralf and Oliphant, Travis E. and
             Haberland, Matt and Reddy, Tyler and Cournapeau, David and
             Burovski, Evgeni and Peterson, Pearu and Weckesser, Warren and
@@ -338,23 +270,28 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
             Harris, Charles R. and Archibald, Anne M. and
             Ribeiro, Ant{\^o}nio H. and Pedregosa, Fabian and
             {van Mulbregt}, Paul and {SciPy 1.0 Contributors}},
-  title   = {{{SciPy} 1.0: Fundamental Algorithms for Scientific
-            Computing in Python}},
+  title   = {SciPy 1.0: Fundamental Algorithms for Scientific Computing in Python},
   journal = {Nature Methods},
   year    = {2020},
   volume  = {17},
   pages   = {261--272},
-  doi     = {10.1038/s41592-019-0686-2}
+  doi     = {10.1038/s41592-019-0686-2},
+  number  = {3},
+  issn    = {1548-7091}
 }
-@inproceedings{McFee2015librosaAA,
+@inproceedings{mcfee2015librosa,
   title={librosa: Audio and Music Signal Analysis in Python},
-  author={Brian McFee and Colin Raffel and Dawen Liang and Daniel P. W. Ellis and Matt McVicar and Eric Battenberg and Oriol Nieto},
-  booktitle={SciPy},
+  author={McFee, Brian and Raffel, Colin and Liang, Dawen and Ellis, Daniel P. W. and McVicar, Matt and Battenberg, Eric and Nieto, Oriol},
+  booktitle={Proceedings of the 14th Python in Science Conference (SciPy)},
+  pages={18--24},
   year={2015},
-  url={https://api.semanticscholar.org/CorpusID:33504}
+  doi={10.25080/Majora-7b98e3ed-003},
+  editor={Huff, Kathryn and Bergstra, James},
+  publisher={SciPy},
+  address={Austin, TX, USA}
 }
 
-@article{rumelhart1986learning,
+@article{rumelhart1986backprop,
   author    = {Rumelhart, David E. and Hinton, Geoffrey E. and Williams, Ronald J.},
   title     = {Learning representations by back-propagating errors},
   journal   = {Nature},
@@ -365,7 +302,7 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
   doi       = {10.1038/323533a0}
 }
 
-@ARTICLE{726791,
+@article{lecun1998cnn,
   author={Lecun, Y. and Bottou, L. and Bengio, Y. and Haffner, P.},
   journal={Proceedings of the IEEE},
   title={Gradient-based learning applied to document recognition},
@@ -376,7 +313,7 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
   keywords={Neural networks;Pattern recognition;Machine learning;Optical character recognition software;Character recognition;Feature extraction;Multi-layer neural network;Optical computing;Hidden Markov models;Principal component analysis},
   doi={10.1109/5.726791}}
 
-@article{elman1990finding,
+@article{elman1990rnn,
   author    = {Elman, Jeffrey L.},
   title     = {Finding Structure in Time},
   journal   = {Cognitive Science},
@@ -387,7 +324,7 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
   doi       = {10.1207/s15516709cog1402_1}
 }
 
-@article{10.1162/neco.1997.9.8.1735,
+@article{hochreiter1997lstm,
     author = {Hochreiter, Sepp and Schmidhuber, J{\"u}rgen},
     title = {Long Short-Term Memory},
     journal = {Neural Computation},
@@ -401,12 +338,192 @@ abstract = {Consider the factorial ANOVA model with m fixed factors, interaction
     url = {https://doi.org/10.1162/neco.1997.9.8.1735}
 }
 
-@misc{paszke2019pytorchimperativestylehighperformance,
-      title={PyTorch: An Imperative Style, High-Performance Deep Learning Library},
-      author={Adam Paszke and Sam Gross and Francisco Massa and Adam Lerer and James Bradbury and Gregory Chanan and Trevor Killeen and Zeming Lin and Natalia Gimelshein and Luca Antiga and Alban Desmaison and Andreas K{\"o}pf and Edward Yang and Zach DeVito and Martin Raison and Alykhan Tejani and Sasank Chilamkurthy and Benoit Steiner and Lu Fang and Junjie Bai and Soumith Chintala},
-      year={2019},
-      eprint={1912.01703},
-      archivePrefix={arXiv},
-      primaryClass={cs.LG},
-      url={https://arxiv.org/abs/1912.01703}
+@inproceedings{paszke2019pytorch,
+  title={PyTorch: An Imperative Style, High-Performance Deep Learning Library},
+  author={Paszke, Adam and Gross, Sam and Massa, Francisco and Lerer, Adam and Bradbury, James and Chanan, Gregory and Killeen, Trevor and Lin, Zeming and Gimelshein, Natalia and Antiga, Luca and Desmaison, Alban and K{\"o}pf, Andreas and Yang, Edward and DeVito, Zach and Raison, Martin and Tejani, Alykhan and Chilamkurthy, Sasank and Steiner, Benoit and Fang, Lu and Bai, Junjie and Chintala, Soumith},
+  booktitle={Advances in Neural Information Processing Systems 32 (NeurIPS)},
+  pages={8024--8035},
+  year={2019},
+  editor={Wallach, H. and Larochelle, H. and Beygelzimer, A. and d'Alch{\'e}-Buc, F. and Fox, E. and Garnett, R.},
+  publisher={Curran Associates, Inc.},
+  address={Red Hook, NY, USA}
+}
+
+@inproceedings{defferrard2017fma,
+  title={FMA: A Dataset for Music Analysis},
+  author={Defferrard, Michal and Benzi, Kirell and Vandergheynst, Pierre and Bresson, Xavier},
+  booktitle={18th International Society for Music Information Retrieval Conference},
+  pages={316--323},
+  year={2017},
+  editor={Cunningham, Sally Jo and Duan, Zhiyao and Hu, Xiao and Turnbull, Douglas},
+  publisher={ISMIR},
+  address={Suzhou, China}
+}
+
+@inproceedings{panayotov2015librispeech,
+  title={Librispeech: an ASR corpus based on public domain audio books},
+  author={Panayotov, Vassil and Chen, Guoguo and Povey, Daniel and Khudanpur, Sanjeev},
+  booktitle={2015 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages={5206--5210},
+  year={2015},
+  doi={10.1109/ICASSP.2015.7178964},
+  publisher={IEEE},
+  address={South Brisbane, QLD, Australia}
+}
+
+@article{zhou2025ccmusic,
+  author  = {Monan Zhou and Shenyang Xu and Zhaorui Liu and Zhaowen Wang and Feng Yu and Wei Li and Baoqiang Han},
+  title   = {CCMusic: An Open and Diverse Database for Chinese Music Information Retrieval Research},
+  journal = {Transactions of the International Society for Music Information Retrieval},
+  volume  = {8},
+  number  = {1},
+  pages   = {22--38},
+  month   = {Mar},
+  year    = {2025},
+  url     = {https://doi.org/10.5334/tismir.194},
+  doi     = {10.5334/tismir.194},
+  issn    = {2514-3298},
+  publisher = {Ubiquity Press}
+}
+@inproceedings{plaquet2023diarization,
+  author={Plaquet, Alexis and Bredin, Herv\'e},
+  title={Powerset multi-class cross entropy loss for neural speaker diarization},
+  booktitle={Proc. INTERSPEECH 2023},
+  pages={3222--3226},
+  year={2023},
+  doi={10.21437/Interspeech.2023-205},
+  publisher={ISCA},
+  address={Dublin, Ireland},
+  url={https://www.isca-archive.org/interspeech_2023/plaquet23_interspeech.html}
+}
+@inproceedings{bredin2023pyannote,
+  author={Bredin, Herv\'e},
+  title={pyannote.audio 2.1 speaker diarization pipeline: principle, benchmark, and recipe},
+  booktitle={Proc. INTERSPEECH 2023},
+  pages={1983--1987},
+  year={2023},
+  doi={10.21437/Interspeech.2023-105},
+  publisher={ISCA},
+  address={Dublin, Ireland},
+  url={https://www.isca-archive.org/interspeech_2023/bredin23_interspeech.html}
+}
+@Webpage{silero2024vad,
+  author = {{Silero Team}},
+  title = {Silero {VAD}: Pre-Trained Enterprise-Grade Voice Activity Detector},
+  year = {2024},
+  howpublished = {GitHub repository},
+  url = {https://github.com/snakers4/silero-vad},
+  cited = {2026-04-21}
+}
+@inproceedings{kingma2015adam,
+  author = {Kingma, Diederik P. and Ba, Jimmy},
+  title = {Adam: A Method for Stochastic Optimization},
+  booktitle = {3rd International Conference on Learning Representations (ICLR)},
+  address = {San Diego, CA, USA},
+  year = {2015},
+  url = {https://arxiv.org/abs/1412.6980}
+}
+@inproceedings{ioffe2015batchnorm,
+  author = {Ioffe, Sergey and Szegedy, Christian},
+  title = {Batch Normalization: Accelerating Deep Network Training by Reducing Internal Covariate Shift},
+  booktitle = {Proceedings of the 32nd International Conference on Machine Learning (ICML)},
+  series = {Proceedings of Machine Learning Research},
+  volume = {37},
+  pages = {448--456},
+  publisher = {PMLR},
+  address = {Lille, France},
+  year = {2015}
+}
+@article{efron1979bootstrap,
+  author = {Efron, B.},
+  title = {Bootstrap Methods: Another Look at the Jackknife},
+  journal = {The Annals of Statistics},
+  volume = {7},
+  number = {1},
+  pages = {1--26},
+  year = {1979},
+  publisher = {Institute of Mathematical Statistics},
+  doi = {10.1214/aos/1176344552}
+}
+@book{davison1997bootstrap,
+  author    = {Davison, A. C. and Hinkley, D. V.},
+  title     = {Bootstrap Methods and their Application},
+  year      = {1997},
+  publisher = {Cambridge University Press},
+  address   = {Cambridge},
+  series    = {Cambridge Series in Statistical and Probabilistic Mathematics},
+  isbn      = {978-0-521-57471-6},
+  doi       = {10.1017/CBO9780511802843}
+}
+@article{dunn1961multiple,
+  author = {Dunn, Olive Jean},
+  title = {Multiple Comparisons among Means},
+  journal = {Journal of the American Statistical Association},
+  volume = {56},
+  number = {293},
+  pages = {52--64},
+  year = {1961},
+  publisher = {Taylor \& Francis},
+  doi = {10.1080/01621459.1961.10482090}
+}
+@article{sokolova2009measures,
+  author = {Sokolova, Marina and Lapalme, Guy},
+  title = {A Systematic Analysis of Performance Measures for Classification Tasks},
+  journal = {Information Processing \& Management},
+  volume = {45},
+  number = {4},
+  pages = {427--437},
+  year = {2009},
+  publisher = {Elsevier},
+  doi = {10.1016/j.ipm.2009.03.002}
+}
+@unpublished{bhattacharjee2018sps,
+      title={Time-Frequency Audio Features for Speech-Music Classification},
+      author={Mrinmoy Bhattacharjee and S. R. M. Prasanna and Prithwijit Guha},
+      year={2018},
+      note={arXiv preprint arXiv:1811.01222 [eess.AS]},
+      url={https://arxiv.org/abs/1811.01222},
+      cited={2026-05-09}
+}
+@inproceedings{hirvonen2014short,
+      title={Speech/Music Classification of Short Audio Segments},
+      author={Toni Hirvonen},
+      booktitle={2014 IEEE International Symposium on Multimedia},
+      year={2014},
+      address={Taichung, Taiwan},
+      pages={135--138},
+      publisher={IEEE Computer Society},
+      isbn={978-1-4799-4311-1},
+      doi={10.1109/ISM.2014.27},
+      url={https://ieeexplore.ieee.org/document/7033009/}
+}
+@article{furui1986dynamic,
+      author={Furui, S.},
+      title={Speaker-independent isolated word recognition using dynamic features of speech spectrum},
+      journal={IEEE Transactions on Acoustics, Speech, and Signal Processing},
+      year={1986},
+      volume={34},
+      number={1},
+      pages={52--59},
+      doi={10.1109/TASSP.1986.1164788}
+}
+@inproceedings{wang2017pcen,
+      author={Wang, Yuxuan and Getreuer, Pascal and Hughes, Thad and Lyon, Richard F. and Saurous, Rif A.},
+      title={Trainable Frontend for Robust and Far-Field Keyword Spotting},
+      booktitle={2017 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+      year={2017},
+      pages={5670--5674},
+      publisher={IEEE},
+      address={New Orleans, LA, USA},
+      doi={10.1109/ICASSP.2017.7953242}
+}
+@InProceedings{dietz2015evs,
+  author    = {Dietz, Martin and Multrus, Markus and Eksler, V{\'a}clav and Malenovsk{\'y}, Vladim{\'i}r and Norvell, Erik and Pobloth, Harald and Miao, Lei and Wang, Zhe and Laaksonen, Lasse and Vasilache, Adriana and Kamamoto, Yutaka and Kikuiri, Kei and Ragot, St{\'e}phane and Faure, Julien and Ehara, Hiroyuki and Rajendran, Vivek and Atti, Venkatraman and Sung, Hosang and Oh, Eunmi and Yuan, Hao and Zhu, Changbao},
+  title     = {Overview of the {EVS} codec architecture},
+  booktitle = {2015 IEEE International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  year      = {2015},
+  pages     = {5698--5702},
+  publisher = {IEEE},
+  address   = {South Brisbane, QLD, Australia},
+  doi       = {10.1109/ICASSP.2015.7179063}
 }

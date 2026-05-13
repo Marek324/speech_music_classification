@@ -1,3 +1,6 @@
+# scripts/dataset/crit/crit_config.py
+# Marek Hric
+
 """Critical-set manifest loader.
 
 Mirrors the shape of source_config.SourceEntry / load_sources, but for
@@ -12,14 +15,14 @@ from typing import Any, Literal, Optional
 
 
 _DETECTORS = ("vad", "music", "silence")
-_CLASSES = ("speech", "music", "inactive")
+_CLASSES = ("speech", "music", "background")
 
 
 @dataclass
 class CritEntry:
     name: str
     file: Path
-    cls: Literal["speech", "music", "inactive"]
+    cls: Literal["speech", "music", "background"]
     subclass: str
     detector: Optional[Literal["vad", "music", "silence"]] = None
     labels: Optional[list[dict[str, Any]]] = None

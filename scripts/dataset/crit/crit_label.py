@@ -1,3 +1,6 @@
+# scripts/dataset/crit/crit_label.py
+# Marek Hric
+
 """Auto-label a single audio file with silero VAD; emit manifest snippet.
 
 Workflow:
@@ -37,6 +40,7 @@ from _common import (
 
 
 def main() -> None:
+    """CLI entry point: VAD-label a speech clip, save resampled wav + labels TSV, print manifest snippet."""
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("speech_path", type=Path, help="path to the speech audio file")
     p.add_argument("--out", default=None, help="output name (default: SPEECH_PATH.stem)")

@@ -7,16 +7,16 @@
 # Dataset is NOT defined here; it's inherited from repo-root config.toml[dataset].
 # A variant may still override with a [variants.<name>.dataset] block if needed.
 
-[variants.tcn_lstm]
-display_name = "TCNLSTM"
-ui_label     = "TCN + LSTM"
-cli_group    = "tcn-lstm"
-group_help   = "TCNLSTM — delta2 frontend + conv1d preprocessor + TCN + LSTM tail (combined-experiment winner)."
-weights_stem = "lstm"
-subdir       = "tcn_lstm"
+[variants.tcn_l]
+display_name = "TCN-L"
+ui_label     = "TCN-L"
+cli_group    = "tcn-l"
+group_help   = "TCN-L — delta2 frontend + conv1d preprocessor + TCN + LSTM head (combined-experiment winner)."
+weights_stem = "l"
+subdir       = "tcn_l"
 
-[variants.tcn_lstm.tcn]
-name = "lstm"
+[variants.tcn_l.tcn]
+name = "l"
 frontend = "log_mel_delta2"
 sample_rate = 22050
 n_fft = 1024
@@ -32,7 +32,7 @@ batch_size = 32
 augment = true
 loss = "bce_with_logits"
 
-[variants.tcn_lstm.tcn.model]
+[variants.tcn_l.tcn.model]
 backbone = "tcn"
 preprocessor = "conv1d"
 n_filters = 16
@@ -44,19 +44,19 @@ dropout = 0.5
 n_classes = 3
 use_weight_norm = true
 activation = "relu"
-tail = "lstm"
-tail_width = 32
+temporal_head = "lstm"
+temporal_head_width = 32
 
-[variants.small_tcn]
-display_name = "SmallTCN"
-ui_label     = "Small TCN"
-cli_group    = "small-tcn"
-group_help   = "SmallTCN — small-footprint TCN: log_mel_delta2 + n_filters=8."
-weights_stem = "small"
-subdir       = "small_tcn"
+[variants.tcn_s]
+display_name = "TCN-S"
+ui_label     = "TCN-S"
+cli_group    = "tcn-s"
+group_help   = "TCN-S — small-footprint TCN: log_mel_delta2 + n_filters=8 + n_stacks=1 (RF=121 frames ≤ training seq_len=128)."
+weights_stem = "s"
+subdir       = "tcn_s"
 
-[variants.small_tcn.tcn]
-name = "small"
+[variants.tcn_s.tcn]
+name = "s"
 frontend = "log_mel_delta2"
 sample_rate = 22050
 n_fft = 1024
@@ -72,45 +72,7 @@ batch_size = 32
 augment = true
 loss = "bce_with_logits"
 
-[variants.small_tcn.tcn.model]
-backbone = "tcn"
-preprocessor = "none"
-n_filters = 8
-kernel_size = 5
-n_layers = 4
-n_stacks = 3
-n_heads = 4
-dropout = 0.5
-n_classes = 3
-use_weight_norm = true
-activation = "relu"
-
-[variants.smaller_tcn]
-display_name = "SmallerTCN"
-ui_label     = "Smaller TCN"
-cli_group    = "smaller-tcn"
-group_help   = "SmallerTCN — SmallTCN recipe with n_stacks=1 (RF=121 frames ≤ training seq_len=128)."
-weights_stem = "smaller"
-subdir       = "smaller_tcn"
-
-[variants.smaller_tcn.tcn]
-name = "smaller"
-frontend = "log_mel_delta2"
-sample_rate = 22050
-n_fft = 1024
-hop_length = 512
-n_mels = 80
-n_mfcc = 20
-f_min = 27.5
-f_max = 8000.0
-optimizer = "sgd"
-lr = 1e-3
-seq_len = 128
-batch_size = 32
-augment = true
-loss = "bce_with_logits"
-
-[variants.smaller_tcn.tcn.model]
+[variants.tcn_s.tcn.model]
 backbone = "tcn"
 preprocessor = "none"
 n_filters = 8

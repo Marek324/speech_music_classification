@@ -1,4 +1,4 @@
-# decisiontree.py
+# src/classic/decisiontree.py
 # Marek Hric
 
 import logging
@@ -17,6 +17,8 @@ log = logging.getLogger(__name__)
 
 
 class DecisionTree(ModelClass):
+    """3-class decision tree with exponential-forgetting smoothing over recent frame decisions."""
+
     name: str = "unnamed"
 
     def __init__(self, name: str, n_last_decisions: int = 30, decision_forget_factor: float= 0.9):
@@ -65,6 +67,7 @@ class DecisionTree(ModelClass):
         self.smoothing_weights = _weights / np.sum(_weights)
 
     def predict(self, frame: np.ndarray) -> int:
+        """Predict label for a single frame; updates and applies the decision-smoothing buffer."""
         probs = self.tree.predict_proba(frame.reshape(1, -1))[0]   # shape (n_classes,)
         self.last_decisions.append(probs)
 
@@ -77,6 +80,7 @@ class DecisionTree(ModelClass):
         return int(classes[np.argmax(smoothed)])
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
+        """Predict labels for all frames; smoothing is applied via 1D convolution per class."""
         probs = self.tree.predict_proba(X)      # (N, n_classes)
         classes = self.tree.named_steps['classifier'].classes_
         N, K = probs.shape

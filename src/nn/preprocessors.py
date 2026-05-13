@@ -1,4 +1,5 @@
-# nn/preprocessors.py
+# src/nn/preprocessors.py
+# Marek Hric
 # Preprocessor layers between frontend and backbone.
 # All preprocessors: forward(x: (B, n_features, T)) -> (B, n_features, T).
 # All preserve both n_features and T.

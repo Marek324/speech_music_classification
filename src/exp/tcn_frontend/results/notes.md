@@ -23,6 +23,6 @@ Sweep of fixed (non-learned) spectral front-ends feeding the baseline TCN (SGD, 
 
 **MFCC is essentially flat.** 20 and 40 cepstral coefficients land within 0.0012 of baseline. The DCT decorrelation isn't actively useful (TCN handles correlated channels fine) but isn't harmful either. With 4× fewer channels at `mfcc_20`, this is the cheapest frontend that doesn't regress — useful evidence that the bottleneck is not at the spectral representation.
 
-**PCEN loses.** Per-channel energy normalization, normally a robust choice, drops 2.2 pp. Plausibly because our log-mel stats are already z-normalized per-clip, and PCEN's AGC-like dynamics double-normalize the signal, stripping level cues the classifier was using (particularly for `inactive`/`noise` — F1 falls from 0.96 to 0.93 there).
+**PCEN loses.** Per-channel energy normalization, normally a robust choice, drops 2.2 pp. Plausibly because our log-mel stats are already z-normalized per-clip, and PCEN's AGC-like dynamics double-normalize the signal, stripping level cues the classifier was using (particularly for `background`/`noise` — F1 falls from 0.96 to 0.93 there).
 
 **Takeaway.** Adopt `log_mel_delta2` as the frontend. It stacks with preprocessor and capacity gains in the combined experiment.

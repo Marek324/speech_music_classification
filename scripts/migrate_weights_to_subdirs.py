@@ -1,9 +1,9 @@
 """One-shot: move existing weights/tcn_<name>.* into per-experiment subdirs.
 
 Why: until now every experiment wrote to ``weights/tcn_<variant>.safetensors``
-without an experiment scope, so a "baseline" variant in tcn_hybrid would
+without an experiment scope, so a "baseline" variant in tcn_temporal_head would
 overwrite (or get overwritten by) the same name in tcn_combined. The latter
-bug actually broke a tcn_hybrid run when it inherited 80-channel preprocess
+bug actually broke a tcn_temporal_head run when it inherited 80-channel preprocess
 stats from a tcn_combined log_mel baseline, while its own delta2 frontend
 expected 240 channels.
 

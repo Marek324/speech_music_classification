@@ -9,7 +9,7 @@ Reads `_scores.npz` files written by `smclassifier exp critical eval`
 `subclass` column with prefix `speech_switching_`:
 
 - **2-class** (Speech ↔ Music) — `speech_switching_<cadence>ms`
-- **3-class** (Speech ↔ Music ↔ Inactive) — `speech_switching_3class_<cadence>ms`
+- **3-class** (Speech ↔ Music ↔ Background) — `speech_switching_3class_<cadence>ms`
 
 Cadences analysed: 500 ms, 1000 ms, 2000 ms, 4000 ms. Models: TCN, TCN+LSTM, SmallTCN, SmallerTCN, DT, GMM, SVM.
 
@@ -76,7 +76,7 @@ _Clips per cadence: 500ms × 1, 1000ms × 1, 2000ms × 1, 4000ms × 1._
 | GMM | 0.99 | 1.23 | 1.12 | 1.10 |
 | SVM | 0.80 | 1.37 | 0.72 | 0.76 |
 
-## Speech ↔ Music ↔ Inactive
+## Speech ↔ Music ↔ Background
 
 _Clips per cadence: 500ms × 1, 1000ms × 1, 2000ms × 1, 4000ms × 1._
 

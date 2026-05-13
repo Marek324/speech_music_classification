@@ -1,4 +1,4 @@
-# tcn/config.py
+# src/nn/tcn/config.py
 # Marek Hric
 
 import tomli
@@ -78,7 +78,7 @@ def get_preprocess_stats_path(
 _MODEL_KEYS = frozenset([
     "backbone", "preprocessor", "n_filters", "kernel_size", "n_layers", "n_stacks",
     "n_heads", "dropout", "n_classes", "use_weight_norm", "skip_connections", "activation",
-    "tail", "tail_width",
+    "temporal_head", "temporal_head_width",
 ])
 _TOP_KEYS = frozenset([
     "frontend", "sample_rate", "n_fft", "hop_length", "n_mels", "n_mfcc",

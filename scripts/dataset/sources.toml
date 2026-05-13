@@ -95,7 +95,7 @@ filter_val     = 2
 
 [mid.demand]
 hf_id          = "voice-biomarkers/DEMAND-acoustic-noise"
-cls            = "inactive"
+cls            = "background"
 subclass       = ""
 target_minutes = 240.0
 detector       = "silence"
@@ -201,7 +201,7 @@ filter_val     = 2
 
 [full.demand]
 hf_id          = "voice-biomarkers/DEMAND-acoustic-noise"
-cls            = "inactive"
+cls            = "background"
 subclass       = ""
 target_minutes = 1200.0
 detector       = "silence"

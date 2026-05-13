@@ -1,4 +1,4 @@
-# input_handler.py
+# src/input_handler.py
 # Marek Hric
 
 import hashlib
@@ -53,6 +53,7 @@ def _is_local_dataset(ds_link: str) -> bool:
 
 
 def _local_parquet_shards(ds_root: Path, split: str) -> list[str]:
+    """Return sorted parquet shard paths for ``split`` under ``ds_root``."""
     shards = sorted(ds_root.joinpath(split).glob("*/part_*.parquet"))
     if not shards:
         raise FileNotFoundError(
@@ -143,6 +144,7 @@ class InputHandler:
     def _init_dataset_mode(
             self, ds_link: str, ds_split: str, ds_revision: str, ds_name: Optional[str] = None
     ) -> None:
+        """Load (or build + cache) frame features for the dataset split into X/y/subclasses/clip_ids."""
         if not ds_link:
             raise ValueError("Dataset mode requires ds_link")
 
@@ -272,6 +274,7 @@ class InputHandler:
         return labels_raw
 
     def _process_row(self, row: Dict[str, Any]) -> Dict[str, Any]:
+        """Decode one HF row to audio, slide frames, return per-frame features/labels/subclasses."""
         self.fextractor.reset()
         raw = row["audio"]
         if isinstance(raw, dict) and "array" not in raw:
@@ -346,6 +349,7 @@ class InputHandler:
         return self.clip_ids
 
     def summary(self) -> None:
+        """Log per-class and per-subclass frame counts and durations."""
         if self.mode != "dataset":
             log.info("Input Handler summary: %s mode, nothing to sum", self.mode)
             return

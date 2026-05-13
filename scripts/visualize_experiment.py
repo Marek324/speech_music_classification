@@ -2,7 +2,7 @@
 
 Produces a single PNG with 2–3 panels:
   1. Macro F1 bar chart (one bar per variant)
-  2. Per-class F1 grouped bars (Speech / Music / Inactive)
+  2. Per-class F1 grouped bars (Speech / Music / Background)
   3. CI whisker plot (only if bootstrap CIs exist in .eval files)
 """
 
@@ -127,8 +127,8 @@ def _plot_macro_f1(ax, names: list[str], data: dict):
 
 def _plot_per_class_f1(ax, names: list[str], data: dict):
     """Per-class F1 grouped bar chart."""
-    classes = ["speech", "music", "inactive"]
-    class_labels = ["Speech", "Music", "Inactive"]
+    classes = ["speech", "music", "background"]
+    class_labels = ["Speech", "Music", "Background"]
     converged = [n for n in names if n in data and not _is_diverged(data, n)]
     n = len(converged)
     if not n:

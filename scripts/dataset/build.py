@@ -1,3 +1,6 @@
+# scripts/dataset/build.py
+# Marek Hric
+
 """Build clips from Hugging Face sources (see notes.md, sources.toml).
 
 Music sources use pyannote voice activity + internal RMS gating; set HF_TOKEN and
@@ -5,12 +8,12 @@ accept https://hf.co/pyannote/voice-activity-detection .
 
 Layout (LibriSpeech-like: **config** = tier, then HF splits, then modality):
 
-  ``{staging}/{mid|full}/{train|validation|test}/{speech|music|inactive}/part_*.parquet``
+  ``{staging}/{mid|full}/{train|validation|test}/{speech|music|background}/part_*.parquet``
 
 The hand-curated `crit` tier ships alongside whichever HF tier is built and
 writes only a test split:
 
-  ``{staging}/crit/test/{speech|music|inactive}/part_*.parquet``
+  ``{staging}/crit/test/{speech|music|background}/part_*.parquet``
 
 ``--out-dir`` is the **staging parent** (default ``speech_music_dataset``); each run writes only its tier subfolder(s).
 
@@ -156,7 +159,7 @@ def _build_hf_tier(tier_key: TierName, staging: Path, *, smoke: bool) -> None:
     synth_min = tier_nominal_min - base_total_min
     m_speech = sum(e.target_minutes for e in entries if e.cls == "speech")
     m_music = sum(e.target_minutes for e in entries if e.cls == "music")
-    m_inact = sum(e.target_minutes for e in entries if e.cls == "inactive")
+    m_inact = sum(e.target_minutes for e in entries if e.cls == "background")
 
     print("=" * 60)
     mode = "SMOKE (1 row/source)" if smoke else "full"
@@ -166,10 +169,10 @@ def _build_hf_tier(tier_key: TierName, staging: Path, *, smoke: bool) -> None:
     )
     print(f"Output  : {data_dir.resolve()}")
     print(f"Sources : {len(entries)}")
-    print(f"Speech  : {m_speech:.0f} min   Music: {m_music:.0f} min   Inactive: {m_inact:.0f} min")
+    print(f"Speech  : {m_speech:.0f} min   Music: {m_music:.0f} min   Background: {m_inact:.0f} min")
     print("=" * 60)
 
-    modalities = ("speech", "music", "inactive")
+    modalities = ("speech", "music", "background")
     writers = {
         (m, s): SplitWriter(m, s, data_dir) for m in modalities for s in HF_SPLIT_NAMES
     }
@@ -234,7 +237,14 @@ def _build_crit_tier(staging: Path, *, smoke: bool) -> None:
     print(f"Manifest: {manifest_path}  ({len(crit_entries)} recording(s))")
     print("=" * 60)
 
-    modalities = ("speech", "music", "inactive")
+    modalities = ("speech", "music", "background")
+    # Crit tier is small and always rebuilt from manifest — clear any stale
+    # shards from previous runs so SplitWriter doesn't append duplicates.
+    for m in modalities:
+        mdir = data_dir / "test" / m
+        if mdir.exists():
+            for stale in mdir.glob("part_*.parquet"):
+                stale.unlink()
     # Test split only — no train/validation directories on disk.
     writers = {(m, "test"): SplitWriter(m, "test", data_dir) for m in modalities}
 
@@ -273,6 +283,7 @@ def _build_crit_tier(staging: Path, *, smoke: bool) -> None:
 
 
 def main():
+    """CLI entry point: parse tier flags and build the requested HF tier and/or crit tier."""
     seed_all()
 
     tier_help = ", ".join(

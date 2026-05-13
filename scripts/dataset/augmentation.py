@@ -1,3 +1,6 @@
+# scripts/dataset/augmentation.py
+# Marek Hric
+
 """Synthetic augmentations: multi-speaker, speech-over-music, speech-over-noise."""
 
 import io
@@ -39,6 +42,7 @@ def rms(audio: np.ndarray) -> float:
 
 
 def mix(speech: np.ndarray, music: np.ndarray) -> np.ndarray:
+    """Overlay tiled music onto speech at MUSIC_RELATIVE_DB below speech RMS, peak-protected."""
     target_rms = rms(speech) * (10 ** (MUSIC_RELATIVE_DB / 20))
     if len(music) == 0:
         music_adj = np.zeros(len(speech), dtype=np.float32)
@@ -60,6 +64,7 @@ def pydub_to_numpy(seg: AudioSegment) -> np.ndarray:
 
 
 def build_music_pool(pool_size: int, genres: tuple[str, ...]) -> list[np.ndarray]:
+    """Stream FMA clips for the given genres, decode to mono 16 kHz, and return a shuffled pool."""
     print(f"Building music pool ({pool_size} clips, {len(genres)} genres: {', '.join(genres)})...")
     per_genre = max(1, pool_size // len(genres))
     pool: list[np.ndarray] = []
@@ -92,6 +97,7 @@ def build_music_pool(pool_size: int, genres: tuple[str, ...]) -> list[np.ndarray
 
 
 def mix_with_noise(speech: np.ndarray, noise: np.ndarray, snr_db: float, rng: random.Random) -> np.ndarray:
+    """Overlay noise onto speech at the target SNR (in dB), peak-protected."""
     if len(noise) == 0:
         return speech.copy()
     if len(noise) > len(speech):
@@ -135,10 +141,13 @@ def collect_speech_refs(subclass: str, data_dir: Path) -> dict[str, list[tuple[P
 
 
 def collect_noise_refs(data_dir: Path) -> dict[str, list[tuple[Path, int]]]:
-    """Row refs under ``{config_dir}/{split}/inactive/``."""
+    """Row refs under ``{config_dir}/{split}/background/`` (legacy: ``inactive/``)."""
     result: dict[str, list[tuple[Path, int]]] = {"train": [], "validation": [], "test": []}
     for split in result:
-        root = data_dir / split / "inactive"
+        # Prefer the new directory name, fall back to the legacy one for pre-rename staging.
+        root = data_dir / split / "background"
+        if not root.exists():
+            root = data_dir / split / "inactive"
         if not root.exists():
             continue
         for path in sorted(root.glob("part_*.parquet")):
@@ -280,7 +289,7 @@ def generate_noisy_speech(
             print(f"  [WARN] No speech clips in {split}/speech/ — skipping")
             continue
         if not available_noise:
-            print(f"  [WARN] No noise clips in {split}/inactive/ — skipping")
+            print(f"  [WARN] No noise clips in {split}/background/ — skipping")
             continue
 
         writer = SplitWriter("speech", split, data_dir)
@@ -447,7 +456,7 @@ def run_augmentation(
         print("\nCollecting noise clips...")
         noise_refs = collect_noise_refs(data_dir)
         if not any(refs for refs in noise_refs.values()):
-            print("  [SKIP] No inactive clips found — run build.py first")
+            print("  [SKIP] No background clips found — run build.py first")
         else:
             for e in n_entries:
                 print(f"\nCollecting {e.speech_subclass} for {e.output_subclass}...")

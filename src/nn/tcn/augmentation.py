@@ -1,4 +1,5 @@
-# tcn/augmentation.py
+# src/nn/tcn/augmentation.py
+# Marek Hric
 # Mel-space augmentation applied during training.
 #
 # Paper alignment: Lemaire & Holzapfel (2019) §3.4 applies data augmentation

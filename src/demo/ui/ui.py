@@ -1,3 +1,6 @@
+# src/demo/ui/ui.py
+# Marek Hric
+
 """Reflex front-end for the streaming demo.
 
 Runs on localhost; the server captures mic audio via sounddevice and streams
@@ -47,7 +50,7 @@ _MODEL_LABELS: dict[str, str] = {
     **{name: v.ui_label for name, v in VARIANTS.items()},
 }
 
-_LABEL_NAME = {-1: "speech", 0: "inactive", 1: "music"}
+_LABEL_NAME = {-1: "speech", 0: "background", 1: "music"}
 _LABEL_COLOR = {-1: "blue", 0: "gray", 1: "crimson"}
 
 # Chart is a fixed-size rolling window of N predictions; bucket width comes from
@@ -182,6 +185,7 @@ class DemoState(rx.State):
 
     @rx.event
     def on_load(self):
+        """Initialise weights status, audio device lists, and the default selected model."""
         self.weights_status = all_status()
         try:
             self.devices = list_input_devices()
@@ -274,6 +278,7 @@ class DemoState(rx.State):
 
     @rx.event
     def select_model(self, name: str):
+        """Select a model if its weights are present; otherwise post an error message."""
         if not self.weights_status.get(name, False):
             self.status_msg = f"{_MODEL_LABELS.get(name, name)} has no weights on disk."
             return
@@ -294,6 +299,7 @@ class DemoState(rx.State):
         self.playback_filename = ""
 
     def _append_audio(self, chunk: np.ndarray, sr: int) -> None:
+        """Append a chunk to the rolling playback buffer and trim to ``_PLAYBACK_SEC`` of audio."""
         self._audio_buffer_sr = sr
         keep_bytes = int(sr * _PLAYBACK_SEC) * 4  # float32 mono
         self._audio_buffer.extend(chunk.astype(np.float32, copy=False).tobytes())
@@ -303,6 +309,7 @@ class DemoState(rx.State):
 
     @rx.event
     def play_last_3s(self):
+        """Write the rolling playback buffer to a WAV file and surface it via the audio element."""
         if not self._audio_buffer or self._audio_buffer_sr <= 0:
             self.status_msg = "No audio captured yet."
             return
@@ -322,6 +329,7 @@ class DemoState(rx.State):
 
     @rx.event
     async def handle_upload(self, files: list[rx.UploadFile]):
+        """Persist the first uploaded file under the upload directory for later file-mode playback."""
         if not files:
             return
         f = files[0]
@@ -341,6 +349,7 @@ class DemoState(rx.State):
 
     @rx.event(background=True)
     async def run_mic(self):
+        """Open the configured audio source and stream predictions to the chart until stopped."""
         async with self:
             if self.running:
                 return
@@ -447,6 +456,7 @@ class DemoState(rx.State):
 
     @rx.event(background=True)
     async def run_file(self):
+        """Stream predictions from the previously uploaded file to the chart until stopped."""
         async with self:
             if self.running:
                 return
@@ -848,7 +858,7 @@ def _chart() -> rx.Component:
         rx.recharts.y_axis(
             domain=[-1.2, 1.2],
             ticks=[-1, 0, 1],
-            tick_formatter="function(v){return v===-1?'speech':v===1?'music':v===0?'inactive':''}",
+            tick_formatter="function(v){return v===-1?'speech':v===1?'music':v===0?'background':''}",
             width=80,
         ),
         rx.recharts.cartesian_grid(stroke_dasharray="3 3", vertical=False),

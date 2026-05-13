@@ -1,3 +1,6 @@
+# src/seed.py
+# Marek Hric
+
 # Keep this value in sync with scripts/dataset/source_config.py — they live in
 # separate uv subprojects so direct import isn't possible.
 RAND_SEED = 381

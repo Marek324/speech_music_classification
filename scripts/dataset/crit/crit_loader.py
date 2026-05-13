@@ -1,3 +1,6 @@
+# scripts/dataset/crit/crit_loader.py
+# Marek Hric
+
 """Local audio file loader for the critical-set tier.
 
 Returns mono float32 numpy arrays at the project's canonical 16 kHz, ready to

@@ -1,3 +1,6 @@
+# src/demo/weights_check.py
+# Marek Hric
+
 """Cheap existence probe for model weights used by the demo UI.
 
 Called from the page-load handler to badge the picker: no torch import here,

@@ -1,4 +1,8 @@
+# scripts/dataset/crit/_common.py
+# Marek Hric
+
 """Shared helpers for crit_label.py / crit_mix.py."""
+
 from pathlib import Path
 
 import librosa
@@ -13,6 +17,7 @@ RECORDINGS_DIR = SCRIPT_DIR / "recordings"
 
 
 def load_mono(path: Path) -> np.ndarray:
+    """Load any audio file as mono float32 at 16 kHz, with librosa fallback for non-WAV codecs."""
     try:
         data, src_sr = sf.read(str(path), dtype="float32", always_2d=False)
     except sf.LibsndfileError:
@@ -55,6 +60,7 @@ def write_labels_tsv_named(labels: list[tuple[int, int, str]], path: Path) -> No
 
 
 def read_labels_tsv(path: Path) -> list[tuple[int, int]]:
+    """Read an Audacity-format TSV of (start_sec, end_sec, label) into (start_ms, end_ms) tuples."""
     out: list[tuple[int, int]] = []
     with open(path) as f:
         for line in f:
@@ -67,6 +73,7 @@ def read_labels_tsv(path: Path) -> list[tuple[int, int]]:
 
 
 def print_manifest(out_name: str, subclass: str, notes: str, labels: list[tuple[int, int]]) -> None:
+    """Print a TOML manifest snippet for one crit recording to stdout."""
     print()
     print(f"[{out_name}]")
     print(f'file     = "recordings/{out_name}.wav"')

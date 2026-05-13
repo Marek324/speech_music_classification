@@ -1,4 +1,5 @@
-# nn/evaluation.py
+# src/nn/evaluation.py
+# Marek Hric
 # Shared inference loop for NN models producing (1, 3, T) per-frame probabilities.
 
 import logging
@@ -30,8 +31,8 @@ def run_nn_inference(
 
     Returns:
         (y_true, y_pred, subclasses, time_per_frame_ns, device_str, y_scores, clip_ids)
-        Labels: -1=speech, 1=music, 2=inactive
-        y_scores: (N, 3) — columns [speech, music, inactive]
+        Labels: -1=speech, 1=music, 2=background
+        y_scores: (N, 3) — columns [speech, music, background]
         clip_ids: (N,) int — per-frame source-clip index (0-indexed)
     """
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -62,12 +63,12 @@ def run_nn_inference(
         T = probs.shape[-1]
         T_actual = min(T, targets.shape[-1])  # may be less than T due to center-padding in STFT
 
-        # Per-frame label mapping: 0=speech→-1, 1=music→1, 2=inactive→2
+        # Per-frame label mapping: 0=speech→-1, 1=music→1, 2=background→2
         label_map = torch.tensor([-1, 1, 2], device=device)
 
-        # Per-frame y_pred: argmax across (speech, music, inactive) channels
+        # Per-frame y_pred: argmax across (speech, music, background) channels
         class_probs = probs[0, :, :T_actual]          # (3, T)
-        pred_idx = class_probs.argmax(dim=0)           # 0=speech, 1=music, 2=inactive
+        pred_idx = class_probs.argmax(dim=0)           # 0=speech, 1=music, 2=background
         y_pred_frames = label_map[pred_idx].cpu().numpy()
 
         # Per-frame y_true: derived from timestamp-based targets tensor.

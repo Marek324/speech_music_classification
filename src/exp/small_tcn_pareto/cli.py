@@ -1,4 +1,5 @@
-# exp/small_tcn_pareto/cli.py
+# src/exp/small_tcn_pareto/cli.py
+# Marek Hric
 # Thin CLI wrapper — all logic lives in src/nn/tcn/.
 # The experiment is fully defined by config.toml in this directory.
 
@@ -80,11 +81,10 @@ def small_tcn_pareto_group():
 
 @small_tcn_pareto_group.command("train")
 @click.option("--name", "-n", default=None, help="Variant name (e.g. filters_4)")
-@click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
-def train_cmd(name, no_wandb):
+def train_cmd(name):
     """Train a single SmallTCN-pareto variant."""
     cfg, _, weights_path, stats_path = _load(name)
-    train_tcn(use_wandb=not no_wandb, cfg=cfg, weights_path=weights_path, stats_path=stats_path)
+    train_tcn(cfg=cfg, weights_path=weights_path, stats_path=stats_path)
 
 
 @small_tcn_pareto_group.command("eval")
@@ -124,17 +124,6 @@ def smoke_test_cmd(name):
         "Smoke-test passed. Variant: %s  Frontend: %s  n_filters: %d  n_features: %d  Params: %d  Output shape: %s",
         variant_name, cfg.get("frontend", "log_mel"), cfg["model"]["n_filters"], nf, n_params, tuple(probs.shape),
     )
-
-
-@small_tcn_pareto_group.command("visualize")
-def visualize_cmd():
-    """Plot SmallTCN pareto-sweep results. Reads results/tcn_<name>.eval files."""
-    import importlib.util
-    viz_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "visualize_experiment.py"
-    spec = importlib.util.spec_from_file_location("visualize_experiment", viz_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.main(config_path=_CFG_PATH, results_dir=_results_dir, experiment_name="SmallTCN Pareto Sweep")
 
 
 @small_tcn_pareto_group.command("run-all")

@@ -20,7 +20,7 @@ the ablation baseline (SGD, lr=1e-3, seq_len=128, 16 filters, k=5, 4 layers,
 
 ## Per-class F1
 
-| Variant  | Speech | Music  | Inactive |
+| Variant  | Speech | Music  | Background |
 |----------|-------:|-------:|---------:|
 | baseline | 0.9745 | 0.9899 | 0.9612   |
 | conv1d   | 0.9796 | 0.9907 | 0.9649   |
@@ -28,7 +28,7 @@ the ablation baseline (SGD, lr=1e-3, seq_len=128, 16 filters, k=5, 4 layers,
 
 ## Takeaways
 - **conv1d wins on every axis**: +0.32 macro-F1 over baseline and ~20% faster
-  (0.0066 vs 0.0083 ms/frame). Gains are uniform across Speech/Music/Inactive.
+  (0.0066 vs 0.0083 ms/frame). Gains are uniform across Speech/Music/Background.
 - **conv2d slightly regresses** vs baseline (−0.10 macro-F1) despite extra
   parameters — mel-axis convolution does not help here.
 - Hardest subclass remains `speech_som` (~0.96 F1) across all variants;

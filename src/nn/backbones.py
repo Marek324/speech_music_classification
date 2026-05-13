@@ -1,4 +1,5 @@
-# nn/backbones.py
+# src/nn/backbones.py
+# Marek Hric
 # Alternative causal backbone architectures for speech/music classification.
 # All backbones: forward(x: (B, n_features, T)) -> logits: (B, n_classes, T).
 
@@ -27,6 +28,7 @@ class CausalGRU(nn.Module):
         self.classifier = nn.Conv1d(n_filters, n_classes, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the GRU on (B, n_features, T) input and return per-frame logits."""
         x = self.input_proj(x)        # (B, n_filters, T)
         x = x.permute(0, 2, 1)        # (B, T, n_filters)
         x, _ = self.rnn(x)            # (B, T, n_filters)
@@ -53,6 +55,7 @@ class CausalLSTM(nn.Module):
         self.classifier = nn.Conv1d(n_filters, n_classes, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the LSTM on (B, n_features, T) input and return per-frame logits."""
         x = self.input_proj(x)
         x = x.permute(0, 2, 1)
         x, _ = self.rnn(x)
@@ -78,6 +81,7 @@ class _SinusoidalPE(nn.Module):
         self.register_buffer("pe", self._build(max_len), persistent=False)
 
     def _build(self, length: int) -> torch.Tensor:
+        """Build a sinusoidal positional-encoding buffer of shape (1, length, d_model)."""
         pe = torch.zeros(length, self.d_model)
         pos = torch.arange(length).unsqueeze(1).float()
         div = torch.exp(torch.arange(0, self.d_model, 2).float() * (-math.log(10000.0) / self.d_model))
@@ -113,6 +117,7 @@ class CausalTransformer(nn.Module):
         self.classifier = nn.Conv1d(n_filters, n_classes, kernel_size=1)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Project, add positional encoding, run causal Transformer, and return logits."""
         x = x.permute(0, 2, 1)            # (B, T, n_features)
         x = self.input_proj(x)            # (B, T, n_filters)
         x = self.pe(x)

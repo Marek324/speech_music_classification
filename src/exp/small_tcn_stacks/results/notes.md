@@ -20,9 +20,9 @@ Receptive field per variant (`frames = 1 + n_stacks · n_layers · 2 · (k−1)`
 
 ## Conclusion
 
-**F1 grows monotonically with RF, but the slope is shallow.** stacks_1 → stacks_2 buys +0.0027, stacks_2 → stacks_3 buys +0.0022. All three CIs overlap. The classifier doesn't need 8 s of audio context to discriminate speech / music / inactive — a 2.8 s window already lands within 0.005 of the deployed model.
+**F1 grows monotonically with RF, but the slope is shallow.** stacks_1 → stacks_2 buys +0.0027, stacks_2 → stacks_3 buys +0.0022. All three CIs overlap. The classifier doesn't need 8 s of audio context to discriminate speech / music / background — a 2.8 s window already lands within 0.005 of the deployed model.
 
-**stacks_1 has a property the others don't: RF ≤ seq_len.** At the training chunk length of 128 frames, only `stacks_1` (RF = 121 frames) lets the model see its full receptive field on every training chunk. `stacks_2` and `stacks_3` are *context-starved* during training — their chunks are shorter than their RF, so the early frames of every chunk see less left-context than they would at inference time. This is a known mismatch in the paper-prescribed recipe (see CLAUDE.md, "Receptive field vs chunk").
+**stacks_1 has a property the others don't: RF ≤ seq_len.** At the training chunk length of 128 frames, only `stacks_1` (RF = 121 frames) lets the model see its full receptive field on every training chunk. `stacks_2` and `stacks_3` are *context-starved* during training — their chunks are shorter than their RF, so the early frames of every chunk see less left-context than they would at inference time. This is a known mismatch in the recipe proposed by the paper (see CLAUDE.md, "Receptive field vs chunk").
 
 **SmallerTCN deployment.** The `stacks_1` checkpoint was promoted to a separately packaged variant (`SmallerTCN` in `variants.toml`) because:
 1. **No train/inference RF mismatch** — the only checkpoint in the project where this holds.

@@ -22,5 +22,9 @@ cache/
 
 speech_music_dataset/
 
+src/demo/.web/
+src/demo/.states/
+src/demo/uploaded_files/
+
 *.svg
 *.png

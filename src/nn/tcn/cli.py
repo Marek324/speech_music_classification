@@ -1,4 +1,5 @@
-# tcn/cli.py
+# src/nn/tcn/cli.py
+# Marek Hric
 # CLI commands for TCN: train, eval, smoke-test.
 
 import logging
@@ -69,7 +70,7 @@ def _smoke_test_online():
 
     smoke_weights = get_weights_path().parent / "tcn.smoke.safetensors"
     log.info("Smoke-test-online: training on 10 rows (saving to %s)...", smoke_weights)
-    train_tcn(epochs=2, max_train_rows=10, weights_path=smoke_weights, use_wandb=False)
+    train_tcn(epochs=2, max_train_rows=10, weights_path=smoke_weights)
 
     log.info("Smoke-test-online: evaluating on 3 test rows...")
     _eval_tcn_on_n_rows(3, weights_path=smoke_weights)

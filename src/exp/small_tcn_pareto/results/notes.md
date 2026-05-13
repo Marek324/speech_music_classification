@@ -13,7 +13,7 @@ Capacity-only sweep over `n_filters` at the fixed SmallTCN recipe (log_mel_delta
 
 ## Conclusion
 
-**Sharp knee at n_filters = 6 → 8.** The 4 → 6 step buys +0.0203 macro F1 (the largest single jump in the sweep), 6 → 8 buys +0.0033, and 8 → 12 buys +0.0029. Below 8 filters the body has too few channels to disentangle the speech/music/inactive subspaces (the 4-filter run loses 0.05 F1 on `music_acapella` specifically, suggesting that subclass is the first to collapse under capacity pressure).
+**Sharp knee at n_filters = 6 → 8.** The 4 → 6 step buys +0.0203 macro F1 (the largest single jump in the sweep), 6 → 8 buys +0.0033, and 8 → 12 buys +0.0029. Below 8 filters the body has too few channels to disentangle the speech/music/background subspaces (the 4-filter run loses 0.05 F1 on `music_acapella` specifically, suggesting that subclass is the first to collapse under capacity pressure).
 
 **Diminishing returns past n_filters = 8.** Filters_12 lands +0.0029 above the deployed model, well within filters_8's CI of [0.9704, 0.9808]. The marginal accuracy is real but small enough that the additional MACs/frame (which scale with n_filters², so ~2.25× the body compute) aren't a clean trade for streaming deployment.
 

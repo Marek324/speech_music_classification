@@ -1,3 +1,6 @@
+# scripts/dataset/split_writer.py
+# Marek Hric
+
 """Parquet shards: ``{config_dir}/{split}/{modality}/part_*.parquet`` (LibriSpeech-style tier + HF splits)."""
 
 import io
@@ -128,6 +131,7 @@ class SplitWriter:
         cls: str,
         subclass: str,
     ) -> None:
+        """Buffer one labeled clip; flush to a new parquet shard when ROWS_PER_PARQUET_FILE is hit."""
         wav_bytes = _audio_to_wav_bytes(audio)
         self._rows["audio"].append({"bytes": wav_bytes, "path": None})
         self._rows["sampling_rate"].append(SR)

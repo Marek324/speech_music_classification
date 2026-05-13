@@ -1,5 +1,6 @@
-# nn/variant.py
-# Shared factory for TCN-variant modules (small_tcn, tcn_lstm).
+# src/nn/variant.py
+# Marek Hric
+# Shared factory for TCN-variant modules (tcn_s, tcn_l).
 # Each variant is a thin config/weights-path wrapper around the canonical TCN
 # pipeline in src/nn/tcn/. This factory builds the variant's config loader,
 # Click command group, and SpeechMusicDetector subclass from a small set of
@@ -61,10 +62,10 @@ def make_variant(
 
     Parameters
     ----------
-    name         : stable module/output identifier ("small_tcn", "tcn_lstm").
-    display_name : class name + log-prefix ("SmallTCN", "TCNLSTM").
-    ui_label     : user-facing label for the demo picker ("Small TCN"). Falls back to display_name.
-    cli_group    : Click subgroup name ("small-tcn", "tcn-lstm").
+    name         : stable module/output identifier ("tcn_s", "tcn_l").
+    display_name : class name + log-prefix ("TCN-S", "TCN-L").
+    ui_label     : user-facing label for the demo picker ("TCN-S"). Falls back to display_name.
+    cli_group    : Click subgroup name ("tcn-s", "tcn-l").
     group_help   : docstring shown in `nn --help`.
     weights_stem : suffix after `tcn_` in the weights filename; the canonical
                    ``get_weights_path(name=stem)`` emits ``tcn_{stem}.safetensors``.
@@ -77,6 +78,7 @@ def make_variant(
     DEFAULT["dataset"] = dict(config.get("dataset", {}))
 
     def get_config(overrides: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        """Return the variant's default config, optionally merging in flat-key overrides."""
         cfg = deepcopy(DEFAULT)
         if overrides:
             for k in _TOP_KEYS:
@@ -112,15 +114,13 @@ def make_variant(
     @group.command("train", help=f"Train {display_name}.")
     @click.option("--epochs", "-e", default=50, help="Max training epochs")
     @click.option("--patience", "-p", default=5, help="Early-stopping patience (val checks without improvement)")
-    @click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
-    def train_cmd(epochs, patience, no_wandb):
+    def train_cmd(epochs, patience):
         train_tcn(
             epochs=epochs,
             patience=patience,
             cfg=get_config(),
             weights_path=_weights(),
             stats_path=_stats(),
-            use_wandb=not no_wandb,
         )
 
     @group.command("eval", help=f"Evaluate {display_name} on the test split. Writes results/{name}.eval.")
@@ -171,7 +171,6 @@ def make_variant(
             epochs=2,
             max_train_rows=10,
             weights_path=smoke_weights,
-            use_wandb=False,
             cfg=get_config(),
             stats_path=_stats(),
         )

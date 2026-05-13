@@ -1,3 +1,6 @@
+# scripts/dataset/process.py
+# Marek Hric
+
 """Source processing: stream HF rows, label, and write to parquet shards."""
 
 import sys

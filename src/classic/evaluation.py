@@ -1,4 +1,5 @@
-# classic/evaluation.py
+# src/classic/evaluation.py
+# Marek Hric
 # Evaluation interface for classic models. Handles data loading and inference.
 
 import logging
@@ -21,8 +22,8 @@ def get_predictions(
     """
     Load model and test data, run inference.
     Returns (y_true, y_pred, subclasses, time_per_frame_ns, y_scores, clip_ids).
-    Labels: -1=speech, 1=music, 2=inactive.
-    y_scores: (N, 3) — columns [speech, music, inactive].
+    Labels: -1=speech, 1=music, 2=background.
+    y_scores: (N, 3) — columns [speech, music, background].
     clip_ids: (N,) int — per-frame source-clip index.
 
     *dataset_override*: optional ``{"url", "name"}`` dict that replaces the
@@ -73,7 +74,7 @@ def get_predictions(
     t0 = time.perf_counter_ns()
     y_pred = model.predict_batch(X)
     classify_ns = time.perf_counter_ns() - t0
-    y_scores = model.predict_proba_batch(X)  # (N, 3) — [speech, music, inactive]
+    y_scores = model.predict_proba_batch(X)  # (N, 3) — [speech, music, background]
     n = len(X)
     time_per_frame_ns = (classify_ns / n) + extract_time_ns
 

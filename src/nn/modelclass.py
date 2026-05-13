@@ -1,4 +1,5 @@
-# nn/modelclass.py
+# src/nn/modelclass.py
+# Marek Hric
 # Abstract base class for neural network speech/music classifiers.
 
 from abc import ABC, abstractmethod

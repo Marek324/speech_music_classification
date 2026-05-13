@@ -1,3 +1,6 @@
+# src/demo/cli.py
+# Marek Hric
+
 """Click entrypoint that launches the Reflex demo UI.
 
 Single command: ``uv run smclassifier demo``. On first run (or whenever the
@@ -22,6 +25,7 @@ _WEB_DIR = _DEMO_DIR / ".web"
 
 
 def _env() -> dict[str, str]:
+    """Return a process environment with the repo root prepended to ``PYTHONPATH``."""
     env = os.environ.copy()
     env["PYTHONPATH"] = os.pathsep.join(
         filter(None, [str(_DEMO_DIR.parent.parent), env.get("PYTHONPATH", "")])
@@ -30,6 +34,7 @@ def _env() -> dict[str, str]:
 
 
 def _run_init() -> None:
+    """Run ``reflex init`` once to scaffold the ``.web/`` directory."""
     log.info("First-time setup: running `reflex init` in %s", _DEMO_DIR)
     cmd = [sys.executable, "-m", "reflex", "init", "--template", "blank"]
     result = subprocess.run(cmd, cwd=str(_DEMO_DIR), env=_env())

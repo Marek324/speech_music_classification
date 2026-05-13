@@ -1,3 +1,6 @@
+# src/exp/transitions/cli.py
+# Marek Hric
+
 """Transition analysis on the switching clips of the critical set.
 
 Two metrics, computed per (model, cadence, switching variant):
@@ -39,11 +42,11 @@ _GRAPHS_DIR = _RESULTS_DIR / "graphs"
 _REPO_ROOT = _HERE.parent.parent.parent
 
 _MODEL_SHORT = {
-    "tcn": "TCN", "tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "smaller_tcn": "SmallerTCN",
+    "tcn": "TCN", "tcn_l": "TCN-L", "tcn_s": "TCN-S",
     "decision_tree": "DT", "gmm": "GMM", "svm": "SVM",
 }
 _MODEL_COLOR = {
-    "tcn": "#2196F3", "tcn_lstm": "#E91E63", "small_tcn": "#009688", "smaller_tcn": "#4DB6AC",
+    "tcn": "#2196F3", "tcn_l": "#E91E63", "tcn_s": "#4DB6AC",
     "decision_tree": "#4CAF50", "gmm": "#9C27B0", "svm": "#FF9800",
 }
 
@@ -63,6 +66,7 @@ def _resolve_scores_dir(raw: str) -> Path:
 
 
 def _load_model_scores(model: str, scores_dir: Path) -> dict[str, np.ndarray] | None:
+    """Load ``{model}_scores.npz`` and return the y_true/y_pred/clip_ids/subclasses dict, or ``None``."""
     path = scores_dir / f"{model}_scores.npz"
     if not path.exists():
         log.info("[%s] no scores file at %s — skipping", model, path)
@@ -181,6 +185,7 @@ def _stable_flicker(
 # ---------------------------------------------------------------------------
 
 def _grouped_bar(ax, x_labels, models, vals_by_model, ylabel, title):
+    """Draw a per-model grouped bar chart on ``ax`` with NaNs marked by a small placeholder dot."""
     n_models = len(models)
     width = 0.82 / max(n_models, 1)
     x = np.arange(len(x_labels))
@@ -216,6 +221,7 @@ def _render_summary(
     settle_ms: float,
     out_path: Path,
 ):
+    """Render the 2x2 grouped-bar summary (latency + flicker, 2-class + 3-class) to ``out_path``."""
     fig, axes = plt.subplots(2, 2, figsize=(11, 7), sharex="col")
     cad_labels = [f"{c} ms" for c in cadences]
     for col, variant in enumerate(("2class", "3class")):
@@ -227,7 +233,7 @@ def _render_summary(
                 med_by_model[m].append(float(np.median(lats)) if lats else np.nan)
                 n_ch, sec = flicker_by_key.get((variant, cad, m), [0.0, 0.0])
                 flick_by_model[m].append(n_ch / sec if sec > 0 else np.nan)
-        title_prefix = "Speech ↔ Music" if variant == "2class" else "Speech ↔ Music ↔ Inactive"
+        title_prefix = "Speech ↔ Music" if variant == "2class" else "Speech ↔ Music ↔ Background"
         _grouped_bar(axes[0, col], cad_labels, models, med_by_model,
                      "median latency (ms)",
                      f"{title_prefix} — transition latency")
@@ -295,6 +301,7 @@ def _render_latency_cdf(
 # ---------------------------------------------------------------------------
 
 def _format_md_table(header: list[str], rows: list[list[str]]) -> str:
+    """Format ``header`` and ``rows`` as a Markdown pipe-separated table string."""
     out = ["| " + " | ".join(header) + " |"]
     out.append("|" + "|".join("---" for _ in header) + "|")
     for r in rows:
@@ -311,6 +318,7 @@ def _format_report(
     settle_ms: float,
     n_clips: dict[tuple[str, int], int],
 ) -> str:
+    """Build the full Markdown ``transitions.md`` report (methodology + per-variant tables)."""
     cad_list = ", ".join(f"{c} ms" for c in cadences)
     model_list = ", ".join(_MODEL_SHORT.get(m, m) for m in models)
     lines: list[str] = [
@@ -325,7 +333,7 @@ def _format_report(
         "`subclass` column with prefix `speech_switching_`:",
         "",
         "- **2-class** (Speech ↔ Music) — `speech_switching_<cadence>ms`",
-        "- **3-class** (Speech ↔ Music ↔ Inactive) — `speech_switching_3class_<cadence>ms`",
+        "- **3-class** (Speech ↔ Music ↔ Background) — `speech_switching_3class_<cadence>ms`",
         "",
         f"Cadences analysed: {cad_list}. Models: {model_list}.",
         "",
@@ -366,7 +374,7 @@ def _format_report(
         "",
     ]
     for variant in ("2class", "3class"):
-        title = "Speech ↔ Music" if variant == "2class" else "Speech ↔ Music ↔ Inactive"
+        title = "Speech ↔ Music" if variant == "2class" else "Speech ↔ Music ↔ Background"
         lines.append(f"## {title}")
         lines.append("")
         clip_sizes = ", ".join(

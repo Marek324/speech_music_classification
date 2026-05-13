@@ -1,3 +1,6 @@
+# scripts/dataset/source_config.py
+# Marek Hric
+
 import tomllib
 from dataclasses import dataclass, field, replace
 from enum import Enum  # TODO: migrate project to 3.12 later to use StrEnum
@@ -157,7 +160,7 @@ NOISE_SNR_RANGE_DB: tuple[float, float] = (5.0, 20.0)
 
 @dataclass(frozen=True)
 class NoiseAugEntry:
-    """Synthetic noisy-speech recipe: mix ``speech_subclass`` clips with inactive noise."""
+    """Synthetic noisy-speech recipe: mix ``speech_subclass`` clips with background noise."""
 
     speech_subclass: str
     target_minutes: float
@@ -187,7 +190,7 @@ def noise_aug_entries(tier: TierName, *, smoke: bool = False) -> list[NoiseAugEn
 class SourceEntry:
     name: str
     hf_id: str
-    cls: Literal["speech", "music", "inactive"]
+    cls: Literal["speech", "music", "background", "inactive"]
     subclass: str
     target_minutes: float  # minutes of audio to collect from this source
     detector: Literal["vad", "music", "silence"]
@@ -216,6 +219,7 @@ class SourceEntry:
         return self.subclass or "noise"
 
     def max_rows_for_stream(self) -> int:
+        """Estimate how many HF rows to stream to reach ``target_minutes``."""
         if self.detector == "vad":
             avg_s = 8.0
         elif self.detector == "music":
@@ -239,11 +243,11 @@ class SourceEntry:
 
     def cls_label(self) -> Literal[-1, 1, 2]:
         match self.cls:
-            case "speech": 
-                return -1 
-            case "music": 
+            case "speech":
+                return -1
+            case "music":
                 return 1
-            case "inactive":
+            case "background" | "inactive":
                  return 2
 
 @dataclass
@@ -304,6 +308,7 @@ TIER_TOTAL_NOMINAL_MINUTES: Dict[TierName, float] = {
 
 
 def make_entries(tier: TierName) -> list[SourceEntry]:
+    """Return the source list for a tier, raising if its target_minutes are zero."""
     entries = SOURCES[tier].entries
     if not entries or sum(e.target_minutes for e in entries) <= 0:
         raise ValueError(f"Tier {tier!r} has zero total target_minutes")

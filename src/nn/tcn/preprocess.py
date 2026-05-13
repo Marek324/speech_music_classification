@@ -1,4 +1,5 @@
-# tcn/preprocess.py
+# src/nn/tcn/preprocess.py
+# Marek Hric
 # Audio frontend modules for TCN.
 # Base pipeline: Resample 22050 mono -> feature extraction -> normalize (precomputed mean/var).
 # Frontends: log-mel spectrogram (paper), log-mel + deltas, MFCC, PCEN.
@@ -89,6 +90,7 @@ class _BaseFrontend(nn.Module):
     # -- stats ---------------------------------------------------------------
 
     def _set_norm_stats(self, mean: torch.Tensor, std: torch.Tensor):
+        """Reshape and clamp the per-channel normalization stats and bind them to the module."""
         mean = mean.view(1, -1, 1)
         std = std.view(1, -1, 1)
         std = torch.clamp(std, min=1e-7)
@@ -96,6 +98,7 @@ class _BaseFrontend(nn.Module):
         self.norm_std = std
 
     def _load_stats(self, path: Path):
+        """Load mean/std from a saved stats file and bind them via _set_norm_stats."""
         data = torch.load(path, map_location="cpu")
         if "mean" in data and "std" in data:
             self._set_norm_stats(data["mean"], data["std"])
@@ -105,6 +108,7 @@ class _BaseFrontend(nn.Module):
             )
 
     def _validate_stats(self):
+        """Raise if normalization stats are missing, with the expected file path in the message."""
         if self.norm_mean is None or self.norm_std is None:
             rev = get_config()["dataset"].get("revision")
             path = get_preprocess_stats_path(revision=rev)
@@ -117,6 +121,7 @@ class _BaseFrontend(nn.Module):
     # -- waveform helpers ----------------------------------------------------
 
     def _ensure_mono(self, waveform: torch.Tensor) -> torch.Tensor:
+        """Add a batch dim if needed and average multi-channel input down to mono."""
         if waveform.ndim == 1:
             return waveform.unsqueeze(0)
         if waveform.ndim == 3 and waveform.shape[-2] > 1:
@@ -233,6 +238,7 @@ class LogMelDeltaFrontend(_BaseFrontend):
         return self._n_mels * (1 + self._order)
 
     def forward_raw(self, waveform: torch.Tensor) -> torch.Tensor:
+        """Compute log-mel and stack `order` successive temporal-delta channels."""
         mel = self.mel(waveform)
         log_mel = torch.log(mel + 1e-7)
         parts = [log_mel]

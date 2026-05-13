@@ -1,4 +1,5 @@
-# nn/blocks.py
+# src/nn/blocks.py
+# Marek Hric
 # Causal dilated convolution building blocks — shared across all NN models.
 
 import torch
@@ -52,6 +53,8 @@ class CausalConv1d(nn.Module):
 
 
 class TCNResidualBlock(nn.Module):
+    """Two stacked causal dilated convolutions with residual + dropout."""
+
     def __init__(
         self,
         in_channels: int,
@@ -91,6 +94,7 @@ class TCNResidualBlock(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Run the two causal convs with optional skip connection and return activations."""
         residual = x if self.downsample is None else self.downsample(x)
         out = self.conv1(x)
         if self.bn1 is not None:

@@ -1,4 +1,5 @@
-# exp/tcn_ablation/cli.py
+# src/exp/tcn_ablation/cli.py
+# Marek Hric
 # Thin CLI wrapper — all logic lives in src/nn/tcn/.
 # The experiment is fully defined by config.toml in this directory.
 
@@ -28,6 +29,7 @@ _EXP_SUBDIR = "tcn_ablation"
 
 
 def _load(name: str | None = None, subgroup: str | None = None):
+    """Return (cfg, variant_name, weights_path, stats_path) for an ablation variant."""
     if name:
         cfg = get_ablation_config(name, config_path=_CFG_PATH, subgroup=subgroup)
     else:
@@ -50,11 +52,10 @@ def tcn_ablation_group():
 @tcn_ablation_group.command("train")
 @click.option("--name", "-n", default=None, help="Variant name (e.g. adam, filters_8)")
 @click.option("--subgroup", "-s", default=None, help="Subgroup (optimizer, capacity, depth, regularization, training)")
-@click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
-def train_cmd(name, subgroup, no_wandb):
+def train_cmd(name, subgroup):
     """Train a single experiment variant."""
     cfg, _, weights_path, stats_path = _load(name, subgroup)
-    train_tcn(use_wandb=not no_wandb, cfg=cfg, weights_path=weights_path, stats_path=stats_path)
+    train_tcn(cfg=cfg, weights_path=weights_path, stats_path=stats_path)
 
 
 @tcn_ablation_group.command("eval")
@@ -271,18 +272,3 @@ def coord_ascent_cmd(skip_existing):
         log.info("Trajectory saved → %s", traj_path)
 
 
-@tcn_ablation_group.command("visualize")
-@click.option("--subgroup", "-s", default=None, help="Plot only this subgroup (default: all + summary)")
-@click.option("--mode", type=click.Choice(["ofat", "coord-ascent"]), default="ofat",
-              help="Which study to visualize (default: ofat)")
-def visualize_cmd(subgroup, mode):
-    """Plot ablation results grouped by subgroup. Reads results/tcn_<name>[_ca].eval files."""
-    import importlib.util
-    import sys
-
-    viz_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "visualize_ablation.py"
-    spec = importlib.util.spec_from_file_location("visualize_ablation", viz_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    suffix = "_ca" if mode == "coord-ascent" else ""
-    mod.main(subgroup_filter=subgroup, suffix=suffix)

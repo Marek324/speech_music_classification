@@ -1,4 +1,4 @@
-# modelclass.py
+# src/classic/modelclass.py
 # Marek Hric
 
 import logging

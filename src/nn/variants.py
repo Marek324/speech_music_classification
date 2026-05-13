@@ -1,4 +1,5 @@
-# nn/variants.py
+# src/nn/variants.py
+# Marek Hric
 # Variant registry. To add a new variant: append a [variants.<name>] block
 # to variants.toml. No Python edits required — this module derives every
 # per-variant symbol name from the TOML key + display_name.
@@ -31,6 +32,7 @@ _ROOT_CONFIG = _HERE.parent.parent / "config.toml"
 
 
 def _load_toml(path: Path) -> Dict[str, Any]:
+    """Parse a TOML file, returning an empty dict if the file is missing."""
     if not path.exists():
         return {}
     with open(path, "rb") as f:

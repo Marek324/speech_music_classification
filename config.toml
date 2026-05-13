@@ -6,10 +6,6 @@ n_fft = 512
 url = "Marek324/speech-music-classification"
 name = "full"
 
-[wandb]
-project = "Speech Music Classification"
-entity = "marek3k-brno-university-of-technology"
-
 [features]
 [features.band_energy_ratio]
 low = 70

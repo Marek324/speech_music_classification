@@ -1,4 +1,4 @@
-# gmm.py
+# src/classic/gmm.py
 # Marek Hric
 
 import logging
@@ -20,6 +20,8 @@ _SCALE_CLIP = 10.0
 
 
 class GMM(ModelClass):
+    """Three-GMM density classifier (one 8-component diagonal GMM per class) with log-likelihood smoothing."""
+
     name: str = "unnamed"
 
     def __init__(
@@ -74,7 +76,7 @@ class GMM(ModelClass):
         X_i = Xn[y == 2]
 
         if len(X_s) == 0 or len(X_m) == 0 or len(X_i) == 0:
-            raise ValueError("Speech, music, and inactive samples are all required")
+            raise ValueError("Speech, music, and background samples are all required")
 
         self.gmm_speech.fit(X_s)
         self.gmm_music.fit(X_m)
@@ -84,17 +86,19 @@ class GMM(ModelClass):
         return {
             "speech": self.gmm_speech,
             "music": self.gmm_music,
-            "inactive": self.gmm_inactive,
+            "background": self.gmm_inactive,
             "scaler": self.scaler,
         }
 
     def _restore_state(self, state) -> None:
         self.gmm_speech = state["speech"]
         self.gmm_music = state["music"]
-        self.gmm_inactive = state["inactive"]
+        # Accept legacy "inactive" key for weights saved before the background rename.
+        self.gmm_inactive = state.get("background", state.get("inactive"))
         self.scaler = state["scaler"]
 
     def predict(self, frame: np.ndarray) -> int:
+        """Predict label for a single frame using log-likelihood smoothing over the recent buffer."""
         x = frame.astype(np.float64)
         x = np.atleast_2d(x)
         x = self._scale(x)
@@ -108,6 +112,7 @@ class GMM(ModelClass):
         return [-1, 1, 2][int(np.argmax(smoothed))]
 
     def predict_proba(self, frame: np.ndarray) -> np.ndarray:
+        """Return softmax-normalised per-class probabilities [speech, music, background] for one frame."""
         x = frame.astype(np.float64)
         x = np.atleast_2d(x)
         x = self._scale(x)
@@ -121,10 +126,11 @@ class GMM(ModelClass):
 
         probs = np.exp(ll - ll_norm)
 
-        # columns: [speech, music, inactive]
+        # columns: [speech, music, background]
         return probs[0]
 
     def predict_batch(self, X: np.ndarray) -> np.ndarray:
+        """Predict labels for all frames via per-class log-likelihood argmax."""
         x = X.astype(np.float64)
         Xn = self._scale(x)
 
@@ -136,6 +142,7 @@ class GMM(ModelClass):
         return np.array([-1, 1, 2])[np.argmax(ll, axis=1)]
 
     def predict_proba_batch(self, X: np.ndarray) -> np.ndarray:
+        """Return (N, 3) softmax-normalised per-class probabilities for all frames."""
         x = X.astype(np.float64)
         Xn = self._scale(x)
 

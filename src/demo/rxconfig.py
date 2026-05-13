@@ -1,3 +1,6 @@
+# src/demo/rxconfig.py
+# Marek Hric
+
 import reflex as rx
 
 config = rx.Config(

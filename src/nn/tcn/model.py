@@ -1,4 +1,5 @@
-# tcn/model.py
+# src/nn/tcn/model.py
+# Marek Hric
 # Causal TCN and full SpeechMusicDetector pipeline.
 
 import torch
@@ -6,7 +7,7 @@ import torch.nn as nn
 
 from ..backbones import CausalGRU, CausalLSTM, CausalTransformer
 from ..blocks import TCNResidualBlock
-from ..hybrids import build_tail
+from ..temporal_heads import build_temporal_head
 from ..preprocessors import build_preprocessor
 from .config import get_config, get_preprocess_stats_path
 from .preprocess import build_frontend
@@ -18,7 +19,7 @@ class CausalTCN(nn.Module):
     Receptive field = n_stacks * sum(2^i) * (kernel-1) + 1 frames.
 
     When ``return_features=True``, the internal classifier head is skipped and
-    the raw feature map ``(B, n_filters, T)`` is returned — used when a tail
+    the raw feature map ``(B, n_filters, T)`` is returned — used when a temporal-head
     module provides its own classification head.
     """
 
@@ -93,9 +94,9 @@ _BACKBONE_TYPES = ("tcn", "gru", "lstm", "transformer")
 def build_backbone(cfg: dict, n_features: int) -> nn.Module:
     """Construct a backbone module from config.
 
-    When ``cfg["model"]["tail"]`` is set, the TCN backbone is built with
-    ``return_features=True`` so the tail module can provide the classification head.
-    Only the ``tcn`` backbone supports tails — other backbones ignore the tail config.
+    When ``cfg["model"]["temporal_head"]`` is set, the TCN backbone is built with
+    ``return_features=True`` so the head module can provide the classification head.
+    Only the ``tcn`` backbone supports temporal heads — other backbones ignore the config.
     """
     m = cfg.get("model", {})
     name = m.get("backbone", "tcn")
@@ -107,7 +108,7 @@ def build_backbone(cfg: dict, n_features: int) -> nn.Module:
         n_classes=m["n_classes"],
     )
     if name == "tcn":
-        return CausalTCN(cfg=cfg, n_mels=n_features, return_features=bool(m.get("tail")))
+        return CausalTCN(cfg=cfg, n_mels=n_features, return_features=bool(m.get("temporal_head")))
     if name == "gru":
         return CausalGRU(**common)
     if name == "lstm":
@@ -140,14 +141,14 @@ class SpeechMusicDetector(nn.Module):
         self.fe = build_frontend(cfg, stats_path=stats_path)
         self.preproc = build_preprocessor(cfg, n_features=self.fe.n_features)
         self.model = build_backbone(cfg, n_features=self.preproc.n_features)
-        # Tail sits on the TCN feature map (only applies when backbone == "tcn" + cfg.model.tail set).
-        self.tail = build_tail(cfg, n_features=cfg["model"]["n_filters"])
+        # Temporal head sits on the TCN feature map (only when backbone == "tcn" + cfg.model.temporal_head set).
+        self.temporal_head = build_temporal_head(cfg, n_features=cfg["model"]["n_filters"])
 
     def _apply_backbone(self, mel: torch.Tensor) -> torch.Tensor:
-        """Run backbone + optional tail on a normalized mel tensor. Returns logits."""
+        """Run backbone + optional temporal head on a normalized mel tensor. Returns logits."""
         x = self.model(mel)
-        if self.tail is not None:
-            x = self.tail(x)
+        if self.temporal_head is not None:
+            x = self.temporal_head(x)
         return x
 
     def forward_logits(self, waveform: torch.Tensor) -> torch.Tensor:
@@ -177,12 +178,12 @@ class SpeechMusicDetector(nn.Module):
     def forward_streaming(self, waveform: torch.Tensor, state=None):
         """Streaming forward.
 
-        For stateless models (no tail): equivalent to forward(); state passes through.
-        For stateful tails: the TCN recomputes on the full audio buffer (it is stateless),
+        For stateless models (no head): equivalent to forward(); state passes through.
+        For stateful temporal heads: the TCN recomputes on the full audio buffer (it is stateless),
         then only the last ``state["n_new_frames"]`` feature frames are fed through the
-        tail with carried state. Returns (probs, new_state).
+        head with carried state. Returns (probs, new_state).
         """
-        if self.tail is None or not getattr(self.tail, "is_stateful", False):
+        if self.temporal_head is None or not getattr(self.temporal_head, "is_stateful", False):
             return self.forward(waveform), state
 
         spec = self.fe(waveform)
@@ -192,10 +193,10 @@ class SpeechMusicDetector(nn.Module):
         n_new = (state or {}).get("n_new_frames")
         if n_new is None or n_new <= 0 or n_new > feats.shape[-1]:
             # No frame counter yet (e.g. first offline call) — process the whole buffer.
-            logits, new_state = self.tail.forward_streaming(feats, state)
+            logits, new_state = self.temporal_head.forward_streaming(feats, state)
         else:
             feats_new = feats[..., -n_new:]
-            logits_new, new_state = self.tail.forward_streaming(feats_new, state)
+            logits_new, new_state = self.temporal_head.forward_streaming(feats_new, state)
             # Pad prefix with zeros so caller sees a tensor aligned to buffer length;
             # last frame (the one StreamingInference reads) is always valid.
             prefix = feats.shape[-1] - n_new

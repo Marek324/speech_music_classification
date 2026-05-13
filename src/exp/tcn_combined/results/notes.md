@@ -31,4 +31,4 @@ Expected-if-additive sum of individual gains: **+0.0124**. Observed F+P+A: **+0.
 
 **Takeaway.** `delta2_conv1d_large` is the best configuration produced by the ablation program, 0.0092 above baseline with CIs that cleanly separate. If a single-change deployment is preferred, `delta2` alone is a safe pick (frontend exp: 0.9816) — it captures most of the combined gain with a zero-parameter modification. The preprocessor only earns its keep when stacked with capacity (`delta2_large` 0.9832 already covers most of `delta2_conv1d_large` 0.9844).
 
-**Not reproduced under the paper-literal recipe.** These results are on 30-epoch SGD+WeightNorm runs. Moving to Adam+BN (ablation experiment: +0.0040 standalone) is orthogonal to the compositional finding here — the relative ranking of variants should hold, only the absolute baseline shifts.
+**Not reproduced under the recipe matching the paper.** These results are on 30-epoch SGD+WeightNorm runs. Moving to Adam+BN (ablation experiment: +0.0040 standalone) is orthogonal to the compositional finding here — the relative ranking of variants should hold, only the absolute baseline shifts.

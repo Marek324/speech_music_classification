@@ -1,3 +1,6 @@
+# src/exp/complexity/cli.py
+# Marek Hric
+
 """CPU complexity analysis across all 6 classifiers.
 
 Combines symbolic complexity (params, MACs/frame, receptive field, critical
@@ -62,6 +65,7 @@ _MODEL_SHORT = {
 
 
 def _load_config() -> dict:
+    """Read the ``[complexity]`` (legacy ``[latency]``) section from ``config.toml``."""
     with open(_CFG_PATH, "rb") as f:
         # Old [latency] section name kept for backward compatibility with the
         # existing config file; the values themselves are unchanged.
@@ -128,39 +132,39 @@ def _symbolic_nn(runner) -> dict:
                 k = sub.kernel_size[0]
                 pre_macs += k * sub.in_channels * sub.out_channels
 
-    # Optional tail (LSTM): one step per emitted frame on top of TCN features.
-    tail = getattr(model, "tail", None)
-    tail_macs = 0
-    tail_state_floats = 0
-    if tail is not None:
-        for sub in tail.modules():
+    # Optional temporal head (LSTM): one step per emitted frame on top of TCN features.
+    head = getattr(model, "temporal_head", None)
+    head_macs = 0
+    head_state_floats = 0
+    if head is not None:
+        for sub in head.modules():
             if isinstance(sub, torch.nn.LSTM):
                 H = sub.hidden_size
                 D = sub.input_size
-                tail_macs += 4 * H * (D + H)
-                tail_state_floats += 2 * H  # (h, c)
+                head_macs += 4 * H * (D + H)
+                head_state_floats += 2 * H  # (h, c)
             elif isinstance(sub, torch.nn.GRU):
                 H = sub.hidden_size
                 D = sub.input_size
-                tail_macs += 3 * H * (D + H)
-                tail_state_floats += H
+                head_macs += 3 * H * (D + H)
+                head_state_floats += H
 
     macs_offline += pre_macs
 
     # Streaming MACs/frame = cost of one push().
     # Current StreamingInference reruns the TCN over the whole left-RF buffer
     # each call (≈ rf_frames feature frames) since the TCN backbone is
-    # stateless; the LSTM tail (if any) only steps on the *new* frame.
-    macs_streaming = macs_offline * rf_frames + tail_macs
+    # stateless; the LSTM head (if any) only steps on the *new* frame.
+    macs_streaming = macs_offline * rf_frames + head_macs
 
     # Critical path (T_inf): conv layers form the serial chain. Each block is
-    # 2 layers deep; plus input_proj and classifier add 2; +1 for tail step.
+    # 2 layers deep; plus input_proj and classifier add 2; +1 for head step.
     critical_path = 2 + 2 * n_blocks
-    if tail_macs > 0:
+    if head_macs > 0:
         critical_path += 1
 
-    # Persistent streaming state in floats: audio-sample ring buffer + tail h/c.
-    state_floats = rf_samples + tail_state_floats
+    # Persistent streaming state in floats: audio-sample ring buffer + head h/c.
+    state_floats = rf_samples + head_state_floats
     # Buffer in ms = audio-equivalent of all persistent state. The audio ring
     # buffer dominates (rf_samples is a sample count, h/c is tens of floats),
     # so this is essentially the audio context held between calls.
@@ -226,7 +230,7 @@ def _symbolic_classic(runner) -> dict:
         state_floats += n_smooth * n_classes
 
     elif cls_name == "GMM":
-        # Three GMMs (speech, music, inactive); sum their costs.
+        # Three GMMs (speech, music, background); sum their costs.
         K = D = 0
         for attr in ("gmm_speech", "gmm_music", "gmm_inactive"):
             g = getattr(cls, attr, None)
@@ -307,6 +311,7 @@ def _read_f1_macro(model_name: str) -> float | None:
 
 
 def _prewarm_torch(num_threads: int) -> None:
+    """Force the torch + safetensors imports and pin intra-op thread count before any timed run."""
     # Pay the one-time torch + safetensors import cost once so per-NN-model
     # load_ms reflects weight load, not "first NN bears the import". Pin
     # intra-op threads here while we're at it — set_num_threads must be
@@ -317,6 +322,7 @@ def _prewarm_torch(num_threads: int) -> None:
 
 
 def _deep_cleanup(passes: int, sleep_s: float) -> None:
+    """Run multiple ``gc.collect()`` passes plus glibc ``malloc_trim`` and a settling sleep."""
     for _ in range(passes):
         gc.collect()
     try:
@@ -327,6 +333,7 @@ def _deep_cleanup(passes: int, sleep_s: float) -> None:
 
 
 def _bench_one(name: str, cfg: dict) -> dict:
+    """Benchmark one model: load, symbolic complexity, timed pushes, and RSS measurements."""
     proc = psutil.Process()
     rss_pre = proc.memory_info().rss
 
@@ -409,6 +416,7 @@ def _bench_one(name: str, cfg: dict) -> dict:
 
 
 def _cpu_label() -> str:
+    """Return a human-readable CPU model string from ``/proc/cpuinfo`` (with platform fallback)."""
     try:
         with open("/proc/cpuinfo", "rt") as f:
             for line in f:
@@ -420,6 +428,7 @@ def _cpu_label() -> str:
 
 
 def _torch_version() -> str:
+    """Return the installed torch version, or ``'n/a'`` if torch is unavailable."""
     try:
         import torch
         return torch.__version__
@@ -452,6 +461,7 @@ def _fmt_params(v: int) -> str:
 
 
 def _format_table(rows: list[dict], cfg: dict) -> str:
+    """Render the empirical + symbolic complexity tables as Markdown for ``complexity_t{N}.md``."""
     now = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     n_pooled = cfg["trials"] * cfg["pushes_per_trial"]
     max_abs = max(r["peak_rss_abs_mb"] for r in rows)
@@ -561,6 +571,7 @@ def _format_table(rows: list[dict], cfg: dict) -> str:
 
 
 def _plot(rows: list[dict], out_svg: Path) -> None:
+    """Render the 4-panel complexity figure (wall-clock, MACs, RSS, Pareto) to ``out_svg``."""
     by_speed = sorted(rows, key=lambda r: r["ms_per_sec_audio"])
     labels = [_MODEL_SHORT.get(r["name"], r["name"]) for r in by_speed]
     colors = [_COLORS.get(r["name"], "#888888") for r in by_speed]
@@ -631,6 +642,40 @@ def _plot(rows: list[dict], out_svg: Path) -> None:
         ax_d.set_axis_off()
 
     fig.suptitle(f"CPU complexity — {_cpu_label()}", fontsize=12)
+    out_svg.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(out_svg)
+    plt.close(fig)
+
+
+def _plot_symbolic_scatter(rows: list[dict], out_svg: Path) -> None:
+    """Log-log scatter of params vs MACs/frame across the symbolic table."""
+    pts = [
+        (
+            r["name"],
+            max(1, r.get("symbolic", {}).get("params", 0)),
+            max(1, r.get("symbolic", {}).get("macs_per_frame", 0)),
+        )
+        for r in rows
+    ]
+    if not pts:
+        return
+
+    fig, ax = plt.subplots(figsize=(7, 5), constrained_layout=True)
+    for name, p, m in pts:
+        ax.scatter(p, m, s=110, color=_COLORS.get(name, "#888888"),
+                   edgecolor="black", linewidth=0.6, zorder=3)
+        ax.annotate(
+            _MODEL_SHORT.get(name, name),
+            xy=(p, m), xytext=(7, 4), textcoords="offset points",
+            fontsize=10,
+        )
+    ax.set_xscale("log")
+    ax.set_yscale("log")
+    ax.set_xlabel("parameters (log scale)")
+    ax.set_ylabel("MACs per frame (log scale)")
+    ax.set_title("Symbolic complexity — storage vs streaming compute")
+    ax.grid(which="both", alpha=0.3, zorder=0)
+
     out_svg.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out_svg)
     plt.close(fig)
@@ -717,6 +762,7 @@ def _format_scale_table(per_n: dict[int, list[dict]]) -> str:
 
 
 def _plot_scale(per_n: dict[int, list[dict]], out_svg: Path) -> None:
+    """Plot per-model speedup curves S(N) vs ideal linear scaling and save to ``out_svg``."""
     Ns = sorted(per_n.keys())
     model_order = [r["name"] for r in per_n[Ns[0]]]
 
@@ -759,6 +805,7 @@ def run():
     n_threads = cfg["torch_threads"]
     out_md = _RESULTS_DIR / f"complexity_t{n_threads}.md"
     out_svg = _RESULTS_DIR / f"complexity_t{n_threads}.svg"
+    out_sym_svg = _RESULTS_DIR / "complexity_symbolic.svg"
 
     _prewarm_torch(n_threads)
     rows: list[dict] = []
@@ -773,8 +820,10 @@ def run():
     _RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     out_md.write_text(table)
     _plot(rows, out_svg)
+    _plot_symbolic_scatter(rows, out_sym_svg)
     click.echo(f"\nsaved → {out_md}")
     click.echo(f"saved → {out_svg}")
+    click.echo(f"saved → {out_sym_svg}")
 
 
 @complexity_group.command("scale")

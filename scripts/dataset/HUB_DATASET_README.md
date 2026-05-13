@@ -31,7 +31,7 @@ configs:
 
 ## Tiers
 
-- **mid** — 1200 min target (40% speech / 40% music / 20% inactive), including synthetic augmentations.
+- **mid** — 1200 min target (40% speech / 40% music / 20% background), including synthetic augmentations.
 - **full** — 6000 min target, same mix.
 - **crit** — small hand-curated stress-test set (test split only) sourced from `scripts/dataset/crit/manifest.toml`.
 
@@ -45,7 +45,7 @@ After `uv run python build.py {mid|full}` for each tier (same `--out-dir` stagin
     train/
       speech/       part_*.parquet
       music/
-      inactive/
+      background/
     validation/
       speech/
       ...

@@ -8,7 +8,6 @@
 CO=speech_music_classification
 BUILD=build
 
-# Black & white / print: fitthesis option "print" (\ifPrint), assignment_bw.pdf, black links.
 # Usage: make pdf PRINT=1   or   make print
 PRINT ?= 0
 ifeq ($(PRINT),1)
@@ -20,25 +19,11 @@ TEX_ENTRY := $(CO).tex
 PDFLATEX_JOB :=
 endif
 
-all: $(CO).pdf
+.PHONY: all pdf print live poster clean
 
-pdf: $(CO).pdf
+all: pdf
 
-print:
-	$(MAKE) pdf PRINT=1
-
-live:
-	mkdir -p $(BUILD)
-ifeq ($(PRINT),1)
-	latexmk -pdf -pvc -output-directory=$(BUILD) -jobname=$(CO) $(CO)_print.tex
-else
-	latexmk -pdf -pvc -output-directory=$(BUILD) $(CO).tex
-endif
-
-$(CO).ps: $(CO).dvi
-	dvips -o $(CO).ps $(BUILD)/$(CO).dvi
-
-$(CO).pdf: clean
+pdf:
 	mkdir -p $(BUILD)
 	pdflatex -output-directory=$(BUILD) $(PDFLATEX_JOB) $(TEX_ENTRY)
 	-bibtex $(BUILD)/$(CO)
@@ -46,19 +31,35 @@ $(CO).pdf: clean
 	# makeglossaries-lite -d $(BUILD) $(CO)
 	pdflatex -output-directory=$(BUILD) $(PDFLATEX_JOB) $(TEX_ENTRY)
 	pdflatex -output-directory=$(BUILD) $(PDFLATEX_JOB) $(TEX_ENTRY)
-	mv $(BUILD)/$(CO).pdf $(CO).pdf
+	cp $(BUILD)/$(CO).pdf $(CO).pdf
 
-$(CO).dvi: $(CO).tex $(CO).bib
+print:
+	$(MAKE) pdf PRINT=1
+
+live:
 	mkdir -p $(BUILD)
-	latex -output-directory=$(BUILD) $(CO)
-	-bibtex $(BUILD)/$(CO)
-	latex -output-directory=$(BUILD) $(CO)
-	latex -output-directory=$(BUILD) $(CO)
+# -g forces an initial rebuild so switching between PRINT=1 and PRINT=0
+# always reflects the new option (otherwise latexmk sees the cached PDF
+# from the previous mode and skips compilation).
+ifeq ($(PRINT),1)
+	latexmk -g -pdf -pvc -output-directory=$(BUILD) -jobname=$(CO) $(CO)_print.tex
+else
+	latexmk -g -pdf -pvc -output-directory=$(BUILD) $(CO).tex
+endif
+
+poster:
+	mkdir -p $(BUILD)
+	cd poster && pdflatex -output-directory=../$(BUILD) \
+	  -jobname=$(CO)_poster -interaction=nonstopmode poster.tex
+	cp $(BUILD)/$(CO)_poster.pdf $(CO)_poster.pdf
 
 clean:
 	rm -rf $(BUILD)
-	rm -f $(CO).pdf
 	rm -f *~
+	rm -f $(CO).pdf $(CO)_poster.pdf
+	rm -f $(CO).aux $(CO).bbl $(CO).blg $(CO).log $(CO).out $(CO).toc \
+	      $(CO).lof $(CO).lot $(CO).ptc $(CO).fls $(CO).fdb_latexmk \
+	      $(CO).synctex.gz $(CO).bcf $(CO).run.xml
 
 pack:
 	tar czvf $(CO).tar.gz *.tex *.bib *.bst ./template-fig/* ./bib-styles/* ./cls/* zadani.pdf $(CO).pdf Makefile Changelog
@@ -76,7 +77,7 @@ rename:
 	sed -i "s/$(CO)-30-prilohy-appendices/$(NAME)-30-prilohy-appendices/g" $(NAME).tex
 	sed -i "s/$(CO)-30-prilohy-appendices-en/$(NAME)-30-prilohy-appendices-en/g" $(NAME).tex
 	sed -i "s/$(CO)/$(NAME)/g" Makefile
-	
+
 # Pozor, vlna neresi vse (viz popis.txt) / Warning - vlna is not solving all problems (see description.txt)
 vlna:
 	vlna -l $(CO)-*.tex
@@ -84,4 +85,3 @@ vlna:
 # Spocita normostrany / Count of standard pages
 normostrany:
 	echo "scale=2; `detex -n $(CO)-[01]*.tex | sed s/"^ *"/""/ | sed s/"^	*"/""/ | wc -c`/1800;" | bc
-

@@ -1,3 +1,6 @@
+# src/demo/source.py
+# Marek Hric
+
 """Server-side audio producers for the Reflex demo.
 
 Both ``MicSource`` and ``FileSource`` expose ``async def chunks()`` yielding
@@ -160,6 +163,7 @@ class ParecordSource:
         self._proc: Optional[asyncio.subprocess.Process] = None
 
     async def chunks(self) -> AsyncIterator[np.ndarray]:
+        """Yield fixed-size float32 mono chunks captured from the configured Pulse source."""
         # --latency-msec keeps parecord's internal buffer small so stdout flushes
         # promptly. Without it, PulseAudio defaults to a buffer (~1-2s of audio)
         # that delays the first chunk by seconds and makes the mixer block.
@@ -262,6 +266,7 @@ class MicSource:
         )
 
     async def chunks(self) -> AsyncIterator[np.ndarray]:
+        """Yield fixed-size float32 mono chunks from the PortAudio input stream."""
         import sounddevice as sd
 
         self._loop = asyncio.get_running_loop()
@@ -362,6 +367,7 @@ class MixedSource:
             await q.put(chunk)
 
     async def chunks(self) -> AsyncIterator[np.ndarray]:
+        """Yield mixed (mic + monitor) chunks; falls through to mic-only if no secondary is enabled."""
         if self._secondary is None:
             async for c in self._primary.chunks():
                 yield c
@@ -392,6 +398,8 @@ class MixedSource:
 
 
 class FileSource:
+    """Stream an audio file as fixed-size chunks at ``sr``, optionally pacing in real time."""
+
     def __init__(
         self,
         path: str | Path,
@@ -405,6 +413,7 @@ class FileSource:
         self.realtime = realtime
 
     async def chunks(self) -> AsyncIterator[np.ndarray]:
+        """Read, resample, and yield float32 mono chunks from the file."""
         import soundfile as sf
         import librosa
 

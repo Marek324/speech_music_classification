@@ -1,3 +1,6 @@
+# scripts/dataset/crit/crit_mix.py
+# Marek Hric
+
 """Mix a speech clip with a noise/music clip at a target SNR; emit manifest.
 
 Math:
@@ -12,7 +15,7 @@ Math:
 Workflow:
     1. First run:
          uv run python scripts/dataset/crit/crit_mix.py \\
-             sources/speech/s_clean_0.wav sources/inactive/cafeteria.mp3 -3 \\
+             sources/speech/s_clean_0.wav sources/background/cafeteria.mp3 -3 \\
              --out speech_cafeteria_neg3db --subclass low_snr
        Writes:
          recordings/speech_cafeteria_neg3db.wav         (16 kHz mono mix)
@@ -75,6 +78,7 @@ def _default_out_name(speech: Path, noise: Path, snr_db: float) -> str:
 
 
 def main() -> None:
+    """CLI entry point: mix speech + noise at target SNR, save wav + labels TSV, print manifest snippet."""
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("speech_path", type=Path, help="path to speech audio file")
     p.add_argument("noise_path", type=Path, help="path to noise/music audio file")

@@ -1,4 +1,5 @@
-# tcn/streaming.py
+# src/nn/tcn/streaming.py
+# Marek Hric
 # Chunk-by-chunk online inference.
 
 import torch
@@ -31,6 +32,7 @@ class StreamingInference:
 
     @torch.no_grad()
     def process_chunk(self, chunk):
+        """Append a new audio chunk to the buffer and return the latest (speech, music, background) probabilities."""
         self.model.eval()
         chunk = chunk.unsqueeze(0).to(self.buffer.device)
         chunk_frames = chunk.shape[-1] // self.hop_length
@@ -48,10 +50,10 @@ class StreamingInference:
         probs, self._state = self.model.forward_streaming(self.buffer, self._state)
         self._frames_emitted += chunk_frames
 
-        speech_prob   = probs[0, 0, -1].item()
-        music_prob    = probs[0, 1, -1].item()
-        inactive_prob = probs[0, 2, -1].item()
+        speech_prob     = probs[0, 0, -1].item()
+        music_prob      = probs[0, 1, -1].item()
+        background_prob = probs[0, 2, -1].item()
 
         self.buffer = self.buffer[:, -self.left_rf_samples:]
 
-        return speech_prob, music_prob, inactive_prob
+        return speech_prob, music_prob, background_prob

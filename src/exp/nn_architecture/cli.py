@@ -1,4 +1,5 @@
-# exp/nn_architecture/cli.py
+# src/exp/nn_architecture/cli.py
+# Marek Hric
 # Thin CLI wrapper — all logic lives in src/nn/tcn/.
 # The experiment is fully defined by config.toml in this directory.
 
@@ -80,11 +81,10 @@ def nn_architecture_group():
 
 @nn_architecture_group.command("train")
 @click.option("--name", "-n", default=None, help="Variant name (e.g. gru, lstm, transformer)")
-@click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
-def train_cmd(name, no_wandb):
+def train_cmd(name):
     """Train a single backbone variant."""
     cfg, _, weights_path, stats_path = _load(name)
-    train_tcn(use_wandb=not no_wandb, cfg=cfg, weights_path=weights_path, stats_path=stats_path)
+    train_tcn(cfg=cfg, weights_path=weights_path, stats_path=stats_path)
 
 
 @nn_architecture_group.command("eval")
@@ -121,17 +121,6 @@ def smoke_test_cmd(name):
     assert 0 <= probs.min().item() <= 1 and 0 <= probs.max().item() <= 1
     log.info("Smoke-test passed. Variant: %s  Backbone: %s  Output shape: %s",
              variant_name, cfg["model"].get("backbone", "tcn"), tuple(probs.shape))
-
-
-@nn_architecture_group.command("visualize")
-def visualize_cmd():
-    """Plot architecture experiment results. Reads results/tcn_<name>.eval files."""
-    import importlib.util
-    viz_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "visualize_experiment.py"
-    spec = importlib.util.spec_from_file_location("visualize_experiment", viz_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.main(config_path=_CFG_PATH, results_dir=_results_dir, experiment_name="Architecture Experiment")
 
 
 @nn_architecture_group.command("run-all")

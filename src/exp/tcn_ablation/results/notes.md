@@ -1,6 +1,6 @@
 # TCN ablation — results notes
 
-Base recipe: SGD, lr=1e-3, WeightNorm, n_filters=16, n_layers=4, n_stacks=3, kernel=5, dropout=0.5, seq_len=128, BCE-with-logits, 30 epochs, full tier. Baseline Macro F1 = **0.9752**.
+Base recipe: SGD, lr=1e-3, WeightNorm, n_filters=16, n_layers=4, n_stacks=3, kernel=5, dropout=0.5, seq_len=128, BCE-with-logits, 50 epochs, full tier. Baseline Macro F1 = **0.9752**.
 
 ## Results
 
@@ -16,7 +16,6 @@ Base recipe: SGD, lr=1e-3, WeightNorm, n_filters=16, n_layers=4, n_stacks=3, ker
 | batch_norm | 0.9739 | [0.9671, 0.9784] | −0.0013 | swapping WN→BN alone is neutral |
 | layers_3 | 0.9736 | [0.9671, 0.9780] | −0.0016 | RF=85 frames |
 | layers_2 | 0.9723 | [0.9655, 0.9768] | −0.0029 | RF=37 frames |
-| sgd_batchnorm | 0.9706 | [0.9627, 0.9758] | −0.0046 | SGD+BN underperforms SGD+WN |
 | elu | 0.9639 | [0.9541, 0.9704] | −0.0113 | ELU's negative saturation hurts |
 | layers_1 | 0.9573 | [0.9450, 0.9662] | −0.0179 | RF=13 frames clearly insufficient |
 | **no_skip** | **0.1884** | [0.1725, 0.2039] | diverged | collapses to music-only — residuals are essential |
@@ -24,7 +23,7 @@ Base recipe: SGD, lr=1e-3, WeightNorm, n_filters=16, n_layers=4, n_stacks=3, ker
 
 ## Conclusion
 
-The paper-prescribed TCN recipe is **saturated** along most structural knobs. Three classes of signal emerge:
+The TCN recipe proposed by the paper is **saturated** along most structural knobs. Three classes of signal emerge:
 
 1. **Catastrophic failures** — Adam without BN, removing skip connections. These identify *load-bearing* pieces of the recipe: residuals are non-negotiable, and Adam requires BN to stay numerically stable on this data.
 2. **Real but small effects** — dropping dropout from 0.5 to 0.1 (+0.0030) is the cleanest in-recipe win; Adam+BN (+0.0040) and SGD@1e-2 (+0.0035) win at the optimizer level but each comes with stability caveats. Reducing `n_layers` below 4 hurts monotonically as RF starves; ELU underperforms ReLU/LeakyReLU/GELU.

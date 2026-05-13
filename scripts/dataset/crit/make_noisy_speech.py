@@ -1,4 +1,7 @@
-"""Generate noisy-speech crit clips by mixing every clean speech clip with every inactive/ noise.
+# scripts/dataset/crit/make_noisy_speech.py
+# Marek Hric
+
+"""Generate noisy-speech crit clips by mixing every clean speech clip with every background/ noise.
 
 Cartesian product: SPEECH_IDS × NOISES × SNRS. For each combo:
   1. Load both at 16 kHz mono.
@@ -94,11 +97,12 @@ def _strip_noisy_entries(manifest_path: Path) -> int:
 
 
 def main() -> None:
+    """CLI entry point: regenerate every noisy-speech crit clip and append manifest entries."""
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.parse_args()
 
     speech_dir = SCRIPT_DIR / "sources" / "speech"
-    noise_dir = SCRIPT_DIR / "sources" / "inactive"
+    noise_dir = SCRIPT_DIR / "sources" / "background"
     manifest_path = SCRIPT_DIR / "manifest.toml"
 
     removed = _strip_noisy_entries(manifest_path)

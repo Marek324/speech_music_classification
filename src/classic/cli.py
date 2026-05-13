@@ -1,4 +1,5 @@
-# classic/cli.py
+# src/classic/cli.py
+# Marek Hric
 # CLI commands for classic hand-crafted feature models.
 
 import logging
@@ -107,14 +108,17 @@ def _add_model_commands(group: click.Group, model_name: str):
 
     @group.command("train")
     def train():
+        """Train the model on the configured train split and save weights."""
         _train_classic(model_name)
 
     @group.command("eval")
     def eval_cmd():
+        """Evaluate the model on the test split and write a report to results/."""
         _eval_classic(model_name)
 
     @group.command("smoke-test")
     def smoke_test():
+        """Quick end-to-end check on synthetic frames; logs F1 without saving anything."""
         _smoke_test_classic(model_name)
 
 

@@ -1,4 +1,4 @@
-# feat_extractor.py
+# src/classic/feat_extractor.py
 # Marek Hric
 
 import warnings
@@ -39,6 +39,8 @@ def _stack_subframes(segment: np.ndarray, positions: np.ndarray, fl: int) -> np.
 
 
 class FeatExtractor:
+    """Stateful per-frame feature extractor for the classic models (DT and GMM/SVM)."""
+
     def __init__(self, sec_buffer_scale: int = 30) -> None:
         self.cfg = config.get_config()
         buf = self.cfg[BUFFERS]
@@ -125,6 +127,7 @@ class FeatExtractor:
         return np.asarray(buf, dtype=float)
 
     def extract(self, frame: np.ndarray) -> np.ndarray:
+        """Extract a feature vector for one frame, dispatched by the active feature set."""
         self.signal_buffer.extend(frame[-self.fh :])
         feature_set = self._get_feature_set()
         if feature_set == "decision_tree":

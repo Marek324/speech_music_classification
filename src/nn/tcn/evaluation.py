@@ -1,4 +1,5 @@
-# tcn/evaluation.py
+# src/nn/tcn/evaluation.py
+# Marek Hric
 # Evaluation interface for TCN model.
 
 import logging
@@ -8,7 +9,6 @@ import torch
 
 from ...evaluator import EvalResults, run_evaluation
 from ...seed import seed_all
-from ...wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
 from ..evaluation import run_nn_inference
 from .config import get_config, get_weights_path, get_preprocess_stats_path
@@ -75,15 +75,5 @@ def eval_tcn(
         y_scores=y_scores,
         clip_ids=clip_ids,
     )
-
-    n = len(y_true)
-    wandb_init(config={})
-    wandb_log({
-        "eval/accuracy": res.accuracy,
-        "eval/f1": res.f1,
-        "eval/correct": int(res.accuracy * n),
-        "eval/total": n,
-    })
-    wandb_finish()
 
     return res

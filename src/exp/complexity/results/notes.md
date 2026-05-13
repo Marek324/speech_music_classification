@@ -161,7 +161,7 @@ threading (oversubscription overhead).
   the experiment.
 - SmallTCN: 64 MB — variant module imports (delta² compute, SmallTCN
   weights) + model construction.
-- TCN+LSTM: 23 MB — LSTM tail adds small overhead on top of TCN.
+- TCN+LSTM: 23 MB — LSTM head adds small overhead on top of TCN.
 - SmallerTCN: 13 MB — same delta² preprocessor as SmallTCN but a leaner
   body (stack=1).
 - SVM: 9 MB.

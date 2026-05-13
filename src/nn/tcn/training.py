@@ -1,4 +1,5 @@
-# tcn/training.py
+# src/nn/tcn/training.py
+# Marek Hric
 # Training utilities.
 
 import hashlib
@@ -8,8 +9,6 @@ from pathlib import Path
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-
-from ...wandb_logger import finish as wandb_finish, init as wandb_init, log_metrics as wandb_log
 
 from .augmentation import augment_mel
 from .config import get_config, get_preprocess_stats_path, get_weights_path
@@ -66,7 +65,7 @@ def build_loss(cfg: dict | None = None) -> tuple[nn.Module, str]:
 
     Supported cfg["loss"] values:
         bce_with_logits  — nn.BCEWithLogitsLoss on raw logits                 (default, stable)
-        bce              — nn.BCELoss on sigmoid(logits)                      (paper-literal, unstable)
+        bce              — nn.BCELoss on sigmoid(logits)                      (matches the paper, unstable)
         focal            — focal BCE on logits, gamma from cfg["focal_gamma"] (default 2.0)
         weighted_bce     — BCEWithLogitsLoss with per-class pos_weight
         mse              — nn.MSELoss on sigmoid(logits)
@@ -87,7 +86,7 @@ def build_loss(cfg: dict | None = None) -> tuple[nn.Module, str]:
         eps = float(cfg.get("label_smoothing", 0.1))
         return _LabelSmoothingBCE(eps), "logits"
     if name == "weighted_bce":
-        # Rough mid-tier class balance: inactive is ~1/3 the size of speech/music.
+        # Rough mid-tier class balance: background is ~1/3 the size of speech/music.
         # pos_weight has shape (C, 1) so it broadcasts over (B, C, T).
         pw = torch.tensor([1.0, 1.0, 3.0]).view(-1, 1)
         return nn.BCEWithLogitsLoss(pos_weight=pw), "logits"
@@ -297,7 +296,6 @@ def train_tcn(
     epochs: int = 50,
     max_train_rows: int | None = None,
     weights_path=None,
-    use_wandb: bool = True,
     patience: int = 5,
     cfg: dict | None = None,
     stats_path=None,
@@ -359,8 +357,6 @@ def train_tcn(
     log.info("Loss: %s  (mode=%s)", cfg.get("loss", "bce_with_logits"), loss_mode)
 
     run_name = cfg.get("name", "tcn")
-    if use_wandb:
-        wandb_init(config={"model": run_name, "epochs": epochs, "patience": patience, **cfg})
 
     # --- one-shot mel precompute + cache load for both splits ---
     ds_link = ds_cfg["url"]
@@ -406,9 +402,6 @@ def train_tcn(
         metrics["val/loss"] = val_loss
         metrics["lr"] = current_lr
 
-        if use_wandb:
-            wandb_log(metrics, step=ep + 1)
-
         scheduler.step(val_loss)
 
         if val_loss < best_val_loss:
@@ -423,9 +416,6 @@ def train_tcn(
                     ep + 1, patience,
                 )
                 break
-
-    if use_wandb:
-        wandb_finish()
 
     if best_state is not None:
         model.load_state_dict(best_state)

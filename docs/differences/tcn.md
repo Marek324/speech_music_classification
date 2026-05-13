@@ -23,7 +23,7 @@ two parallel TCN configs anymore.
 | Divide LR by 10 when validation loss does not improve for 3 epochs | `ReduceLROnPlateau(factor=0.1, patience=3)` in `training.py:354` |
 | Stop training after 5 consecutive non-improving validation epochs | `patience=5` in `train_tcn` |
 | Mini-batches of fixed-length chunks, batch size 32 | `batch_size = 32`, `_iter_mel_batches` in `training.py` |
-| Dropout ∈ [0.05, 0.5] per block | `dropout = 0.5` (paper-prescribed upper bound) |
+| Dropout ∈ [0.05, 0.5] per block | `dropout = 0.5` (upper bound from the paper's search space) |
 | Causal dilated convolutions, residual blocks, skip connections | `blocks.py::TCNResidualBlock`, `skip_connections=true` default |
 | keras-tcn-style block: two dilated causal convs + WeightNorm + ReLU + dropout + residual add | `blocks.py::TCNResidualBlock` with `use_weight_norm=true`, `activation="relu"` |
 | Hyperparameter search space: `n_layers ∈ 1..4`, `n_stacks ∈ 3..10`, `kernel_size ∈ {3,5,…,19}`, `n_filters ∈ {8,16,32}`, dilations `2^0…2^N_D` with `N_D=3..8` | Ablation subgroups cover the same ranges; n_filters/kernel/stacks pruned after no-signal results |
@@ -38,13 +38,13 @@ documented as an ablation variant so the study empirically justifies it.
 **Paper.** Two sigmoid outputs — `[speech, music]`. A frame can be either, both,
 or neither; "neither" is implicit from `(0, 0)`.
 
-**Baseline.** Three sigmoid outputs — `[speech, music, inactive]`. The inactive
+**Baseline.** Three sigmoid outputs — `[speech, music, background]`. The background
 channel is an explicit class rather than the absence of the first two.
 
 **Why.** The entire codebase (`src/common.py`, classic models, label convention
 in `src/nn/dataset.py::LABEL_MAP`) is built around a 3-class vocabulary. Our
 dataset has a dedicated `noise` source (`CLAUDE.md` tier table) and an explicit
-inactive class gives the cross-entropy a target for those frames rather than a
+background class gives the cross-entropy a target for those frames rather than a
 flat zero vector. BCE-with-logits still works in the 3-output setup.
 
 ### 2. Loss: `BCEWithLogitsLoss` on raw logits vs. paper's `BCELoss(sigmoid(x))`
@@ -123,24 +123,14 @@ its full receptive-field context during training. The
 baseline. The `small_tcn_stacks` experiment exploits the gap from the other
 side: `stacks_1` reduces RF to 121 frames, fitting inside `seq_len = 128`,
 which is the only TCN variant in the project where train-time RF matches
-inference-time RF (`SmallerTCN`, see `src/exp/small_tcn_stacks/results/notes.md`).
+inference-time RF (`TCN-S`, see `src/exp/small_tcn_stacks/results/notes.md`).
 
-### 6. Post-processing duration thresholds (paper §3.6): not implemented
-
-**Paper.** Minimum speech/music event durations and minimum break durations,
-tuned on the training set, used to smooth frame-level predictions. Large
-improvement on event-level evaluation, marginal on segment-level.
-
-**Baseline.** Not implemented. Out of scope for the ablation study, which uses
-segment-level macro F1 as its primary metric.
-
-### 7. Hyperparameter search: OFAT coordinate-ascent vs. paper's TPE Bayesian
+### 6. Hyperparameter search: OFAT coordinate-ascent vs. paper's TPE Bayesian
 
 **Paper.** Tree-of-Parzen-Estimators Bayesian optimization over the full
 hyperparameter grid, restricted to 1 M parameters in Phase 1.
 
-**Baseline.** One-factor-at-a-time (OFAT) ablations rooted at a paper-faithful
-baseline, optionally composed via coordinate-ascent
+**Baseline.** One-factor-at-a-time (OFAT) ablations rooted at a baseline matching the paper's training recipe, optionally composed via coordinate-ascent
 (`tcn-ablation coord-ascent`). OFAT covers every hyperparameter range in
 Table 2 of the paper but does not explore the interactions TPE would catch.
 The composition is then exercised by the dedicated `tcn_combined` experiment
@@ -148,7 +138,7 @@ which stacks the source-experiment winners in a 2² factorial.
 
 **Why.** Compute budget. OFAT also gives clean per-axis plots for the thesis.
 
-### 8. Dataset: our HF dataset vs. paper's compiled collection
+### 7. Dataset: our HF dataset vs. paper's compiled collection
 
 **Paper.** MUSAN + GTZAN + SSMSC + OFAI + MuSpeak + ESC + Sveriges Radio,
 ~156 h combined, with a low-/high-quality split and a pre-training
@@ -162,7 +152,7 @@ tier (~100 h). Single-stage training (no LQ pre-training strategy).
 redistribute, and the research question here is architectural rather than
 a replication of the paper's dataset pipeline.
 
-### 9. Framework: PyTorch `nn.utils.weight_norm` vs. paper's keras-tcn
+### 8. Framework: PyTorch `nn.utils.weight_norm` vs. paper's keras-tcn
 
 **Paper.** `keras-tcn` (Philippe Rémy), TensorFlow/Keras.
 
@@ -175,32 +165,7 @@ dropout, with a residual add and a final ReLU.
 lets us own the training loop, streaming inference (`streaming.py`), and the
 ablation harness without cross-framework bridges.
 
-### 10. Augmentation: gain only in log-mel space vs. paper's Schlüter & Grill 2015 pipeline
-
-**Paper.** §3.7 cites the Schlüter & Grill (2015) pipeline: time stretching,
-pitch shifting, Gaussian *filtering* (smoothing), loudness manipulation, and
-block mixing — all applied on the saved power-spectrum features.
-
-**Baseline.** Only loudness manipulation is implemented. `augment_mel` in
-`augmentation.py` picks a per-example gain in ±6 dB with p=0.5 and adds it to
-the normalized log-mel as `gain_dB · ln(10)/10 / norm_std`. This is
-mathematically equivalent to a waveform gain followed by the existing log-mel
-+ normalization pipeline, so from the model's perspective it matches
-"loudness manipulation on spectrograms" from §3.7.
-
-Time/pitch stretch, Gaussian filtering, and block mixing are not implemented.
-A prior revision additionally applied waveform-domain additive Gaussian noise
-at 30 dB SNR; this had no paper counterpart (Schlüter & Grill uses Gaussian
-*filtering*, not *noise*) and was dropped in the mel-precompute refactor.
-
-**Why.** Time/pitch stretching and block mixing require operating on
-pre-mel power spectra; the refactor caches post-mel features for performance
-and simplicity. Adding them would need a second cache tier (pre-mel) and a
-GPU-side resampling kernel — out of scope for the current study. The
-`augmentation.no_augment` ablation variant (now commented out — landed within
-0.001 of baseline) measured the gain's contribution as effectively zero.
-
-### 11. Validation loss measured as chunk-level mean
+### 9. Validation loss measured as chunk-level mean
 
 **Paper.** §3.5 says LR schedule and early stopping are triggered by
 "validation loss did not improve". The unit is not specified.
@@ -213,7 +178,7 @@ longer clips more. Either definition is monotone in model quality, so the
 `ReduceLROnPlateau` and early-stopping semantics are unchanged; only the
 absolute numerical scale shifts.
 
-### 12. Production recipe = ablation baseline (paper-faithful)
+### 10. Production recipe = ablation baseline (matches the paper)
 
 **Production TCN** (`/home/marek/bp/config.toml`): `optimizer = "sgd"` (m=0.9),
 `lr = 1e-3`, `use_weight_norm = true` → WeightNorm, `dropout = 0.5`. Identical
@@ -225,19 +190,19 @@ split (`results/tcn.eval`). This clears the project target of 0.85 by 12 pp.
 
 **Why one recipe and not two.** Earlier revisions of this project ran a
 divergent production stack (Adam + BatchNorm + dropout=0.1) on top of the
-paper-literal ablation baseline. Two findings collapsed that split:
+ablation baseline that follows the paper as written. Two findings collapsed that split:
 
 1. The `regularization.dropout_low` ablation winner (dropout=0.1, +0.0030)
    was small enough to land inside baseline's CI under the current data
    pipeline. Adopting it in production would have shifted absolute numbers
    without changing the qualitative story.
 2. The `optimizer.adam_batchnorm` variant tops the ablation board (+0.0040)
-   but couples optimizer + normalization in a way that breaks the
-   paper-comparability of the rest of the recipe. Keeping the production
-   recipe paper-faithful preserves the ablation study as a *direct* test of
+   but couples optimizer + normalization in a way that breaks comparability
+   with the paper for the rest of the recipe. Keeping the production recipe
+   matched to the paper preserves the ablation study as a *direct* test of
    each deviation in this document.
 
-**Frozen vs configurable.** The deployed checkpoint is the paper-faithful
+**Frozen vs configurable.** The deployed checkpoint follows the paper's
 recipe. Adam+BN, dropout=0.1, and lr=1e-2 are all available as ablation
 variants and produce slightly higher F1 in isolation, but none have been
 promoted to production because the gains do not compose cleanly (see
@@ -255,10 +220,10 @@ future re-runs or plots — their eval files remain in `results/` for reference.
 
 | Subgroup | Paper range / default | Variants | Outcome |
 |---|---|---|---|
-| `optimizer` | SGD m=0.9 | `adam`, `batch_norm`, `adam_batchnorm`, `sgd_batchnorm`, `sgd_lr_1e-2` | bare `adam` collapses to a trivial predictor (0.172, speech-only); `adam_batchnorm` rescues it and tops the board (0.9792, +0.0040); `sgd_lr_1e-2` survived and lands second (0.9787, +0.0035); `sgd_batchnorm` regresses (0.9706, −0.0046) |
+| `optimizer` | SGD m=0.9 | `adam`, `batch_norm`, `adam_batchnorm`, `sgd_lr_1e-2` | bare `adam` collapses to a trivial predictor (0.172, speech-only); `adam_batchnorm` rescues it and tops the board (0.9792, +0.0040); `sgd_lr_1e-2` survived and lands second (0.9787, +0.0035); `batch_norm` regresses (0.9739, −0.0013) |
 | `layers` | `n_layers ∈ 1..4` | `layers_1`, `layers_2`, `layers_3` | clear depth effect: `layers_1` drops to 0.9573 (RF=13 too small), `layers_2` to 0.9723 (RF=37), `layers_3` to 0.9736 (RF=85) |
-| `activation` | (ReLU in keras-tcn) | `leaky_relu`, `elu`, `gelu` | `elu` drops to 0.9639 (negative saturation hurts); ReLU/LeakyReLU/GELU tied within 0.0004 |
-| `regularization` | dropout ∈ [0.05, 0.5] | `dropout_low` (0.1), `dropout_medium` (0.25) | `dropout_low` beats baseline by +0.0030 (0.9782) — real but inside CI; not adopted in production to keep the recipe paper-literal (see §12) |
+| `activation` | (ReLU in keras-tcn) | `leaky_relu`, `elu`, `gelu` | `elu` drops to 0.9639 (negative saturation hurts); ReLU/LeakyReLU/GeLU tied within 0.0004 |
+| `regularization` | dropout ∈ [0.05, 0.5] | `dropout_low` (0.1), `dropout_medium` (0.25) | `dropout_low` beats baseline by +0.0030 (0.9782) — real but inside CI; not adopted in production to keep the recipe matched to the paper (see §10) |
 | `skip_connections` | true/false | `no_skip` | catastrophic without skips: collapses to music-only (0.1884) |
 
 ### Pruned subgroups (no signal, kept as commented-out blocks in config.toml)
@@ -271,5 +236,4 @@ future re-runs or plots — their eval files remain in `results/` for reference.
 | `kernel` | all kernel widths within ±0.003 |
 | `training` (`seq_len`) | `seq_len_256`/`seq_len_270` within ±0.002 |
 | `batch_size` | `batch_16`/`batch_64` within ±0.002 |
-| `augmentation` | `no_augment` within 0.001 |
 | `n_mels` | eval crashes — cached preprocess stats are baked to 80 mels; needs per-mel-count stats to test properly. Note: the cache-key fix (`_nf{n_features}` baked into the path, `training.py:108`) addresses the *MFCC* case in the `tcn_frontend` experiment, where `mfcc_20` and `mfcc_40` now train cleanly to 0.9752 / 0.9764. The `n_mels` variants here remain blocked because they need separate **preprocess** stats files, not just a different cache key. |

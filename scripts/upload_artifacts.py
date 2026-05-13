@@ -23,11 +23,6 @@ REPO_ID = "Marek324/butfit-bp-artifacts"
 REPO_TYPE = "model"
 ROOT = Path(__file__).resolve().parent.parent
 
-# Folders where ``--clean`` is supported. Per-experiment results dirs are
-# scoped by sub-path; only the top-level keys above can be cleaned.
-CLEAN_TARGETS = {"weights", "cache", "results"}
-
-
 def _folders() -> list[tuple[Path, str, list[str] | None]]:
     entries: list[tuple[Path, str, list[str] | None]] = [
         (ROOT / "weights", "weights", None),
@@ -38,6 +33,12 @@ def _folders() -> list[tuple[Path, str, list[str] | None]]:
         rel = exp_results.relative_to(ROOT).as_posix()
         entries.append((exp_results, rel, ["*.npz"]))
     return entries
+
+
+# Folders where ``--clean`` is supported — every entry of ``_folders()`` is
+# eligible by its repo path, including per-experiment results dirs like
+# ``src/exp/critical/results``.
+CLEAN_TARGETS = {path_in_repo for _, path_in_repo, _ in _folders()}
 
 
 def main() -> None:
@@ -71,10 +72,7 @@ def main() -> None:
             print(f"  {path_in_repo}/  — empty or missing, skipping")
             continue
 
-        # Only clean if the *top-level* segment matches the user's --clean targets.
-        # Per-experiment results dirs (src/exp/*/results) are not eligible.
-        top = path_in_repo.split("/", 1)[0]
-        clean_this = top in clean_set and "/" not in path_in_repo
+        clean_this = path_in_repo in clean_set
         delete_patterns = ["**"] if clean_this else None
 
         action = "Mirror-uploading" if clean_this else "Uploading"

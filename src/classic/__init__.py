@@ -1,4 +1,4 @@
-# classic/__init__.py
+# src/classic/__init__.py
 # Marek Hric
 # run by uv run classic <model> <command>
 

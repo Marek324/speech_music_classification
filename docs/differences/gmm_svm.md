@@ -153,7 +153,7 @@ binary).
 Inference computes per-class log-likelihoods, takes argmax, and remaps
 to the project label space `{-1, 1, 2}`.
 
-**Why.** The project is 3-class (speech / music / inactive). The
+**Why.** The project is 3-class (speech / music / background). The
 two-GMM threshold rule cannot represent the third class without an
 auxiliary detector. Adding a third GMM keeps the density-classifier
 structure of the paper while extending it to the project's label set.
@@ -181,7 +181,7 @@ because the segmentation is already coarse-grained.
 **Implementation.** `svm.py` trains a single multi-class `SVC` on the full
 3-class label set (`{-1, 1, 2}`); sklearn handles 3-class natively via OvO,
 producing a 3-element decision-function vector per frame. The `_subsample_balanced`
-helper subsamples 50 k frames *per class* (including the inactive class), so
+helper subsamples 50 k frames *per class* (including the background class), so
 no frame is filtered out of training. At inference, `predict()` keeps a
 20-frame rolling buffer of the decision vector (`self.dec_buf = deque(maxlen=20)`
 ≈ 300 ms at 15 ms hop), averages it, and takes `argmax` over the smoothed
@@ -215,9 +215,9 @@ classification (speech vs. music). Audio: 5–30 s clips.
 
 **Implementation.** `Marek324/speech-music-classification` HF dataset
 (mid/full tier). Fixed train/val/test splits. 3-class classification
-(speech / music / inactive). Clips range from <1 s to several minutes.
+(speech / music / background). Clips range from <1 s to several minutes.
 
-**Why.** Different research context — our dataset includes an inactive
+**Why.** Different research context — our dataset includes an background
 class and is designed for streaming broadcast monitoring rather than
 replicating the paper's exact evaluation. The feature extraction follows
 the paper; the evaluation framework differs.
@@ -302,7 +302,7 @@ One 9-D vector per 15 ms hop instead of one per 1 s segment.
 | SVM (C, gamma, kernel) | RBF, C=1, gamma=3 | Matched | Yes |
 | GMM (k, covariance) | 8, diagonal | Matched | Yes |
 | GMM structure | 2 GMMs, threshold | 3 GMMs, argmax (§9) | Extended |
-| Output classes | 2 (speech / music) | 3 (speech / music / inactive) | Different |
+| Output classes | 2 (speech / music) | 3 (speech / music / background) | Different |
 | Feature scaling | Unspecified | RobustScaler (GMM, clipped to ±10) / StandardScaler (SVM) | Added |
 | GMM smoothing | Implicit per-feature | 66-frame log-likelihood buffer (§10) | Added |
 | SVM smoothing | None | 20-frame decision-function buffer (§11) | Added |

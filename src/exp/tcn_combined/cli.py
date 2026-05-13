@@ -1,4 +1,5 @@
-# exp/tcn_combined/cli.py
+# src/exp/tcn_combined/cli.py
+# Marek Hric
 # Thin CLI wrapper — all logic lives in src/nn/tcn/.
 # The experiment is fully defined by config.toml in this directory.
 
@@ -80,11 +81,10 @@ def tcn_combined_group():
 
 @tcn_combined_group.command("train")
 @click.option("--name", "-n", default=None, help="Variant name (e.g. delta2_conv1d_large)")
-@click.option("--no-wandb", is_flag=True, default=False, help="Disable W&B logging")
-def train_cmd(name, no_wandb):
+def train_cmd(name):
     """Train a single combined-winners variant."""
     cfg, _, weights_path, stats_path = _load(name)
-    train_tcn(use_wandb=not no_wandb, cfg=cfg, weights_path=weights_path, stats_path=stats_path)
+    train_tcn(cfg=cfg, weights_path=weights_path, stats_path=stats_path)
 
 
 @tcn_combined_group.command("eval")
@@ -121,17 +121,6 @@ def smoke_test_cmd(name):
     assert 0 <= probs.min().item() <= 1 and 0 <= probs.max().item() <= 1
     log.info("Smoke-test passed. Variant: %s  Frontend: %s  n_features: %d  Output shape: %s",
              variant_name, cfg.get("frontend", "log_mel"), nf, tuple(probs.shape))
-
-
-@tcn_combined_group.command("visualize")
-def visualize_cmd():
-    """Plot combined-winners experiment results. Reads results/tcn_<name>.eval files."""
-    import importlib.util
-    viz_path = Path(__file__).resolve().parent.parent.parent.parent / "scripts" / "visualize_experiment.py"
-    spec = importlib.util.spec_from_file_location("visualize_experiment", viz_path)
-    mod = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(mod)
-    mod.main(config_path=_CFG_PATH, results_dir=_results_dir, experiment_name="Combined Winners Experiment")
 
 
 @tcn_combined_group.command("run-all")

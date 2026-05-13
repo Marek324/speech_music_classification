@@ -1,4 +1,7 @@
-"""Timestamp labels for speech / music / inactive (Silero VAD, pyannote + RMS music, full-clip inactive)."""
+# scripts/dataset/labeling.py
+# Marek Hric
+
+"""Timestamp labels for speech / music / background (Silero VAD, pyannote + RMS music, full-clip background)."""
 
 import io
 import os
@@ -87,18 +90,18 @@ def _silero_wav_and_length(audio: Union[AudioDecoder, np.ndarray]) -> tuple[Opti
 
 def _labels_from_silero_ts(timestamps: list[dict], n_samples: int) -> list[dict[str, Any]]:
     if not timestamps:
-        return [make_label("inactive", 0, _ms_from_samples(n_samples))]
+        return [make_label("background", 0, _ms_from_samples(n_samples))]
 
     labels: list[dict[str, Any]] = []
     prev_end = 0
     for ts in timestamps:
         s, e = int(ts["start"]), int(ts["end"])
         if s > prev_end:
-            labels.append(make_label("inactive", _ms_from_samples(prev_end), _ms_from_samples(s)))
+            labels.append(make_label("background", _ms_from_samples(prev_end), _ms_from_samples(s)))
         labels.append(make_label("speech", _ms_from_samples(s), _ms_from_samples(e)))
         prev_end = e
     if prev_end < n_samples:
-        labels.append(make_label("inactive", _ms_from_samples(prev_end), _ms_from_samples(n_samples)))
+        labels.append(make_label("background", _ms_from_samples(prev_end), _ms_from_samples(n_samples)))
     return labels
 
 
@@ -112,9 +115,9 @@ def _per_hop_rms(wav: np.ndarray, hop: int) -> np.ndarray:
 
 
 def _rle_hop_bool_to_music_labels(mask: np.ndarray, hop: int, n_samples: int) -> list[dict[str, Any]]:
-    """True -> music, False -> inactive."""
+    """True -> music, False -> background."""
     if mask.size == 0:
-        return [make_label("inactive", 0, _ms_from_samples(n_samples))]
+        return [make_label("background", 0, _ms_from_samples(n_samples))]
 
     labels: list[dict[str, Any]] = []
     cur = bool(mask[0])
@@ -123,11 +126,11 @@ def _rle_hop_bool_to_music_labels(mask: np.ndarray, hop: int, n_samples: int) ->
         v = bool(mask[j])
         if v != cur:
             t0, t1 = start_i * hop, min(j * hop, n_samples)
-            labels.append(make_label("music" if cur else "inactive", _ms_from_samples(t0), _ms_from_samples(t1)))
+            labels.append(make_label("music" if cur else "background", _ms_from_samples(t0), _ms_from_samples(t1)))
             start_i, cur = j, v
     labels.append(
         make_label(
-            "music" if cur else "inactive",
+            "music" if cur else "background",
             _ms_from_samples(start_i * hop),
             _ms_from_samples(n_samples),
         )
@@ -160,7 +163,7 @@ class VADLabeler:
 
 
 class MusicLabeler:
-    """Music vs inactive: pyannote SPEECH ∪ RMS loud frames (instrumental)."""
+    """Music vs background: pyannote SPEECH ∪ RMS loud frames (instrumental)."""
 
     def __init__(self) -> None:
         model = Model.from_pretrained(PYANNOTE_SEGMENTATION_MODEL)
@@ -169,6 +172,7 @@ class MusicLabeler:
         self._pipeline: VoiceActivityDetection = pl
 
     def label(self, audio: Union[dict, np.ndarray]) -> Optional[list[dict[str, Any]]]:
+        """Return music/background timestamp labels via pyannote SPEECH ∪ RMS gating."""
         try:
             if isinstance(audio, np.ndarray):
                 wav = audio
@@ -179,7 +183,7 @@ class MusicLabeler:
 
         n = wav.shape[0]
         if n == 0:
-            return [make_label("inactive", 0, 0)]
+            return [make_label("background", 0, 0)]
 
         hop = max(1, int(SR * _MUSIC_RMS_HOP_MS / 1000))
         n_hop = (n + hop - 1) // hop
@@ -203,7 +207,7 @@ class MusicLabeler:
 
 class SilenceLabeler:
     def label(self, audio: Union[AudioDecoder, dict, np.ndarray]) -> list[dict[str, Any]]:
-        return [make_label("inactive", 0, _duration_ms(audio))]
+        return [make_label("background", 0, _duration_ms(audio))]
 
 
 _LABELER_CACHE: dict[str, Union[VADLabeler, MusicLabeler, SilenceLabeler]] = {}
@@ -216,6 +220,7 @@ _LABELER_FACTORY: dict[str, type[VADLabeler] | type[MusicLabeler] | type[Silence
 
 
 def get_labeler(detector: str) -> Union[VADLabeler, MusicLabeler, SilenceLabeler]:
+    """Return a cached labeler instance for ``detector`` ∈ {vad, music, silence}."""
     if detector not in _LABELER_CACHE:
         factory = _LABELER_FACTORY.get(detector)
         if factory is None:

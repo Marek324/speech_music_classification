@@ -62,8 +62,8 @@ splits and order automatically. Per-stage Bayesian thresholds are not exposed.
 filtered out of the training set ("silent and noisy frames must therefore be
 eliminated"; see `docs/chapters/03_classification.tex` §3.36).
 
-**Implementation.** Three-class — speech / music / inactive — with the
-inactive frames carrying their own training labels rather than being filtered
+**Implementation.** Three-class — speech / music / background — with the
+background frames carrying their own training labels rather than being filtered
 out. The tree's output classes are `[-1, 1, 2]` per `src/common.py`.
 
 **Why.** The project label space is fixed across all classifiers
@@ -237,7 +237,7 @@ the TCN family but the cheapest model on a per-frame basis.
 metric) — see also gmm_svm.md §13 and tcn.md §8. Note also that the paper's
 results are not directly comparable: the paper's "correct identification
 rate" is per-segment accuracy on a 2-class task with silence/noise excluded,
-whereas our macro F1 is per-frame across 3 classes including the inactive
+whereas our macro F1 is per-frame across 3 classes including the background
 class on a different dataset.
 
 ## Summary
@@ -245,7 +245,7 @@ class on a different dataset.
 | Aspect | Paper | Implementation | Match? |
 |---|---|---|---|
 | Classifier structure | 3-stage Bayesian + rule-based sieve | sklearn `DecisionTreeClassifier` (single learned tree) | Different (§1) |
-| Output classes | 2 (speech / music) | 3 (speech / music / inactive) | Different (§2) |
+| Output classes | 2 (speech / music) | 3 (speech / music / background) | Different (§2) |
 | Sample rate | 44 kHz | 16 kHz | Different (§3) |
 | Frame length / hop | 40 ms / 20 ms | 20 ms / 10 ms | Different (§3) |
 | Segment / long-term window | 4 s (segment hop 100 ms) | 300 ms `feat_buffer` | Different (§3, §6) |

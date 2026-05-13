@@ -1,4 +1,5 @@
-# nn/cli.py
+# src/nn/cli.py
+# Marek Hric
 # CLI group for all neural network models.
 
 import click

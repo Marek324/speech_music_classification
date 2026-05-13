@@ -1,4 +1,5 @@
-# classic/streaming.py
+# src/classic/streaming.py
+# Marek Hric
 # Streaming classifier for GMM / SVM / DT — consumed by src/demo/.
 
 import logging

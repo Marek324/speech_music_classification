@@ -1855,51 +1855,51 @@ labels = [
   { label = "speech", start = 30690, end = 33502 },
 ]
 
-[inactive_airport]
-file     = "sources/inactive/airport.mp3"
-cls      = "inactive"
+[background_airport]
+file     = "sources/background/airport.mp3"
+cls      = "background"
 subclass = "babble"
 detector = "silence"
-notes    = "Airport terminal - distant babble + announcements; voice-like inactive content."
+notes    = "Airport terminal - distant babble + announcements; voice-like background content."
 
-[inactive_birdsong]
-file     = "sources/inactive/birdsong.mp3"
-cls      = "inactive"
+[background_birdsong]
+file     = "sources/background/birdsong.mp3"
+cls      = "background"
 subclass = "wildlife"
 detector = "silence"
-notes    = "Bird song - narrowband tonal calls; OOD for inactive training distribution."
+notes    = "Bird song - narrowband tonal calls; OOD for background training distribution."
 
-[inactive_cafeteria]
-file     = "sources/inactive/cafeteria.mp3"
-cls      = "inactive"
+[background_cafeteria]
+file     = "sources/background/cafeteria.mp3"
+cls      = "background"
 subclass = "babble"
 detector = "silence"
-notes    = "Cafeteria - overlapping crowd babble; voice-like inactive content."
+notes    = "Cafeteria - overlapping crowd babble; voice-like background content."
 
-[inactive_cooler_fan]
-file     = "sources/inactive/cooler_fan.mp3"
-cls      = "inactive"
+[background_cooler_fan]
+file     = "sources/background/cooler_fan.mp3"
+cls      = "background"
 subclass = "machinery"
 detector = "silence"
 notes    = "Cooler fan - steady mechanical hum / broadband noise."
 
-[inactive_fireplace]
-file     = "sources/inactive/fireplace.mp3"
-cls      = "inactive"
+[background_fireplace]
+file     = "sources/background/fireplace.mp3"
+cls      = "background"
 subclass = "ambient"
 detector = "silence"
 notes    = "Fireplace - low-rate crackling impulses + bed of broadband hiss."
 
-[inactive_rain]
-file     = "sources/inactive/rain.mp3"
-cls      = "inactive"
+[background_rain]
+file     = "sources/background/rain.mp3"
+cls      = "background"
 subclass = "ambient"
 detector = "silence"
 notes    = "Rain - broadband stochastic noise, weather ambience."
 
-[inactive_street]
-file     = "sources/inactive/street.mp3"
-cls      = "inactive"
+[background_street]
+file     = "sources/background/street.mp3"
+cls      = "background"
 subclass = "outdoor"
 detector = "silence"
 notes    = "Street - traffic, footsteps, distant voices; OOD outdoor mix."
@@ -2059,359 +2059,4 @@ labels = [
   { label = "speech", start = 3778, end = 31454 },
   { label = "music", start = 31454, end = 31714 },
   { label = "speech", start = 31714, end = 32171 },
-]
-
-[switching_500ms]
-file     = "recordings/switching_500ms.wav"
-cls      = "speech"
-subclass = "switching_500ms"
-notes    = "Speech↔music alternation at 500 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
-labels = [
-  { label = "inactive", start = 0, end = 500 },
-  { label = "music", start = 500, end = 1000 },
-  { label = "inactive", start = 1000, end = 1014 },
-  { label = "speech", start = 1014, end = 1500 },
-  { label = "music", start = 1500, end = 2000 },
-  { label = "speech", start = 2000, end = 2500 },
-  { label = "music", start = 2500, end = 3000 },
-  { label = "speech", start = 3000, end = 3500 },
-  { label = "music", start = 3500, end = 4000 },
-  { label = "speech", start = 4000, end = 4500 },
-  { label = "music", start = 4500, end = 5000 },
-  { label = "speech", start = 5000, end = 5500 },
-  { label = "music", start = 5500, end = 6000 },
-  { label = "speech", start = 6000, end = 6230 },
-  { label = "inactive", start = 6230, end = 6362 },
-  { label = "speech", start = 6362, end = 6500 },
-  { label = "music", start = 6500, end = 7000 },
-  { label = "speech", start = 7000, end = 7500 },
-  { label = "music", start = 7500, end = 8000 },
-  { label = "speech", start = 8000, end = 8500 },
-  { label = "music", start = 8500, end = 9000 },
-  { label = "speech", start = 9000, end = 9500 },
-  { label = "music", start = 9500, end = 10000 },
-  { label = "speech", start = 10000, end = 10406 },
-  { label = "inactive", start = 10406, end = 10500 },
-  { label = "music", start = 10500, end = 11000 },
-  { label = "inactive", start = 11000, end = 11500 },
-  { label = "music", start = 11500, end = 12000 },
-  { label = "inactive", start = 12000, end = 12274 },
-  { label = "speech", start = 12274, end = 12500 },
-  { label = "music", start = 12500, end = 13000 },
-  { label = "speech", start = 13000, end = 13500 },
-  { label = "music", start = 13500, end = 14000 },
-  { label = "speech", start = 14000, end = 14500 },
-  { label = "music", start = 14500, end = 15000 },
-  { label = "speech", start = 15000, end = 15500 },
-  { label = "music", start = 15500, end = 16000 },
-  { label = "speech", start = 16000, end = 16500 },
-  { label = "music", start = 16500, end = 17000 },
-  { label = "speech", start = 17000, end = 17170 },
-  { label = "inactive", start = 17170, end = 17398 },
-  { label = "speech", start = 17398, end = 17500 },
-  { label = "music", start = 17500, end = 18000 },
-  { label = "speech", start = 18000, end = 18500 },
-  { label = "music", start = 18500, end = 19000 },
-  { label = "speech", start = 19000, end = 19500 },
-  { label = "music", start = 19500, end = 20000 },
-  { label = "speech", start = 20000, end = 20500 },
-  { label = "music", start = 20500, end = 21000 },
-  { label = "speech", start = 21000, end = 21500 },
-  { label = "music", start = 21500, end = 22000 },
-  { label = "speech", start = 22000, end = 22500 },
-  { label = "music", start = 22500, end = 23000 },
-  { label = "speech", start = 23000, end = 23178 },
-  { label = "inactive", start = 23178, end = 23500 },
-  { label = "music", start = 23500, end = 24000 },
-  { label = "inactive", start = 24000, end = 24386 },
-  { label = "speech", start = 24386, end = 24500 },
-  { label = "music", start = 24500, end = 25000 },
-  { label = "speech", start = 25000, end = 25500 },
-  { label = "music", start = 25500, end = 26000 },
-  { label = "speech", start = 26000, end = 26500 },
-  { label = "music", start = 26500, end = 27000 },
-  { label = "speech", start = 27000, end = 27500 },
-  { label = "music", start = 27500, end = 28000 },
-  { label = "speech", start = 28000, end = 28500 },
-  { label = "music", start = 28500, end = 29000 },
-  { label = "speech", start = 29000, end = 29500 },
-  { label = "music", start = 29500, end = 30000 },
-]
-
-[switching_1000ms]
-file     = "recordings/switching_1000ms.wav"
-cls      = "speech"
-subclass = "switching_1000ms"
-notes    = "Speech↔music alternation at 1000 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
-labels = [
-  { label = "inactive", start = 0, end = 514 },
-  { label = "speech", start = 514, end = 1000 },
-  { label = "music", start = 1000, end = 2000 },
-  { label = "speech", start = 2000, end = 3000 },
-  { label = "music", start = 3000, end = 4000 },
-  { label = "speech", start = 4000, end = 5000 },
-  { label = "music", start = 5000, end = 6000 },
-  { label = "speech", start = 6000, end = 6230 },
-  { label = "inactive", start = 6230, end = 6362 },
-  { label = "speech", start = 6362, end = 7000 },
-  { label = "music", start = 7000, end = 8000 },
-  { label = "speech", start = 8000, end = 9000 },
-  { label = "music", start = 9000, end = 10000 },
-  { label = "speech", start = 10000, end = 10406 },
-  { label = "inactive", start = 10406, end = 11000 },
-  { label = "music", start = 11000, end = 12000 },
-  { label = "inactive", start = 12000, end = 12274 },
-  { label = "speech", start = 12274, end = 13000 },
-  { label = "music", start = 13000, end = 14000 },
-  { label = "speech", start = 14000, end = 15000 },
-  { label = "music", start = 15000, end = 16000 },
-  { label = "speech", start = 16000, end = 16670 },
-  { label = "inactive", start = 16670, end = 16898 },
-  { label = "speech", start = 16898, end = 17000 },
-  { label = "music", start = 17000, end = 18000 },
-  { label = "speech", start = 18000, end = 19000 },
-  { label = "music", start = 19000, end = 20000 },
-  { label = "speech", start = 20000, end = 21000 },
-  { label = "music", start = 21000, end = 22000 },
-  { label = "speech", start = 22000, end = 22678 },
-  { label = "inactive", start = 22678, end = 23000 },
-  { label = "music", start = 23000, end = 24000 },
-  { label = "inactive", start = 24000, end = 24386 },
-  { label = "speech", start = 24386, end = 25000 },
-  { label = "music", start = 25000, end = 26000 },
-  { label = "speech", start = 26000, end = 27000 },
-  { label = "music", start = 27000, end = 28000 },
-  { label = "speech", start = 28000, end = 29000 },
-  { label = "music", start = 29000, end = 30000 },
-]
-
-[switching_2000ms]
-file     = "recordings/switching_2000ms.wav"
-cls      = "speech"
-subclass = "switching_2000ms"
-notes    = "Speech↔music alternation at 2000 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
-labels = [
-  { label = "inactive", start = 0, end = 514 },
-  { label = "speech", start = 514, end = 2000 },
-  { label = "music", start = 2000, end = 4000 },
-  { label = "speech", start = 4000, end = 5230 },
-  { label = "inactive", start = 5230, end = 5362 },
-  { label = "speech", start = 5362, end = 6000 },
-  { label = "music", start = 6000, end = 8000 },
-  { label = "speech", start = 8000, end = 9406 },
-  { label = "inactive", start = 9406, end = 10000 },
-  { label = "music", start = 10000, end = 12000 },
-  { label = "inactive", start = 12000, end = 12274 },
-  { label = "speech", start = 12274, end = 14000 },
-  { label = "music", start = 14000, end = 16000 },
-  { label = "speech", start = 16000, end = 16670 },
-  { label = "inactive", start = 16670, end = 16898 },
-  { label = "speech", start = 16898, end = 18000 },
-  { label = "music", start = 18000, end = 20000 },
-  { label = "speech", start = 20000, end = 21678 },
-  { label = "inactive", start = 21678, end = 22000 },
-  { label = "music", start = 22000, end = 24000 },
-  { label = "inactive", start = 24000, end = 24386 },
-  { label = "speech", start = 24386, end = 26000 },
-  { label = "music", start = 26000, end = 28000 },
-  { label = "speech", start = 28000, end = 30000 },
-]
-
-[switching_4000ms]
-file     = "recordings/switching_4000ms.wav"
-cls      = "speech"
-subclass = "switching_4000ms"
-notes    = "Speech↔music alternation at 4000 ms cadence — diagnostic for switching latency. Speech is concatenated active-only spans from s_clean_0.wav; music is RMS-matched pop.mp3."
-labels = [
-  { label = "inactive", start = 0, end = 514 },
-  { label = "speech", start = 514, end = 3230 },
-  { label = "inactive", start = 3230, end = 3362 },
-  { label = "speech", start = 3362, end = 4000 },
-  { label = "music", start = 4000, end = 8000 },
-  { label = "speech", start = 8000, end = 9406 },
-  { label = "inactive", start = 9406, end = 10274 },
-  { label = "speech", start = 10274, end = 12000 },
-  { label = "music", start = 12000, end = 16000 },
-  { label = "speech", start = 16000, end = 16670 },
-  { label = "inactive", start = 16670, end = 16898 },
-  { label = "speech", start = 16898, end = 19678 },
-  { label = "inactive", start = 19678, end = 20000 },
-  { label = "music", start = 20000, end = 24000 },
-  { label = "inactive", start = 24000, end = 24386 },
-  { label = "speech", start = 24386, end = 28000 },
-  { label = "music", start = 28000, end = 30000 },
-]
-
-[switching_3class_500ms]
-file     = "recordings/switching_3class_500ms.wav"
-cls      = "speech"
-subclass = "switching_3class_500ms"
-notes    = "Speech / music / inactive cycle at 500 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
-labels = [
-  { label = "inactive", start = 0, end = 500 },
-  { label = "music", start = 500, end = 1000 },
-  { label = "inactive", start = 1000, end = 1500 },
-  { label = "inactive", start = 1500, end = 1514 },
-  { label = "speech", start = 1514, end = 2000 },
-  { label = "music", start = 2000, end = 2500 },
-  { label = "inactive", start = 2500, end = 3000 },
-  { label = "speech", start = 3000, end = 3500 },
-  { label = "music", start = 3500, end = 4000 },
-  { label = "inactive", start = 4000, end = 4500 },
-  { label = "speech", start = 4500, end = 5000 },
-  { label = "music", start = 5000, end = 5500 },
-  { label = "inactive", start = 5500, end = 6000 },
-  { label = "speech", start = 6000, end = 6500 },
-  { label = "music", start = 6500, end = 7000 },
-  { label = "inactive", start = 7000, end = 7500 },
-  { label = "speech", start = 7500, end = 8000 },
-  { label = "music", start = 8000, end = 8500 },
-  { label = "inactive", start = 8500, end = 9000 },
-  { label = "speech", start = 9000, end = 9230 },
-  { label = "inactive", start = 9230, end = 9362 },
-  { label = "speech", start = 9362, end = 9500 },
-  { label = "music", start = 9500, end = 10000 },
-  { label = "inactive", start = 10000, end = 10500 },
-  { label = "speech", start = 10500, end = 11000 },
-  { label = "music", start = 11000, end = 11500 },
-  { label = "inactive", start = 11500, end = 12000 },
-  { label = "speech", start = 12000, end = 12500 },
-  { label = "music", start = 12500, end = 13000 },
-  { label = "inactive", start = 13000, end = 13500 },
-  { label = "speech", start = 13500, end = 14000 },
-  { label = "music", start = 14000, end = 14500 },
-  { label = "inactive", start = 14500, end = 15000 },
-  { label = "speech", start = 15000, end = 15406 },
-  { label = "inactive", start = 15406, end = 15500 },
-  { label = "music", start = 15500, end = 16000 },
-  { label = "inactive", start = 16000, end = 16500 },
-  { label = "inactive", start = 16500, end = 17000 },
-  { label = "music", start = 17000, end = 17500 },
-  { label = "inactive", start = 17500, end = 18000 },
-  { label = "inactive", start = 18000, end = 18274 },
-  { label = "speech", start = 18274, end = 18500 },
-  { label = "music", start = 18500, end = 19000 },
-  { label = "inactive", start = 19000, end = 19500 },
-  { label = "speech", start = 19500, end = 20000 },
-  { label = "music", start = 20000, end = 20500 },
-  { label = "inactive", start = 20500, end = 21000 },
-  { label = "speech", start = 21000, end = 21500 },
-  { label = "music", start = 21500, end = 22000 },
-  { label = "inactive", start = 22000, end = 22500 },
-  { label = "speech", start = 22500, end = 23000 },
-  { label = "music", start = 23000, end = 23500 },
-  { label = "inactive", start = 23500, end = 24000 },
-  { label = "speech", start = 24000, end = 24500 },
-  { label = "music", start = 24500, end = 25000 },
-  { label = "inactive", start = 25000, end = 25500 },
-  { label = "speech", start = 25500, end = 25670 },
-  { label = "inactive", start = 25670, end = 25898 },
-  { label = "speech", start = 25898, end = 26000 },
-  { label = "music", start = 26000, end = 26500 },
-  { label = "inactive", start = 26500, end = 27000 },
-  { label = "speech", start = 27000, end = 27500 },
-  { label = "music", start = 27500, end = 28000 },
-  { label = "inactive", start = 28000, end = 28500 },
-  { label = "speech", start = 28500, end = 29000 },
-  { label = "music", start = 29000, end = 29500 },
-  { label = "inactive", start = 29500, end = 30000 },
-]
-
-[switching_3class_1000ms]
-file     = "recordings/switching_3class_1000ms.wav"
-cls      = "speech"
-subclass = "switching_3class_1000ms"
-notes    = "Speech / music / inactive cycle at 1000 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
-labels = [
-  { label = "inactive", start = 0, end = 514 },
-  { label = "speech", start = 514, end = 1000 },
-  { label = "music", start = 1000, end = 2000 },
-  { label = "inactive", start = 2000, end = 3000 },
-  { label = "speech", start = 3000, end = 4000 },
-  { label = "music", start = 4000, end = 5000 },
-  { label = "inactive", start = 5000, end = 6000 },
-  { label = "speech", start = 6000, end = 7000 },
-  { label = "music", start = 7000, end = 8000 },
-  { label = "inactive", start = 8000, end = 9000 },
-  { label = "speech", start = 9000, end = 9230 },
-  { label = "inactive", start = 9230, end = 9362 },
-  { label = "speech", start = 9362, end = 10000 },
-  { label = "music", start = 10000, end = 11000 },
-  { label = "inactive", start = 11000, end = 12000 },
-  { label = "speech", start = 12000, end = 13000 },
-  { label = "music", start = 13000, end = 14000 },
-  { label = "inactive", start = 14000, end = 15000 },
-  { label = "speech", start = 15000, end = 15406 },
-  { label = "inactive", start = 15406, end = 16000 },
-  { label = "music", start = 16000, end = 17000 },
-  { label = "inactive", start = 17000, end = 18000 },
-  { label = "inactive", start = 18000, end = 18274 },
-  { label = "speech", start = 18274, end = 19000 },
-  { label = "music", start = 19000, end = 20000 },
-  { label = "inactive", start = 20000, end = 21000 },
-  { label = "speech", start = 21000, end = 22000 },
-  { label = "music", start = 22000, end = 23000 },
-  { label = "inactive", start = 23000, end = 24000 },
-  { label = "speech", start = 24000, end = 24670 },
-  { label = "inactive", start = 24670, end = 24898 },
-  { label = "speech", start = 24898, end = 25000 },
-  { label = "music", start = 25000, end = 26000 },
-  { label = "inactive", start = 26000, end = 27000 },
-  { label = "speech", start = 27000, end = 28000 },
-  { label = "music", start = 28000, end = 29000 },
-  { label = "inactive", start = 29000, end = 30000 },
-]
-
-[switching_3class_2000ms]
-file     = "recordings/switching_3class_2000ms.wav"
-cls      = "speech"
-subclass = "switching_3class_2000ms"
-notes    = "Speech / music / inactive cycle at 2000 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
-labels = [
-  { label = "inactive", start = 0, end = 514 },
-  { label = "speech", start = 514, end = 2000 },
-  { label = "music", start = 2000, end = 4000 },
-  { label = "inactive", start = 4000, end = 6000 },
-  { label = "speech", start = 6000, end = 7230 },
-  { label = "inactive", start = 7230, end = 7362 },
-  { label = "speech", start = 7362, end = 8000 },
-  { label = "music", start = 8000, end = 10000 },
-  { label = "inactive", start = 10000, end = 12000 },
-  { label = "speech", start = 12000, end = 13406 },
-  { label = "inactive", start = 13406, end = 14000 },
-  { label = "music", start = 14000, end = 16000 },
-  { label = "inactive", start = 16000, end = 18000 },
-  { label = "inactive", start = 18000, end = 18274 },
-  { label = "speech", start = 18274, end = 20000 },
-  { label = "music", start = 20000, end = 22000 },
-  { label = "inactive", start = 22000, end = 24000 },
-  { label = "speech", start = 24000, end = 24670 },
-  { label = "inactive", start = 24670, end = 24898 },
-  { label = "speech", start = 24898, end = 26000 },
-  { label = "music", start = 26000, end = 28000 },
-  { label = "inactive", start = 28000, end = 30000 },
-]
-
-[switching_3class_4000ms]
-file     = "recordings/switching_3class_4000ms.wav"
-cls      = "speech"
-subclass = "switching_3class_4000ms"
-notes    = "Speech / music / inactive cycle at 4000 ms cadence — diagnostic for 3-class switching latency. Inactive is rain.mp3 scaled to 10 dB below speech (typical noise-floor level)."
-labels = [
-  { label = "inactive", start = 0, end = 514 },
-  { label = "speech", start = 514, end = 3230 },
-  { label = "inactive", start = 3230, end = 3362 },
-  { label = "speech", start = 3362, end = 4000 },
-  { label = "music", start = 4000, end = 8000 },
-  { label = "inactive", start = 8000, end = 12000 },
-  { label = "speech", start = 12000, end = 13406 },
-  { label = "inactive", start = 13406, end = 14274 },
-  { label = "speech", start = 14274, end = 16000 },
-  { label = "music", start = 16000, end = 20000 },
-  { label = "inactive", start = 20000, end = 24000 },
-  { label = "speech", start = 24000, end = 24670 },
-  { label = "inactive", start = 24670, end = 24898 },
-  { label = "speech", start = 24898, end = 27678 },
-  { label = "inactive", start = 27678, end = 28000 },
-  { label = "music", start = 28000, end = 30000 },
 ]

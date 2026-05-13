@@ -6,19 +6,18 @@ Beat the existing DT/GMM/SVM baselines and achieve >= **.85 F1 macro on 3-class 
 ## CLI
 ```
 uv run smclassifier nn tcn <command>           # TCN model (paper baseline)
-uv run smclassifier nn tcn-lstm <command>      # TCN+LSTM hybrid (delta2 + conv1d + LSTM tail)
-uv run smclassifier nn small-tcn <command>     # small-footprint TCN (delta2 + n_filters=8, n_stacks=3)
-uv run smclassifier nn smaller-tcn <command>   # SmallTCN recipe with n_stacks=1 (RF≤seq_len)
+uv run smclassifier nn tcn-l <command>         # TCN-L variant (delta2 + conv1d + LSTM head)
+uv run smclassifier nn tcn-s <command>         # TCN-S small-footprint variant (delta2 + n_filters=8, n_stacks=1, RF≤seq_len)
 uv run smclassifier classic <model> <command>  # classic models (decision_tree, gmm, svm)
-uv run smclassifier demo                       # Reflex web UI: mic/file streaming for all 7 models (auto-inits on first run)
+uv run smclassifier demo                       # Reflex web UI: mic/file streaming for all 6 models (auto-inits on first run)
 ```
-TCN / TCN+LSTM / SmallTCN / SmallerTCN commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
+TCN / TCN-L / TCN-S commands: `train`, `eval`, `smoke-test`, `smoke-test-online`
 Classic commands: `train`, `eval`, `smoke-test`
 
 ## Architecture
 Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possible**. Deviations and their justifications are tracked in `docs/differences/tcn.md`.
 
-### Paper-prescribed hyperparameter bounds
+### Hyperparameter bounds from the paper
 | Parameter | Paper search space | Current config |
 |-----------|-------------------|----------------|
 | n_filters | 8, 16, 32 | 16 |
@@ -27,7 +26,7 @@ Causal TCN — **must stay as close to Lemaire & Holzapfel ISMIR 2019 as possibl
 | kernel_size | 3, 5, 7, ..., 19 | 5 |
 | dropout | 0.05–0.5 | 0.5 |
 
-### Paper-prescribed training (§3.5)
+### Training recipe from the paper (§3.5)
 - Optimizer: SGD, momentum=0.9 (production matches paper)
 - LR schedule: ÷10 when val loss doesn't improve for 3 epochs (`ReduceLROnPlateau`)
 - Early stopping: 5 epochs without improvement
@@ -141,8 +140,8 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `modelclass.py` | Abstract `NNModelClass` base: `train()`, `evaluate()`, `smoke_test()` |
 | `cli.py` | `nn_group` — registers the canonical `tcn` group and auto-adds every variant's Click group from `VARIANTS` |
 | `variant.py` | **Shared** `make_variant()` factory — builds the config loader, Click group, and `SpeechMusicDetector` subclass for each TCN variant from a pre-parsed config dict + naming/path params |
-| `variants.py` | Reads `variants.toml` + repo-root `config.toml[dataset]`, calls `make_variant(...)` per entry, and auto-injects per-variant symbols (`SmallTCN`, `small_tcn_group`, `get_small_tcn_config`, `_SMALL_TCN_DEFAULT`, …) plus a `VARIANTS` registry. Adding a variant is a TOML-only change. |
-| `variants.toml` | Declarative registry of all TCN variants (SmallTCN, SmallerTCN, TCNLSTM). No `[dataset]` — inherited from repo-root `config.toml`. |
+| `variants.py` | Reads `variants.toml` + repo-root `config.toml[dataset]`, calls `make_variant(...)` per entry, and auto-injects per-variant symbols (`TCN-S`, `tcn_s_group`, `get_tcn_s_config`, `_TCN_S_DEFAULT`, …) plus a `VARIANTS` registry. Adding a variant is a TOML-only change. |
+| `variants.toml` | Declarative registry of all TCN variants (TCN-S, TCN-L). No `[dataset]` — inherited from repo-root `config.toml`. |
 
 #### TCN (`src/nn/tcn/`)
 | File | Purpose |
@@ -157,19 +156,17 @@ Insert `_nf{n_features}` right after `_fe{frontend}` and rename. When the user a
 | `config.py` | Config loader; reads `[tcn]` section of `config.toml`; `_MODEL_KEYS` / `_TOP_KEYS` split ablation overrides into model vs top-level buckets |
 | `weights/tcn.safetensors` | Trained model weights *(not in git — download via HF)* |
 | `weights/tcn_preprocess_stats.pt` | Log-mel normalization mean/std *(not in git — download via HF)* |
-| `cache/nn/tcn_mel_*.pt` | Precomputed mel chunks per (dataset, split, frontend params, seq_len); shared across ablation variants. *(not in git — auto-synced via `cache/` to `Marek324/butfit-bp-artifacts` on HF)* |
+| `cache/nn/tcn_mel_*.pt` | Precomputed mel chunks per (dataset, split, frontend params, seq_len); shared across ablation variants. *(not in git — fetch from Marek324/butfit-bp-artifacts on HF)* |
 
 #### Variants (`variants.py`, `variants.toml`)
-SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, `n_stacks=3`, ~52K params), SmallerTCN (same recipe with `n_stacks=1`, RF=121 frames ≤ training `seq_len=128`, ~47K params), and TCNLSTM (delta² + conv1d preprocessor + TCN + LSTM tail, combined-experiment winner) are declared as `[variants.<name>]` blocks in `variants.toml`. `variants.py` loads each block through `make_variant(...)` (`src/nn/variant.py`) and auto-exports one class, one Click group, three getters, and one `_DEFAULT` dict per variant, plus a `VARIANTS` registry dict. The `[dataset]` block is inherited from repo-root `config.toml` — variant TOML blocks only carry `[tcn]` + `[tcn.model]`. Adding a new variant is a TOML-only edit; Python picks it up automatically (including CLI registration).
+TCN-S (delta² frontend + `n_filters=8`, no preprocessor/head, `n_stacks=1`, RF=121 frames ≤ training `seq_len=128`, ~4.6K params) and TCN-L (delta² + conv1d preprocessor + TCN + LSTM head, combined-experiment winner) are declared as `[variants.<name>]` blocks in `variants.toml`. `variants.py` loads each block through `make_variant(...)` (`src/nn/variant.py`) and auto-exports one class, one Click group, three getters, and one `_DEFAULT` dict per variant, plus a `VARIANTS` registry dict. The `[dataset]` block is inherited from repo-root `config.toml` — variant TOML blocks only carry `[tcn]` + `[tcn.model]`. Adding a new variant is a TOML-only edit; Python picks it up automatically (including CLI registration).
 
 | Weights / stats | Purpose |
 |------|---------|
-| `weights/tcn_lstm/tcn_lstm.safetensors` | Trained TCNLSTM weights *(not in git — download via HF)* |
-| `weights/tcn_lstm/tcn_lstm_preprocess_stats.pt` | TCNLSTM log-mel normalization stats *(not in git)* |
-| `weights/small_tcn/tcn_small.safetensors` | Trained SmallTCN weights *(not in git — download via HF)* |
-| `weights/small_tcn/tcn_small_preprocess_stats.pt` | SmallTCN log-mel normalization stats *(not in git)* |
-| `weights/smaller_tcn/tcn_smaller.safetensors` | Trained SmallerTCN weights (sourced from `small_tcn_stacks/tcn_stacks_1`) *(not in git — download via HF)* |
-| `weights/smaller_tcn/tcn_smaller_preprocess_stats.pt` | SmallerTCN log-mel normalization stats *(not in git)* |
+| `weights/tcn_l/tcn_l.safetensors` | Trained TCN-L weights *(not in git — download via HF)* |
+| `weights/tcn_l/tcn_l_preprocess_stats.pt` | TCN-L log-mel normalization stats *(not in git)* |
+| `weights/tcn_s/tcn_s.safetensors` | Trained TCN-S weights (sourced from `small_tcn_stacks/tcn_stacks_1`) *(not in git — download via HF)* |
+| `weights/tcn_s/tcn_s_preprocess_stats.pt` | TCN-S log-mel normalization stats *(not in git)* |
 
 ### Classic models (`src/classic/`)
 | File | Purpose |
@@ -185,7 +182,7 @@ SmallTCN (delta² frontend + `n_filters=8`, no preprocessor/tail, `n_stacks=3`, 
 | `streaming.py` | `StreamingClassifier` — push raw audio samples, get per-hop labels (consumed by `src/demo/`) |
 
 ### Streaming demo (`src/demo/`)
-Reflex web UI for live speech/music classification across all seven models (DT/GMM/SVM + TCN/TCN-LSTM/SmallTCN/SmallerTCN).
+Reflex web UI for live speech/music classification across all six models (DT/GMM/SVM + TCN/TCN-L/TCN-S).
 | File | Purpose |
 |------|---------|
 | `runner.py` | `ClassicRunner` / `NNRunner` — uniform streaming wrapper; remaps labels to display space `{-1, 0, +1}` |
@@ -219,8 +216,6 @@ use_weight_norm = false              # model key — mixed overrides work in one
 | File | Purpose |
 |------|---------|
 | `visualize_results.py` | Parses all `results/*.eval` files, plots macro F1 comparison + per-subclass breakdown → `results/results.png` |
-| `upload_artifacts.py` | Uploads `weights/` and `cache/` to `Marek324/butfit-bp-artifacts` on HF |
-| `download_artifacts.py` | Downloads `weights/`, `cache/`, and `results/` from HF (run after cloning; pass `--no-cache` to skip the large mel cache) |
 
 ### Dataset scripts (`scripts/dataset/`) — uv subproject
 | File | Purpose |
@@ -250,7 +245,7 @@ Full deviation tracking lives in `docs/differences/tcn.md`. Highlights only here
 | Spectrogram caching + aug on cached spectra (§3.4) | Power spectrum pre-saved; aug applied to saved spectra | `cache/nn/tcn_mel_*.pt` caches normalized log-mel; `augment_mel()` operates on the cached tensor ✓ |
 | Augmentation pipeline (§3.7, Schlüter & Grill 2015) | Time stretch + pitch shift + Gaussian filter + loudness + block mix | Loudness only (±6 dB gain in log-mel space) — see `docs/differences/tcn.md` §10 |
 | Post-processing | Duration thresholds (§3.6) to smooth predictions | Not implemented |
-| Receptive field vs chunk | RF = 1 + 2×3×(5−1)×(1+2+4+8) = **361 frames** (factor of 2 for the two convs per residual block); chunks = 128 frames | Model never sees its full receptive-field context during training. SmallerTCN variant (`n_stacks=1`, RF=121) is the only checkpoint where train-time RF ≤ seq_len |
+| Receptive field vs chunk | RF = 1 + 2×3×(5−1)×(1+2+4+8) = **361 frames** (factor of 2 for the two convs per residual block); chunks = 128 frames | Model never sees its full receptive-field context during training. TCN-S variant (`n_stacks=1`, RF=121) is the only checkpoint where train-time RF ≤ seq_len |
 
 ### GMM & SVM — Khonglah & Prasanna DSP 2016
 
@@ -284,7 +279,7 @@ Full deviation tracking lives in `docs/differences/dt.md`. Highlights:
 ## Inference
 
 ### TCN
-Needs two files (download with `uv run python scripts/download_artifacts.py`):
+Needs two files (download from Marek324/butfit-bp-artifacts on HF):
 1. `weights/tcn_preprocess_stats.pt` — loaded automatically by `LogMelSpectrogram.__init__`
 2. `weights/tcn.safetensors` — loaded explicitly by eval/CLI code
 
@@ -302,10 +297,9 @@ Project phase: **writeup**. Experiments are frozen; deployed checkpoints in `wei
 
 | Model | Macro F1 | Source |
 |---|---:|---|
-| TCN+LSTM | 0.9846 | `results/tcn_lstm.eval` |
+| TCN-L | 0.9846 | `results/tcn_l.eval` |
 | TCN | 0.9752 | `results/tcn.eval` |
-| SmallTCN | 0.9766 | `results/small_tcn.eval` |
-| SmallerTCN | 0.9722 | `results/smaller_tcn.eval` |
+| TCN-S | 0.9722 | `results/tcn_s.eval` |
 | SVM | 0.8750 | `results/svm.eval` |
 | DT | 0.8376 | `results/decision_tree.eval` |
 | GMM | 0.8250 | `results/gmm.eval` |
@@ -322,6 +316,5 @@ All models clear the 0.85 project target except GMM (0.825, just below). TCN fam
 
 ### What's left
 
-- Draft `docs/chapters/05_evaluation.tex`, `06_experiments_analyses.tex`, `07_conclusion.tex` from the experiment notes.
 - Code cleanup pass.
 - Visualizations: `scripts/visualize_results.py` is the canonical entry point — outputs SVG to `results/`.

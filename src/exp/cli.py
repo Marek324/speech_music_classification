@@ -1,4 +1,5 @@
-# exp/cli.py
+# src/exp/cli.py
+# Marek Hric
 # Top-level CLI group for experiments.
 
 import click
@@ -12,8 +13,7 @@ from .small_tcn_stacks.cli import small_tcn_stacks_group
 from .tcn_ablation.cli import tcn_ablation_group
 from .tcn_combined.cli import tcn_combined_group
 from .tcn_frontend.cli import tcn_frontend_group
-from .tcn_hybrid.cli import tcn_hybrid_group
-from .transitions.cli import transitions_group
+from .tcn_temporal_head.cli import tcn_temporal_head_group
 
 
 @click.group("exp")
@@ -31,5 +31,4 @@ exp_group.add_command(small_tcn_stacks_group)
 exp_group.add_command(tcn_ablation_group)
 exp_group.add_command(tcn_combined_group)
 exp_group.add_command(tcn_frontend_group)
-exp_group.add_command(tcn_hybrid_group)
-exp_group.add_command(transitions_group)
+exp_group.add_command(tcn_temporal_head_group)

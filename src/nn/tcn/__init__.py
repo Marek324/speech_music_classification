@@ -1,4 +1,5 @@
-# tcn/__init__.py
+# src/nn/tcn/__init__.py
+# Marek Hric
 # Causal TCN for online speech/music classification.
 # Based on: Lemaire & Holzapfel, ISMIR 2019.
 

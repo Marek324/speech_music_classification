@@ -9,10 +9,10 @@ import numpy as np
 from matplotlib.gridspec import GridSpec, GridSpecFromSubplotSpec
 
 RESULTS_DIR = Path(__file__).parent.parent / "results"
-MODELS = ["tcn_lstm", "small_tcn", "smaller_tcn", "tcn", "decision_tree", "svm", "gmm"]
-NN_MODELS = ["tcn_lstm", "small_tcn", "smaller_tcn", "tcn"]
-COLORS = {"tcn_lstm": "#E91E63", "small_tcn": "#009688", "smaller_tcn": "#4DB6AC", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
-MODEL_SHORT = {"tcn_lstm": "TCN+LSTM", "small_tcn": "SmallTCN", "smaller_tcn": "SmallerTCN", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
+MODELS = ["tcn_l", "tcn_s", "tcn", "decision_tree", "svm", "gmm"]
+NN_MODELS = ["tcn_l", "tcn_s", "tcn"]
+COLORS = {"tcn_l": "#E91E63", "tcn_s": "#4DB6AC", "tcn": "#2196F3", "decision_tree": "#4CAF50", "svm": "#FF9800", "gmm": "#9C27B0"}
+MODEL_SHORT = {"tcn_l": "TCN-L", "tcn_s": "TCN-S", "tcn": "TCN", "decision_tree": "DT", "svm": "SVM", "gmm": "GMM"}
 
 SPEECH_SUBS = [
     "speech_clean", "speech_dirty", "speech_multispeaker",
@@ -54,28 +54,34 @@ def parse_eval(path: Path) -> dict:
 
     per_class = {}
     per_class_ci = {}
+    # "Background" is the canonical name; "Inactive" remains accepted for legacy .eval files.
+    class_aliases = [("speech", ["Speech"]), ("music", ["Music"]), ("background", ["Background", "Inactive"])]
     if eval_section:
-        for cls in ["Speech", "Music", "Inactive"]:
-            m = re.search(
-                rf"{cls}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s+\[([\d.]+),\s*([\d.]+)\])?",
-                eval_section.group(),
-            )
-            if m:
-                per_class[cls.lower()] = {
-                    "f1": float(m.group(1)), "p": float(m.group(2)), "r": float(m.group(3)),
-                }
-                if m.group(4):
-                    per_class_ci[cls.lower()] = (float(m.group(4)), float(m.group(5)))
+        for canon, aliases in class_aliases:
+            for cls in aliases:
+                m = re.search(
+                    rf"{cls}\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)(?:\s+\[([\d.]+),\s*([\d.]+)\])?",
+                    eval_section.group(),
+                )
+                if m:
+                    per_class[canon] = {
+                        "f1": float(m.group(1)), "p": float(m.group(2)), "r": float(m.group(3)),
+                    }
+                    if m.group(4):
+                        per_class_ci[canon] = (float(m.group(4)), float(m.group(5)))
+                    break
 
     def parse_cm(section_text, classes):
         rows = []
-        for cls in classes:
-            m = re.search(rf"{cls}\s+\[([\d\s]+)\]", section_text)
-            if m:
-                rows.append([int(x) for x in m.group(1).split()])
+        for aliases in classes:
+            for cls in aliases:
+                m = re.search(rf"{cls}\s+\[([\d\s]+)\]", section_text)
+                if m:
+                    rows.append([int(x) for x in m.group(1).split()])
+                    break
         return np.array(rows, dtype=float) if len(rows) == len(classes) else None
 
-    cm = parse_cm(eval_section.group(), ["Speech", "Music", "Inactive"]) if eval_section else None
+    cm = parse_cm(eval_section.group(), [["Speech"], ["Music"], ["Background", "Inactive"]]) if eval_section else None
 
     subclasses = {}
     if subclass_section:
@@ -205,7 +211,7 @@ def plot_pr_scatter(ax, data):
     cs = ax.contour(R, P, F1, levels=iso_vals, colors="gray", linewidths=0.7, zorder=1, alpha=0.6)
     ax.clabel(cs, fmt=lambda v: f"F1={v:.2f}", fontsize=6, inline=True)
 
-    markers = {"speech": "o", "music": "s", "inactive": "^"}
+    markers = {"speech": "o", "music": "s", "background": "^"}
     for model in data:
         for cls, marker in markers.items():
             pt = data[model]["per_class"].get(cls)
@@ -223,7 +229,7 @@ def plot_pr_scatter(ax, data):
     ] + [
         Line2D([0], [0], color="gray", marker="o", linestyle="None", markersize=6, label="Speech"),
         Line2D([0], [0], color="gray", marker="s", linestyle="None", markersize=6, label="Music"),
-        Line2D([0], [0], color="gray", marker="^", linestyle="None", markersize=6, label="Inactive"),
+        Line2D([0], [0], color="gray", marker="^", linestyle="None", markersize=6, label="Background"),
     ]
     ax.legend(handles=legend_els, fontsize=6, ncol=1)
     ax.set_xlim(lo, 1.0)
@@ -353,7 +359,7 @@ def plot_subclass_group(ax, data, subclass_keys, short_names, title):
 
 
 EVAL_LABELS = [-1, 1, 2]
-EVAL_LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Inactive"}
+EVAL_LABEL_NAMES = {-1: "Speech", 1: "Music", 2: "Background"}
 
 
 def load_scores(results_dir: Path) -> dict:
@@ -436,8 +442,8 @@ def plot_det_curves(ax, scores_data: dict, class_idx: int, class_label: int):
 def plot_per_class_f1(ax, data):
     """Grouped bars: per-class F1, one bar group per class, one colored bar per model."""
     models = list(data.keys())
-    classes = ["speech", "music", "inactive"]
-    class_labels = ["Speech", "Music", "Inactive"]
+    classes = ["speech", "music", "background"]
+    class_labels = ["Speech", "Music", "Background"]
     n_models = len(models)
     x = np.arange(len(classes))
     width = 0.8 / n_models
@@ -460,7 +466,7 @@ def plot_per_class_f1(ax, data):
 
 
 def plot_subclass_heatmap(ax, data):
-    """Heatmap: rows=models, cols=all 14 subclasses (speech | music | inactive). Cells = F1."""
+    """Heatmap: rows=models, cols=all 14 subclasses (speech | music | background). Cells = F1."""
     models = list(data.keys())
     values = np.full((len(models), len(ALL_SUBS)), np.nan)
     for i, model in enumerate(models):
@@ -488,7 +494,7 @@ def plot_subclass_heatmap(ax, data):
             ha="center", fontsize=10, fontweight="bold")
     ax.text(len(SPEECH_SUBS) + len(MUSIC_SUBS) / 2 - 0.5, -0.9, "Music",
             ha="center", fontsize=10, fontweight="bold")
-    ax.text(len(SPEECH_SUBS) + len(MUSIC_SUBS) - 0.5, -0.9, "Inactive",
+    ax.text(len(SPEECH_SUBS) + len(MUSIC_SUBS) - 0.5, -0.9, "Background",
             ha="center", fontsize=10, fontweight="bold")
 
     mid = (vmin_floor + 1.0) / 2
@@ -673,7 +679,7 @@ def main():
         if path.exists():
             data[model] = parse_eval(path)
 
-    cm_classes = ["Speech", "Music", "Inactive"]
+    cm_classes = ["Speech", "Music", "Background"]
 
     # Solo saves
     graphs_dir = RESULTS_DIR / "graphs"
@@ -696,15 +702,15 @@ def main():
     _save_solo(plot_per_class_f1, data, path=graphs_dir / "per_class_f1.svg", figsize=(8, 5))
     _save_solo(plot_subclass_heatmap, data, path=graphs_dir / "subclass_heatmap.svg", figsize=(13, 4))
 
-    # Confusion matrix deltas vs TCN+LSTM
-    if "tcn_lstm" in data and data["tcn_lstm"]["cm"] is not None:
-        others = [m for m in data if m != "tcn_lstm" and data[m]["cm"] is not None]
+    # Confusion matrix deltas vs TCN-L
+    if "tcn_l" in data and data["tcn_l"]["cm"] is not None:
+        others = [m for m in data if m != "tcn_l" and data[m]["cm"] is not None]
         if others:
             # Shared vmax so colors are comparable across the 4 panels.
             def _norm(cm):
                 rs = cm.sum(axis=1, keepdims=True)
                 return np.where(rs > 0, cm / rs, 0.0)
-            o = _norm(data["tcn_lstm"]["cm"])
+            o = _norm(data["tcn_l"]["cm"])
             I_mask = np.eye(len(cm_classes), dtype=bool)
             vmax_shared = 0.0
             for m in others:
@@ -716,12 +722,12 @@ def main():
             fig_d, axes_d = plt.subplots(1, len(others), figsize=(4.2 * len(others), 4.2))
             if len(others) == 1:
                 axes_d = [axes_d]
-            fig_d.suptitle("Confusion Matrix Δ vs TCN+LSTM  (red = worse than TCN+LSTM, values in pp)",
+            fig_d.suptitle("Confusion Matrix Δ vs TCN-L  (red = worse than TCN-L, values in pp)",
                            fontsize=12, fontweight="bold")
             im = None
             for k, (ax_d, m) in enumerate(zip(axes_d, others)):
-                im = plot_cm_delta(ax_d, data[m]["cm"], data["tcn_lstm"]["cm"], cm_classes,
-                                   f"{MODEL_SHORT[m]} − TCN+LSTM", vmax_shared=vmax_shared,
+                im = plot_cm_delta(ax_d, data[m]["cm"], data["tcn_l"]["cm"], cm_classes,
+                                   f"{MODEL_SHORT[m]} − TCN-L", vmax_shared=vmax_shared,
                                    show_ylabel=(k == 0))
             if im is not None:
                 cbar = fig_d.colorbar(im, ax=axes_d, fraction=0.025, pad=0.02)
@@ -734,12 +740,12 @@ def main():
             plt.close(fig_d)
             print(f"Saved → {d_path}")
 
-    # Standalone TCN+LSTM vs TCN delta (TCN as reference; blue ⇒ TCN+LSTM better, red ⇒ TCN+LSTM worse)
-    if "tcn_lstm" in data and "tcn" in data and data["tcn_lstm"]["cm"] is not None and data["tcn"]["cm"] is not None:
+    # Standalone TCN-L vs TCN delta (TCN as reference; blue ⇒ TCN-L better, red ⇒ TCN-L worse)
+    if "tcn_l" in data and "tcn" in data and data["tcn_l"]["cm"] is not None and data["tcn"]["cm"] is not None:
         fig_ot, ax_ot = plt.subplots(figsize=(6, 5))
         im_ot = plot_cm_delta(
-            ax_ot, data["tcn_lstm"]["cm"], data["tcn"]["cm"], cm_classes,
-            "TCN+LSTM vs TCN  (red = TCN+LSTM worse, blue = TCN+LSTM better)",
+            ax_ot, data["tcn_l"]["cm"], data["tcn"]["cm"], cm_classes,
+            "TCN-L vs TCN  (red = TCN-L worse, blue = TCN-L better)",
         )
         if im_ot is not None:
             cbar = fig_ot.colorbar(im_ot, ax=ax_ot, fraction=0.045, pad=0.04)
@@ -747,14 +753,14 @@ def main():
             ticks = cbar.get_ticks()
             cbar.set_ticks(ticks)
             cbar.set_ticklabels([f"{t*100:+.1f}" for t in ticks])
-        ot_path = graphs_dir / "cm_delta_tcn_lstm_vs_tcn.svg"
+        ot_path = graphs_dir / "cm_delta_tcn_l_vs_tcn.svg"
         fig_ot.savefig(ot_path, dpi=150, bbox_inches="tight")
         plt.close(fig_ot)
         print(f"Saved → {ot_path}")
 
-    if "tcn_lstm" in data and "tcn" in data:
-        _save_solo(plot_subclass_dumbbell, data, "tcn_lstm", "tcn",
-                   path=graphs_dir / "subclass_dumbbell_tcn_lstm_vs_tcn.svg", figsize=(9, 6))
+    if "tcn_l" in data and "tcn" in data:
+        _save_solo(plot_subclass_dumbbell, data, "tcn_l", "tcn",
+                   path=graphs_dir / "subclass_dumbbell_tcn_l_vs_tcn.svg", figsize=(9, 6))
 
     # ROC / DET curves
     scores_data = load_scores(RESULTS_DIR)
@@ -773,7 +779,7 @@ def main():
         _save_solo(plot_reliability, scores_data,
                    path=graphs_dir / "reliability.svg", figsize=(7, 6))
 
-    # ── NN-only comparison (TCN / SmallTCN / TCN+LSTM) ───────────────────────
+    # ── NN-only comparison (TCN / TCN-S / TCN-L) ───────────────────────
     nn_data = {m: data[m] for m in NN_MODELS if m in data}
     if len(nn_data) >= 2:
         _save_solo(plot_macro_f1, nn_data,
@@ -854,9 +860,9 @@ def main():
                 plt.close(fig_nd)
                 print(f"Saved → {nd_path}")
 
-        # Complementary dumbbell mirror (TCN+LSTM vs TCN already emitted above).
+        # Complementary dumbbell mirror (TCN-L vs TCN already emitted above).
         for m in NN_MODELS:
-            if m in ("tcn", "tcn_lstm"):
+            if m in ("tcn", "tcn_l"):
                 continue
             if m in nn_data and "tcn" in nn_data:
                 _save_solo(plot_subclass_dumbbell, data, m, "tcn",

@@ -1,4 +1,5 @@
-# nn/dataset.py
+# src/nn/dataset.py
+# Marek Hric
 # Dataset loading and iteration for NN models — shared across TCN and future models.
 # Config params (sr, hop, n_fft) are passed explicitly; no model-specific config dependency.
 
@@ -10,12 +11,12 @@ import torch
 from datasets import Audio, load_dataset
 from tqdm import tqdm
 
-LABEL_MAP = {"speech": 0, "music": 1, "noise": 2, "inactive": 2}
+LABEL_MAP = {"speech": 0, "music": 1, "noise": 2, "background": 2, "inactive": 2}
 
 
 def _class_to_target(cls: str) -> torch.Tensor:
-    """Convert class string to (3,) target tensor [speech, music, inactive]."""
-    idx = LABEL_MAP.get(cls, 2)  # unknown classes → inactive
+    """Convert class string to (3,) target tensor [speech, music, background]."""
+    idx = LABEL_MAP.get(cls, 2)  # unknown classes → background
     t = torch.zeros(3, dtype=torch.float32)
     t[idx] = 1.0
     return t
@@ -24,8 +25,8 @@ def _class_to_target(cls: str) -> torch.Tensor:
 def _timestamps_to_frame_labels(labels_list, n_frames, sample_rate, hop_length) -> torch.Tensor:
     """Convert timestamp annotations to per-frame labels.
 
-    Returns (n_frames,) int tensor: 0=speech, 1=music, -1=inactive.
-    Uncovered frames default to -1 (inactive).
+    Returns (n_frames,) int tensor: 0=speech, 1=music, -1=background.
+    Uncovered frames default to -1 (background).
     """
     frame_labels = torch.full((n_frames,), -1, dtype=torch.long)
     label_name_to_idx = {"speech": 0, "music": 1}
@@ -72,6 +73,7 @@ def _is_local_dataset(ds_link: str) -> bool:
 
 
 def _local_parquet_shards(ds_root: Path, split: str) -> list[str]:
+    """Return sorted parquet shard paths for a split, raising if none exist."""
     shards = sorted(ds_root.joinpath(split).glob("*/part_*.parquet"))
     if not shards:
         raise FileNotFoundError(
@@ -130,7 +132,7 @@ def iter_nn_rows(
     """Iterate over HF dataset, yield (waveform, targets) or (waveform, targets, subclass) per row.
 
     Uses per-frame timestamp labels when available (row["labels"]), otherwise falls back to
-    clip-level row["class"]. Noise/inactive clips yield [0,0] targets instead of being skipped.
+    clip-level row["class"]. Noise/background clips yield [0,0] targets instead of being skipped.
     """
     for i, row in enumerate(tqdm(ds, desc=desc)):
         if max_rows and i >= max_rows:
@@ -172,7 +174,7 @@ def iter_nn_rows(
             targets = torch.zeros(3, n_frames, dtype=torch.float32)
             targets[0, frame_labels == 0] = 1.0   # speech frames
             targets[1, frame_labels == 1] = 1.0   # music frames
-            targets[2, frame_labels == -1] = 1.0  # inactive: frames not covered by any annotation
+            targets[2, frame_labels == -1] = 1.0  # background: frames not covered by any annotation
         else:
             cls_name = row["class"]
             target = _class_to_target(cls_name)

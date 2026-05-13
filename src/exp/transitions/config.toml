@@ -2,7 +2,7 @@
 #
 # Reads `_scores.npz` files written by `smclassifier exp critical eval` and
 # extracts the switching clips (subclass starts with `speech_switching_`),
-# bucketed into 2-class (speech↔music) and 3-class (speech↔music↔inactive)
+# bucketed into 2-class (speech↔music) and 3-class (speech↔music↔background)
 # variants at four cadences. Two metrics:
 #   1. transition latency  — ms from each GT label change to the first frame
 #      where the model's prediction matches the new GT label. Capped at the
@@ -17,15 +17,14 @@
 scores_dir = "src/exp/critical/results"
 
 # Models to analyse, in display order. NN family first, then classic baselines.
-models = ["tcn", "tcn_lstm", "small_tcn", "smaller_tcn", "decision_tree", "gmm", "svm"]
+models = ["tcn", "tcn_l", "tcn_s", "decision_tree", "gmm", "svm"]
 
 # Per-model frame periods (ms). Mirror of `[critical.frame_ms]` — duplicated
 # here so the analysis is self-contained.
 [transitions.frame_ms]
 tcn = 23.219954648526077          # 1000 * 512 / 22050
-tcn_lstm = 23.219954648526077
-small_tcn = 23.219954648526077
-smaller_tcn = 23.219954648526077
+tcn_l = 23.219954648526077
+tcn_s = 23.219954648526077
 decision_tree = 10.0
 gmm = 15.0
 svm = 15.0

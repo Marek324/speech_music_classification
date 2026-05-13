@@ -151,8 +151,8 @@ def _plot_subgroup(ax_f1, ax_class, subgroup: str, names: list[str], data: dict,
                        color="white" if inside else "black")
 
     # ── Per-class F1 grouped bars (diverged excluded) ──────────────────────
-    classes = ["speech", "music", "inactive"]
-    class_labels = ["Speech", "Music", "Inactive"]
+    classes = ["speech", "music", "background"]
+    class_labels = ["Speech", "Music", "Background"]
     converged = [n for n in present if not _is_diverged(data, n)]
     n = len(converged)
     width = min(0.22, 0.75 / n) if n else 0.22

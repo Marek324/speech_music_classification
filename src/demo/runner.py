@@ -1,8 +1,11 @@
+# src/demo/runner.py
+# Marek Hric
+
 """Uniform streaming wrapper over classic + NN speech/music classifiers.
 
 Each runner exposes ``sr``, ``chunk_samples``, and ``push(samples)`` returning
 a list of ``Prediction(t, label)`` where ``label`` is the display label:
-−1 speech, 0 inactive, +1 music. The raw classic label space
+−1 speech, 0 background, +1 music. The raw classic label space
 (−1 / 1 / 2) is remapped once here so the UI never sees label ``2``.
 
 Each runner keeps its own frame counter and emits absolute timestamps from
@@ -23,13 +26,13 @@ from .weights_check import CLASSIC_MODELS, NN_MODELS
 @dataclass
 class Prediction:
     t: float
-    label: int  # -1 speech, 0 inactive, +1 music
+    label: int  # -1 speech, 0 background, +1 music
 
 
 # Raw classic labels {-1, 1, 2} → display labels {-1, 1, 0}
 _CLASSIC_REMAP = {-1: -1, 1: 1, 2: 0}
 
-# NN channel order in model output: (speech, music, inactive)
+# NN channel order in model output: (speech, music, background)
 _NN_CHANNEL_LABELS = (-1, 1, 0)
 
 
@@ -64,6 +67,7 @@ class ClassicRunner:
         self._frames = 0
 
     def push(self, samples: np.ndarray) -> list[Prediction]:
+        """Forward samples to the classic streamer and remap labels to the display space."""
         raw = self._cls.push(samples)
         out: list[Prediction] = []
         for label, _proba in raw:
@@ -76,6 +80,15 @@ class ClassicRunner:
             self._frames += 1
         return out
 
+    def reset(self) -> None:
+        """Clear streaming state so the next push starts from a cold buffer.
+
+        Lets a caller reuse the runner for a new clip / mic session without
+        re-loading the sklearn pipeline from disk.
+        """
+        self._cls.reset()
+        self._frames = 0
+
     def close(self) -> None:
         # Drop the StreamingClassifier so its sklearn pipeline (scaler +
         # estimator) becomes unreachable; the user wants RAM back on Stop.
@@ -83,7 +96,7 @@ class ClassicRunner:
 
 
 class NNRunner:
-    """Wraps StreamingInference around a trained TCN / TCN-LSTM / SmallTCN."""
+    """Wraps StreamingInference around a trained TCN / TCN-L / TCN-S."""
 
     def __init__(self, variant_name: str) -> None:
         if variant_name not in NN_MODELS:
@@ -126,6 +139,9 @@ class NNRunner:
         model.eval()
         self._model = model
         self._torch = torch
+        self._streaming_cls = StreamingInference  # remembered for reset()
+        self._hop_length = int(cfg["hop_length"])
+        self._sample_rate = int(cfg["sample_rate"])
         self._inference = StreamingInference(
             model, hop_length=cfg["hop_length"], sample_rate=cfg["sample_rate"]
         )
@@ -139,6 +155,7 @@ class NNRunner:
         self._frames = 0
 
     def push(self, samples: np.ndarray) -> list[Prediction]:
+        """Run streaming inference per hop-sized chunk and return one Prediction per chunk."""
         out: list[Prediction] = []
         idx = 0
         n = samples.shape[0]
@@ -158,6 +175,17 @@ class NNRunner:
             idx += self.chunk_samples
         return out
 
+    def reset(self) -> None:
+        """Recreate StreamingInference so the next push sees an empty buffer + no LSTM state.
+
+        Lets a caller reuse the runner for a new clip / mic session without
+        re-loading the safetensors checkpoint from disk.
+        """
+        self._inference = self._streaming_cls(
+            self._model, hop_length=self._hop_length, sample_rate=self._sample_rate
+        )
+        self._frames = 0
+
     def close(self) -> None:
         # Break refs to the torch model + StreamingInference (which holds the
         # streaming buffer and a back-reference to the model). Without this the
@@ -165,9 +193,11 @@ class NNRunner:
         self._inference = None
         self._model = None
         self._torch = None
+        self._streaming_cls = None
 
 
 def _variant_runners() -> dict[str, Callable[[], Runner]]:
+    """Build a {variant_name: factory} mapping for every TCN variant in the registry."""
     # Imported lazily so module import stays cheap; the demo loads torch via
     # NNRunner construction, not via this dict's existence.
     from ..nn.variants import VARIANTS

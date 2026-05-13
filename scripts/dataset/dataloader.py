@@ -1,3 +1,6 @@
+# scripts/dataset/dataloader.py
+# Marek Hric
+
 """HuggingFace source loading for the dataset build pipeline."""
 
 from datasets import Audio, IterableDataset, load_dataset
@@ -7,6 +10,7 @@ from labeling import SR
 
 
 def load_source(entry: SourceEntry, max_rows: int, skip: int = 0) -> IterableDataset:
+    """Stream one HF source, applying optional filter, skip, and audio decode settings."""
     col = entry.audio_col
     ds = load_dataset(entry.hf_id, split=entry.split, streaming=True, **entry.hf_load_kwargs())
     assert isinstance(ds, IterableDataset)

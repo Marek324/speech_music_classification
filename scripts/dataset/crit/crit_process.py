@@ -1,3 +1,6 @@
+# scripts/dataset/crit/crit_process.py
+# Marek Hric
+
 """Process one critical-set recording → one parquet row in the test split.
 
 Mirrors process.process_source's responsibility (load → label → write) but
