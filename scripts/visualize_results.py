@@ -217,9 +217,7 @@ def plot_pr_scatter(ax, data):
             if pt:
                 ax.scatter(pt["r"], pt["p"], color=COLORS[model], marker=marker,
                            s=70, zorder=3, edgecolors="white", linewidths=0.5)
-                ax.annotate(MODEL_SHORT[model], (pt["r"], pt["p"]),
-                            textcoords="offset points", xytext=(4, 2),
-                            fontsize=6, color=COLORS[model])
+                # color=model, shape=class (see legend); no per-point labels — they collide
 
     from matplotlib.lines import Line2D
     legend_els = [

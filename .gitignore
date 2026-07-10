@@ -7,7 +7,6 @@ debug/
 debug*.*
 
 __pycache__/
-uv.lock
 
 *.log
 *.npz
@@ -29,3 +28,7 @@ src/demo/uploaded_files/
 *.svg
 *.png
 *.mp4
+
+# keep the figures embedded in the README
+!docs/figures/experiments/cpu_benchmark.svg
+!docs/figures/experiments/full_benchmark.svg

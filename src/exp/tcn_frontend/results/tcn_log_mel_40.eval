@@ -11,15 +11,15 @@ Evaluation report — 2026-04-21 08:46:50 UTC
   Class             F1       P       R               F1 CI
   Speech        0.9729  0.9776  0.9683    [0.9697, 0.9755]
   Music         0.9875  0.9904  0.9845    [0.9834, 0.9907]
-  Inactive      0.9586  0.9483  0.9691    [0.9401, 0.9704]
+  Background    0.9586  0.9483  0.9691    [0.9401, 0.9704]
   ─────────────────────────────────────────────────────────
   Macro         0.9730  0.9721  0.9740
 
   Confusion matrix (rows=true, cols=pred):
-                    Speech     Music  Inactive
-  Speech      [    412837       643     12881  ]
-  Music       [      3606    475628      3870  ]
-  Inactive    [      5863      3947    307216  ]
+                        Speech       Music  Background
+  Speech        [      412837         643       12881  ]
+  Music         [        3606      475628        3870  ]
+  Background    [        5863        3947      307216  ]
 
 ── By subclass ────────────────────────────────────
   Subclass                      F1       P       R
