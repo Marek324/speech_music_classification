@@ -19,7 +19,7 @@ from matplotlib.patches import FancyArrowPatch, FancyBboxPatch
 
 from _common import REPO_ROOT, setup_style
 
-OUT_DIR = REPO_ROOT / "docs" / "figures"
+OUT_DIR = REPO_ROOT / "thesis" / "figures"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 NEUTRAL_COLOR = "#F2F2F2"

@@ -20,7 +20,7 @@ Six trained models ship end-to-end: three classic baselines (decision tree, GMM,
 three causal TCN variants, evaluated on a purpose-built 100-hour dataset with cluster-bootstrap
 confidence intervals.
 
-![Accuracy vs. real-time factor — TCN-S reaches top-tier macro F1 at the highest real-time factor and a small memory footprint](docs/figures/experiments/cpu_benchmark.svg)
+![Accuracy vs. real-time factor — TCN-S reaches top-tier macro F1 at the highest real-time factor and a small memory footprint](thesis/figures/experiments/cpu_benchmark.svg)
 
 *Accuracy (macro F1) against speed (real-time factor) on a single CPU thread; bubble size is the resident-memory delta. TCN-S (top-right) is the fastest model while staying within the top accuracy tier.*
 
@@ -39,7 +39,7 @@ Frame-level test-split macro F1 (95% cluster-bootstrap CI), full 100-hour tier:
 
 The TCN family clusters at 0.97–0.98; the three traditional references trail by ~10 points.
 
-![Per-class F1 by model](docs/figures/experiments/full_benchmark.svg)
+![Per-class F1 by model](thesis/figures/experiments/full_benchmark.svg)
 
 *Per-class F1 (Speech / Music / Background) with the macro-F1 marker above each model.*
 
@@ -77,11 +77,11 @@ evaluation, weights download, dataset access, the CLI reference, and configurati
   full CLI reference, configuration, demo disclosure.
 - **[src/README.md](src/README.md)** — code architecture: the CLI surface, shared vs.
   model-specific modules, and the TOML-driven variant factory.
-- **`docs/`** — the LaTeX source and figures for the accompanying bachelor thesis.
+- **`thesis/`** — the LaTeX source, figures, and compiled PDF of the accompanying bachelor thesis.
 
 The three reference architectures follow Lavner & Ruinskiy (EURASIP 2009),
 Khonglah & Prasanna (DSP 2016), and Lemaire & Holzapfel (ISMIR 2019); deviations from each
-paper are tracked in `docs/differences/`.
+paper are documented in the thesis.
 
 ## License
 

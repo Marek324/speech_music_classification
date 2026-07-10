@@ -21,7 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 from visualize_results import parse_eval
 
-OUT_DIR = REPO_ROOT / "docs" / "figures" / "experiments"
+OUT_DIR = REPO_ROOT / "thesis" / "figures" / "experiments"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 COLORS = {
@@ -76,7 +76,7 @@ def setup_style():
 
 
 def save_svg(fig, name: str) -> Path:
-    """Save figure as SVG and PDF to docs/figures/experiments/<name>.{svg,pdf}.
+    """Save figure as SVG and PDF to thesis/figures/experiments/<name>.{svg,pdf}.
 
     PDF is what pdflatex actually includes; SVG is kept alongside for web/preview.
     """

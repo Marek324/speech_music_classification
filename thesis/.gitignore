@@ -1,0 +1,25 @@
+*.aux
+*.bbl
+*.blg
+*.fls
+*.fdb_latexmk
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.bcf
+*.xml
+*.run.xml
+*.synctex.gz
+tmp/
+build/
+*.pdf
+# but keep the final compiled thesis + the source-only critical figures (no SVG twin)
+!speech_music_classification.pdf
+!figures/critical/*.pdf
+*.ptc
+*.nav
+*.snm
+*.vrb
+*.dvi

@@ -46,7 +46,7 @@ def _color_for(row, base_lo, base_hi):
 
 
 def main():
-    """Render the hyperparameter sensitivity forest plot to docs/figures/experiments/."""
+    """Render the hyperparameter sensitivity forest plot to thesis/figures/experiments/."""
     setup_style()
 
     for r in ROWS:

@@ -22,7 +22,7 @@ from matplotlib.transforms import offset_copy
 
 from _common import REPO_ROOT, setup_style
 
-OUT_DIR = REPO_ROOT / "docs" / "figures" / "dataset"
+OUT_DIR = REPO_ROOT / "thesis" / "figures" / "dataset"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 

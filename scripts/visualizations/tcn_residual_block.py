@@ -18,7 +18,7 @@ from matplotlib.patches import Ellipse, FancyArrowPatch, FancyBboxPatch, Rectang
 
 from _common import REPO_ROOT, setup_style
 
-OUT_DIR = REPO_ROOT / "docs" / "figures"
+OUT_DIR = REPO_ROOT / "thesis" / "figures"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 CONV_COLOR = "#E3F2FD"

@@ -29,6 +29,5 @@ src/demo/uploaded_files/
 *.png
 *.mp4
 
-# keep the figures embedded in the README
-!docs/figures/experiments/cpu_benchmark.svg
-!docs/figures/experiments/full_benchmark.svg
+# keep the thesis source figures (SVG vector sources)
+!thesis/figures/**/*.svg

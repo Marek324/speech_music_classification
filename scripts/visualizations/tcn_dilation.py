@@ -15,7 +15,7 @@ from matplotlib.patches import Circle
 
 from _common import REPO_ROOT, setup_style
 
-OUT_DIR = REPO_ROOT / "docs" / "figures"
+OUT_DIR = REPO_ROOT / "thesis" / "figures"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 N_LAYERS = 3
