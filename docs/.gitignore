@@ -13,5 +13,10 @@
 *.run.xml
 *.synctex.gz
 tmp/
+build/
 *.pdf
 *.ptc
+*.nav
+*.snm
+*.vrb
+*.dvi
