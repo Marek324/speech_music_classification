@@ -3,6 +3,7 @@
 # The help of code assistant was used during implementation of this file.
 
 import copy
+import os
 import tomli
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -56,6 +57,12 @@ def init_config(
         _cfg["dataset"] = copy.deepcopy(dataset_override)
     elif "dataset" in raw:
         _cfg["dataset"] = raw["dataset"]
+
+    # The dataset is private; committed configs carry a ${SMC_DATASET_REPO}
+    # placeholder. Set that env var to point at your own HF dataset (or a local path).
+    env_repo = os.environ.get("SMC_DATASET_REPO")
+    if env_repo and "dataset" in _cfg:
+        _cfg["dataset"] = {**_cfg["dataset"], "url": env_repo}
 
     return _cfg
 

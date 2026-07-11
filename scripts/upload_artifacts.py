@@ -17,12 +17,14 @@ Examples:
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 from huggingface_hub import HfApi, create_repo
 
-REPO_ID = "Marek324/butfit-bp-artifacts"
+# Weights/artifacts live in a private HF repo; set SMC_ARTIFACTS_REPO to your own.
+REPO_ID = os.environ.get("SMC_ARTIFACTS_REPO", "<your-hf-weights>")
 REPO_TYPE = "model"
 ROOT = Path(__file__).resolve().parent.parent
 

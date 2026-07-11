@@ -2,6 +2,7 @@
 # Author: Marek Hric
 # The help of code assistant was used during implementation of this file.
 
+import os
 import tomli
 from pathlib import Path
 from typing import Any, Dict
@@ -181,4 +182,9 @@ def get_config(config_path: Path | None = None) -> Dict[str, Any]:
     cfg["model"] = {**_DEFAULT["model"], **raw.get("tcn", {}).get("model", {})}
     if "dataset" in raw:
         cfg["dataset"] = {**cfg["dataset"], **raw["dataset"]}
+    # The dataset is private; committed configs carry a ${SMC_DATASET_REPO}
+    # placeholder. Set that env var to point at your own HF dataset (or a local path).
+    env_repo = os.environ.get("SMC_DATASET_REPO")
+    if env_repo:
+        cfg["dataset"]["url"] = env_repo
     return cfg

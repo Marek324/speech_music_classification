@@ -1,4 +1,4 @@
-Dataset stats — Marek324/speech-music-classification (config: full)
+Dataset stats — <your-hf-dataset> (config: full)
 ===================================================================
 
 Total clips:        16,377

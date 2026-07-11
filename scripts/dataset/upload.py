@@ -3,17 +3,21 @@
 # The help of code assistant was used during implementation of this file.
 """Upload dataset tiers to HuggingFace Hub.
 
-Normal:  uv run python upload.py                # → Marek324/speech-music-classification
-Smoke:   uv run python upload.py --smoke        # → Marek324/speech-music-classification-test
+The target dataset repo is read from the SMC_DATASET_REPO env var (the dataset is
+private). Smoke uploads append a ``-test`` suffix.
+
+Normal:  SMC_DATASET_REPO=<user/dataset> uv run python upload.py
+Smoke:   SMC_DATASET_REPO=<user/dataset> uv run python upload.py --smoke
 """
 
 import argparse
+import os
 import sys
 from pathlib import Path
 
 from huggingface_hub import HfApi, create_repo
 
-REPO_ID = "Marek324/speech-music-classification"
+REPO_ID = os.environ.get("SMC_DATASET_REPO", "<your-hf-dataset>")
 STAGING_ROOT = Path(__file__).resolve().parent / "speech_music_dataset"
 README_PATH = Path(__file__).resolve().parent / "HUB_DATASET_README.md"
 TIERS = ("mid", "full", "crit")

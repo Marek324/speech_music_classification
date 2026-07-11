@@ -26,7 +26,7 @@ n_classes = 3
 use_weight_norm = true
 
 [dataset]
-url = "Marek324/speech-music-classification"
+url = "${SMC_DATASET_REPO}"
 name = "full"
 
 

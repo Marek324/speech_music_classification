@@ -27,7 +27,7 @@ use_weight_norm = true
 preprocessor = "conv1d"
 
 [dataset]
-url = "Marek324/speech-music-classification"
+url = "${SMC_DATASET_REPO}"
 name = "full"
 
 

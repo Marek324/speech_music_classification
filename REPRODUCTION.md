@@ -51,29 +51,29 @@ wheels.
 
 ## Weights and dataset
 
-**Trained weights** and the precomputed log-mel cache live on Hugging Face at
-`Marek324/butfit-bp-artifacts`. Pull them into the repo root:
+The **trained weights**, the precomputed log-mel cache, and the **dataset** all live in
+**private** Hugging Face repositories and are not publicly distributed. Their locations are read
+from environment variables, so you can point the code at your own copies:
+
+- `SMC_ARTIFACTS_REPO` — HF model repo holding `weights/`, the mel `cache/`, and the score `.npz` files.
+- `SMC_DATASET_REPO` — HF dataset id (or a local path) for the speech/music/background corpus.
+
+With `SMC_ARTIFACTS_REPO` set, pull the checkpoints into the repo root:
 
 ```bash
-huggingface-cli download Marek324/butfit-bp-artifacts \
-    --local-dir . --include "weights/*"
+export SMC_ARTIFACTS_REPO=<your-user>/<your-weights-repo>
+python scripts/download_artifacts.py --no-cache   # weights + results; skip the ~32 GB cache
 ```
 
-Pass `--include "cache/*"` as well only if you intend to retrain (the mel cache is ~32 GB on the
-full tier and is reproducible from the dataset).
-
-**Dataset** is hosted on Hugging Face at `Marek324/speech-music-classification` with two configs:
-
-- `full` — 100 hours used for every headline result
-- `crit` — hand-curated adversarial subset for stress evaluation (113 clips)
-
-Both are loaded automatically through the `datasets` library on the first `eval` / `train`
-invocation. To rebuild the dataset from upstream public sources:
+The dataset has two configs — `full` (100 hours, used for every headline result) and `crit`
+(a 113-clip adversarial subset for stress evaluation). It is streamed through the `datasets`
+library on the first `eval` / `train` invocation using `SMC_DATASET_REPO`. To rebuild it from
+upstream public sources instead:
 
 ```bash
 cd scripts/dataset
-uv run python build.py full              # or: mid | --only-critical-set
-uv run python upload.py                  # push to Hugging Face (requires hf token)
+uv run python build.py full                                   # or: mid | --only-critical-set
+SMC_DATASET_REPO=<your-user>/<your-dataset> uv run python upload.py
 ```
 
 Rebuilding needs an HF token with access to the gated `pyannote/segmentation-3.0` VAD model
@@ -82,23 +82,24 @@ hours of bandwidth + CPU. No other API key is required.
 
 ## Reproduction
 
-Happy-path walkthrough from a clean clone:
+Happy-path walkthrough from a clean clone (steps 3–4 need access to the private data and weights):
 
 ```bash
-git clone https://github.com/Marek324/butfit-bp bp && cd bp
+git clone https://github.com/Marek324/speech_music_classification bp && cd bp
 
 # 1. Install dependencies
 uv sync
 
-# 2. Confirm the pipeline works on synthetic input (~5 s per model)
+# 2. Confirm the pipeline works on synthetic input (~5 s per model) — no data needed
 uv run smclassifier classic decision_tree smoke-test
 uv run smclassifier nn tcn-s smoke-test
 
-# 3. Pull trained weights (~700 MB total across all six checkpoints)
-huggingface-cli download Marek324/butfit-bp-artifacts \
-    --local-dir . --include "weights/*"
+# 3. Point at your weights + dataset, then pull the checkpoints (~700 MB)
+export SMC_ARTIFACTS_REPO=<your-user>/<your-weights-repo>
+export SMC_DATASET_REPO=<your-user>/<your-dataset>
+python scripts/download_artifacts.py --no-cache
 
-# 4. Evaluate one model on the test split (auto-downloads the dataset on first run)
+# 4. Evaluate one model on the test split (streams the dataset on first run)
 uv run smclassifier nn tcn-s eval        # writes results/tcn_s.eval
 ```
 
@@ -173,7 +174,7 @@ run them directly with `python scripts/<name>.py` (or `uv run --project scripts 
 **Artifacts & maintenance:**
 
 - `download_artifacts.py` / `upload_artifacts.py` — sync trained weights and the mel cache with
-  Hugging Face (`Marek324/butfit-bp-artifacts`).
+  the private HF artifacts repo (`SMC_ARTIFACTS_REPO`).
 - `migrate_weights_to_subdirs.py` — one-off migration of the weights directory layout.
 - `parity_*.py`, `check_batched_autocorr.py` — verification scripts that assert the streaming
   path matches the batch path and that vectorized/batched code is numerically equivalent.

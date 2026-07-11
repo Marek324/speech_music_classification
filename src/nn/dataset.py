@@ -85,7 +85,7 @@ def get_nn_dataset(ds_link: str, split: str, sample_rate: int, name: str = "full
     """Load dataset once. Resample to ``sample_rate``.
 
     Two routes:
-    - HF hub identifier (e.g. ``Marek324/speech-music-classification``) — load
+    - HF hub identifier (e.g. ``<your-hf-dataset>``) — load
       via ``load_dataset(ds_link, name=name, split=split)`` and cast the audio
       column to ``Audio(sampling_rate=sample_rate)`` so HF resamples on access.
     - Local directory laid out as ``{ds_link}/{split}/{modality}/part_*.parquet``
