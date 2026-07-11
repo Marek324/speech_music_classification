@@ -12,7 +12,6 @@ for the speech/music/background classifier. For a high-level overview see the ro
 - [CLI](#cli)
 - [Configuration](#configuration)
 - [Scripts and tooling](#scripts-and-tooling)
-- [Demo disclosure](#demo-disclosure)
 
 ## Setup
 
@@ -126,12 +125,12 @@ uv run smclassifier exp {complexity|critical|nn-architecture|nn-preprocessor|
                          small-tcn-pareto|small-tcn-stacks|tcn-ablation|
                          tcn-combined|tcn-frontend|tcn-temporal-head} ...
 
-# Streaming demo (Reflex web UI — read the disclosure below)
+# Streaming demo (Reflex web UI — see the main README)
 uv run smclassifier demo
 ```
 
-Every command exposes `--help`. Smoke-test commands run a one-second synthetic clip end-to-end
-and are the fastest way to confirm the pipeline works.
+Every command exposes `--help`. Smoke-test commands run a one-second synthetic clip end-to-end,
+with no dataset or network access.
 
 ## Configuration
 
@@ -191,26 +190,4 @@ Hugging Face dataset:
   minutes, dataset IDs, filters); `crit/` — generators for the hand-curated critical subset;
   `upload.py` — push the built dataset to Hugging Face.
 
-## Demo disclosure
-
-> [!WARNING]
-> **The Reflex demo (`src/demo/`) is not properly tested and is shipped only as a curiosity.**
->
-> The demo was a quick side experiment to see the streaming pipeline work in a browser; it was
-> never carefully verified. **It is intentionally not referenced in the thesis text.** Known
-> quirks include:
->
-> - The "desktop audio" capture path appears to record the **pre-attenuation** system signal
->   rather than the post-mixer output a listener would actually hear. The exact OS tap was never
->   confirmed.
-> - Interaction with the OS / browser microphone buffer is uncharacterized, so audible-vs-recorded
->   alignment may be off, and chunk-boundary timing may differ from what the classifier's
->   streaming pipeline assumes.
-> - The model swap path resets some state but not all; switching models mid-stream may give one
->   or two hops of mixed-state predictions.
-> - There is no test coverage for the demo and no validation against a known-good streaming
->   reference.
->
-> The demo is included for anyone who wants to try it, but **do not trust its output for any
-> quantitative claim** — every quantitative result comes from the CLI `eval` / `smoke-test`
-> paths, not the demo.
+The Reflex streaming demo and its caveats are documented in the [main README](README.md#demo).

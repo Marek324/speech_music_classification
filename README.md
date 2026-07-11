@@ -58,7 +58,7 @@ for the reference TCN it matches. Steady-state total latency stays ≤ 34 ms.
   combined ablations, plus a lightweight-variant search that produced TCN-S, and a CPU /
   symbolic-complexity cost analysis.
 - **A live web demo** (Reflex) that streams mic or file input through any of the six models
-  (see the demo disclosure in [REPRODUCTION.md](REPRODUCTION.md#demo-disclosure)).
+  (see [Demo](#demo) below).
 
 ## Quickstart
 
@@ -71,10 +71,38 @@ That runs the smallest model on a synthetic clip with no dataset or network acce
 evaluation, weights download, dataset access, the CLI reference, and configuration, see
 **[REPRODUCTION.md](REPRODUCTION.md)**.
 
+## Demo
+
+A Reflex web UI streams microphone or file audio through any of the six models in real time:
+
+```bash
+uv run smclassifier demo
+```
+
+> [!WARNING]
+> **The demo (`src/demo/`) is not properly tested and is shipped only as a curiosity.**
+>
+> It was a quick side experiment to see the streaming pipeline work in a browser, and was never
+> carefully verified. **It is intentionally not referenced in the thesis text.** Known quirks:
+>
+> - The "desktop audio" capture path appears to record the **pre-attenuation** system signal
+>   rather than the post-mixer output a listener would actually hear; the exact OS tap was never
+>   confirmed.
+> - Interaction with the OS / browser microphone buffer is uncharacterized, so audible-vs-recorded
+>   alignment may be off, and chunk-boundary timing may differ from what the streaming pipeline
+>   assumes.
+> - The model swap path resets some state but not all; switching models mid-stream may give one
+>   or two hops of mixed-state predictions.
+> - There is no test coverage for the demo and no validation against a known-good streaming
+>   reference.
+>
+> Try it if you like, but **do not trust its output for any quantitative claim** — every
+> quantitative result comes from the CLI `eval` path, not the demo.
+
 ## Learn more
 
 - **[REPRODUCTION.md](REPRODUCTION.md)** — setup, weights & dataset, evaluation walkthrough,
-  full CLI reference, configuration, demo disclosure.
+  full CLI reference, and configuration.
 - **[src/README.md](src/README.md)** — code architecture: the CLI surface, shared vs.
   model-specific modules, and the TOML-driven variant factory.
 - **`thesis/`** — the LaTeX source, figures, and compiled PDF of the accompanying bachelor thesis.
